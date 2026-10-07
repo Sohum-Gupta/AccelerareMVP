@@ -39,7 +39,12 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "apps.accounts",
 ]
+
+# Must be set before the first migration runs; changing it later means
+# dropping the database. Email is the login identifier.
+AUTH_USER_MODEL = "accounts.Account"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
