@@ -8,6 +8,7 @@ Things learned the hard way. Add an entry whenever something non-obvious comes u
 - 2026-10-07: `local.py` must call `environ.Env.read_env(...)` *before* `from .base import *`, because `base.py` reads `SECRET_KEY` at import time.
 - 2026-10-07: Docker Compose reads `.env` for its own `${VAR}` substitution. A Django secret key containing `$` triggers "variable is not set" warnings on every `docker compose up`. Generate keys without `$` (or escape as `$$`).
 - 2026-10-07: ruff's default rules flag Django idioms (class-level lists in models, generated migrations). `pyproject.toml` excludes `apps/*/migrations` and ignores RUF012 rather than littering models with `# noqa`.
+- 2026-10-07: WhiteNoise's `CompressedManifestStaticFilesStorage` needs `collectstatic` to have run or every `{% static %}` raises when `DEBUG` is off (tests run with DEBUG off). `local.py` swaps in plain `StaticFilesStorage` with `WHITENOISE_USE_FINDERS`; production keeps the manifest storage and the Dockerfile runs `collectstatic`.
 
 ## Porting checklist
 
