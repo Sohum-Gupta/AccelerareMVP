@@ -18,7 +18,9 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Pinned: "ubuntu-latest" moves to a new Ubuntu release on GitHub's schedule.
+    # 24.04 matches the production server.
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
