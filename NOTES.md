@@ -13,6 +13,10 @@ Things learned the hard way. Add an entry whenever something non-obvious comes u
 - 2026-10-07: gunicorn 26 opens a control socket under the user's home directory. The non-root container user has no home, which logged a permission error; the Dockerfile CMD passes `--no-control-socket` since we do not use it.
 - 2026-10-07: testing the image locally behind production settings needs `X-Forwarded-Proto: https` on the request (as Caddy sends it), otherwise `SECURE_SSL_REDIRECT` answers 301. Example: `curl -H 'X-Forwarded-Proto: https' http://localhost:8001/health`.
 - 2026-10-07: Production email is required config. `production.py` reads `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` with no defaults, so a missing one stops startup. Anything that loads production settings (the Dockerfile's `collectstatic`, tests) must supply throwaway values. Real delivery is untested until the server exists.
+- 2026-10-07: A reusable workflow (`workflow_call`) must not share a `concurrency` group with its caller, or GitHub cancels it. `ci.yml` uses `ci-<event>-<ref>` and `deploy.yml` uses `deploy-<ref>`.
+- 2026-10-07: `manage.py check --deploy` exits 0 when it only finds warnings. The smoke test passes `--fail-level WARNING` so a new security warning fails the run.
+- 2026-10-07: The image is built for `linux/arm64` on an x86 runner through QEMU emulation (about two minutes). The smoke test boots the emulated ARM image, so an architecture-specific failure shows up in CI and not on the server.
+- 2026-10-07: The ghcr.io package inherited the public repo's visibility; an anonymous `docker pull` works. If the repo is ever made private, the server will need `docker login ghcr.io` with a token that has `read:packages`.
 
 ## Porting checklist
 
@@ -29,3 +33,5 @@ Append a row whenever a new external dependency appears.
 | `postgres:16` image | public Docker Hub, no account | `docker-compose.yml` | nothing to do |
 | Domain `theaccelerare.com` | registered at GoDaddy (DNS also at GoDaddy); live Wix site on `@` and `www`; Microsoft 365 mail via MX | GoDaddy DNS panel | add one A record for the platform subdomain (working name `app.theaccelerare.com`) pointing at the Elastic IP; do not touch `@`, `www` or MX records. Set `ALLOWED_HOSTS` and the Caddyfile to the same name |
 | `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` | the sending mailbox (personal for now, Amazon SES later) | server env in production (AWS Parameter Store) | create an app-specific password for the mailbox, store the five values; port defaults to 587 |
+| Container image `ghcr.io/<owner>/<repo>` | GitHub (the repo's owner) | built by `deploy.yml` on every push to `main`; name derived from `github.repository` | nothing to edit. After moving the repo, the first push to `main` publishes under the new owner. Check the package's visibility, and update the server's compose file to the new image name |
+| `GITHUB_TOKEN` (push to ghcr.io) | GitHub, created per run | automatic; `packages: write` on the image job only | nothing to do, no personal access token is stored anywhere |
