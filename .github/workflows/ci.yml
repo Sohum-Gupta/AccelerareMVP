@@ -1,19 +1,22 @@
-# Runs on every pull request and every push to main.
 # Lint, format check, migration check and tests, against real PostgreSQL 16.
+#
+# Runs on every pull request. On pushes to main it runs as the first job of
+# deploy.yml (workflow_call), so the image is only built from code that passed.
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
+  workflow_call:
 
 # A test run only needs to read the code, never change it.
 permissions:
   contents: read
 
 # A newer push to the same branch cancels the older run still in progress.
+# The event name keeps this group distinct from deploy.yml's own group, which
+# would otherwise cancel this called workflow.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

@@ -1,0 +1,124 @@
+# Builds the production image for ARM (the AWS server's chip), smoke-tests it,
+# and on main publishes it to GitHub's container registry (ghcr.io).
+#
+# On push to main:  CI runs first; if it passes, the image is built and pushed.
+# On pull requests that touch the image inputs: the image is built and
+# smoke-tested but never pushed, so a broken Dockerfile is caught before merge.
+# The SSH deploy to the server is added later, once the server exists.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/deploy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never cancel a publish half way; a superseded pull request run can be cancelled.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ci:
+    # On pull requests ci.yml already runs by itself, so skip the copy here.
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/ci.yml
+
+  image:
+    needs: ci
+    # Run when CI passed, or when it was skipped (pull requests). Not when it failed.
+    if: ${{ !cancelled() && (needs.ci.result == 'success' || needs.ci.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write # lets the built-in token push to ghcr.io; no other secret is used
+    env:
+      PUBLISH: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      # The runner is x86. QEMU lets it build and run ARM images by emulation.
+      - uses: docker/setup-qemu-action@v4.4.0
+        with:
+          platforms: arm64
+
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      # Registries require lowercase names; the repository name may not be.
+      # Deriving it here means moving the repo to another account needs no edits.
+      - name: Work out the image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - id: meta
+        uses: docker/metadata-action@v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha,format=long
+            type=raw,value=latest
+
+      - name: Build ARM image
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          platforms: linux/arm64
+          load: true
+          tags: smoke-test:local
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Boot the ARM image under emulation and ask it the questions that matter.
+      # Throwaway values only; /health does not touch the database.
+      - name: Smoke test
+        run: |
+          docker run -d --name smoke --platform linux/arm64 -p 8000:8000 \
+            -e SECRET_KEY=smoke-test-only \
+            -e ALLOWED_HOSTS=localhost \
+            -e DATABASE_URL=postgres://u:p@localhost:5432/db \
+            -e EMAIL_HOST=smtp.example.com \
+            -e EMAIL_HOST_USER=u \
+            -e EMAIL_HOST_PASSWORD=p \
+            -e DEFAULT_FROM_EMAIL=smoke@example.com \
+            smoke-test:local
+          body=""
+          for i in $(seq 1 60); do
+            body=$(curl -s -H "X-Forwarded-Proto: https" http://localhost:8000/health || true)
+            [ "$body" = "ok" ] && break
+            sleep 2
+          done
+          docker logs smoke
+          test "$body" = "ok"
+          docker exec smoke python manage.py check --deploy
+          docker exec smoke id -un | grep -qx app
+
+      - name: Log in to ghcr.io
+        if: env.PUBLISH == 'true'
+        uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Same inputs as the build above, so every layer comes from the cache.
+      - name: Push image
+        if: env.PUBLISH == 'true'
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
+          cache-from: type=gha
