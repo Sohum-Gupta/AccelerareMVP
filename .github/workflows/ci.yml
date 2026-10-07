@@ -1,0 +1,69 @@
+# Runs on every pull request and every push to main.
+# Lint, format check, migration check and tests, against real PostgreSQL 16.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A test run only needs to read the code, never change it.
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the older run still in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: accelerare
+          POSTGRES_PASSWORD: accelerare
+          POSTGRES_DB: accelerare
+        ports:
+          - 5432:5432
+        # Do not start the steps until PostgreSQL accepts connections.
+        options: >-
+          --health-cmd "pg_isready -U accelerare -d accelerare"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    # There is no .env file on this machine, so settings come from here.
+    # These values are throwaway and only exist for the length of the run.
+    env:
+      SECRET_KEY: ci-only-not-a-real-secret
+      ALLOWED_HOSTS: localhost
+      DATABASE_URL: postgres://accelerare:accelerare@localhost:5432/accelerare
+      # Install exactly what uv.lock says; fail instead of updating it.
+      UV_FROZEN: "1"
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format check
+        run: uv run ruff format --check .
+
+      # Fails if a model changed without a matching migration file.
+      - name: Migration check
+        run: uv run python manage.py makemigrations --check --dry-run
+
+      - name: Tests
+        run: uv run pytest
