@@ -12,6 +12,7 @@ Things learned the hard way. Add an entry whenever something non-obvious comes u
 - 2026-10-07: `manage.py` defaults to local settings, so inside the container `python manage.py migrate` or `check --deploy` would run with DEBUG on. The Dockerfile sets `DJANGO_SETTINGS_MODULE=config.settings.production` so the image is always production; laptop runs are unaffected.
 - 2026-10-07: gunicorn 26 opens a control socket under the user's home directory. The non-root container user has no home, which logged a permission error; the Dockerfile CMD passes `--no-control-socket` since we do not use it.
 - 2026-10-07: testing the image locally behind production settings needs `X-Forwarded-Proto: https` on the request (as Caddy sends it), otherwise `SECURE_SSL_REDIRECT` answers 301. Example: `curl -H 'X-Forwarded-Proto: https' http://localhost:8001/health`.
+- 2026-10-07: Production email is required config. `production.py` reads `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` with no defaults, so a missing one stops startup. Anything that loads production settings (the Dockerfile's `collectstatic`, tests) must supply throwaway values. Real delivery is untested until the server exists.
 
 ## Porting checklist
 
@@ -27,3 +28,4 @@ Append a row whenever a new external dependency appears.
 | `SENTRY_DSN` | Sentry project | server env | create a Sentry project, copy its DSN |
 | `postgres:16` image | public Docker Hub, no account | `docker-compose.yml` | nothing to do |
 | Domain `theaccelerare.com` | registered at GoDaddy (DNS also at GoDaddy); live Wix site on `@` and `www`; Microsoft 365 mail via MX | GoDaddy DNS panel | add one A record for the platform subdomain (working name `app.theaccelerare.com`) pointing at the Elastic IP; do not touch `@`, `www` or MX records. Set `ALLOWED_HOSTS` and the Caddyfile to the same name |
+| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` | the sending mailbox (personal for now, Amazon SES later) | server env in production (AWS Parameter Store) | create an app-specific password for the mailbox, store the five values; port defaults to 587 |

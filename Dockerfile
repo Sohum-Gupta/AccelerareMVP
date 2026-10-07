@@ -34,6 +34,10 @@ COPY . .
 # not stored in the image; real values arrive at container start.
 RUN SECRET_KEY=build-only-not-a-secret \
     DATABASE_URL=postgres://build:build@localhost:5432/build \
+    EMAIL_HOST=build-only \
+    EMAIL_HOST_USER=build-only \
+    EMAIL_HOST_PASSWORD=build-only \
+    DEFAULT_FROM_EMAIL=build@example.com \
     python manage.py collectstatic --noinput
 
 # Do not run as root inside the container.

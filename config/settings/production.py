@@ -34,3 +34,25 @@ sentry_sdk.init(
     dsn=env("SENTRY_DSN", default=""),
     send_default_pii=False,
 )
+
+# Email. Django 6.1 configures senders through MAILERS; the SMTP backend takes
+# its connection details as OPTIONS. base.py's console mailer is replaced here
+# so the server really sends mail. All values are required: a missing one stops
+# the app at startup instead of failing the first time someone resets a password.
+# The password must be an app-specific password, never the mailbox's real one.
+MAILERS = {
+    "default": {
+        "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+        "OPTIONS": {
+            "host": env("EMAIL_HOST"),
+            "port": env.int("EMAIL_PORT", default=587),
+            "username": env("EMAIL_HOST_USER"),
+            "password": env("EMAIL_HOST_PASSWORD"),
+            "use_tls": True,  # STARTTLS on port 587: encrypts the login and the message
+            "timeout": 10,  # seconds; do not let a dead mail server hang a request
+        },
+    },
+}
+
+# The "From" address recipients see.
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
