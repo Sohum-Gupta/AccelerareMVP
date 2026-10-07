@@ -23,3 +23,4 @@ Append a row whenever a new external dependency appears.
 | `ALLOWED_HOSTS` | your domain | `.env` locally; server env in production | set to the real hostname |
 | `SENTRY_DSN` | Sentry project | server env | create a Sentry project, copy its DSN |
 | `postgres:16` image | public Docker Hub, no account | `docker-compose.yml` | nothing to do |
+| Domain `theaccelerare.com` | registered at GoDaddy (DNS also at GoDaddy); live Wix site on `@` and `www`; Microsoft 365 mail via MX | GoDaddy DNS panel | add one A record for the platform subdomain (working name `app.theaccelerare.com`) pointing at the Elastic IP; do not touch `@`, `www` or MX records. Set `ALLOWED_HOSTS` and the Caddyfile to the same name |
