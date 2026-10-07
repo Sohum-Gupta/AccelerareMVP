@@ -9,6 +9,9 @@ Things learned the hard way. Add an entry whenever something non-obvious comes u
 - 2026-10-07: Docker Compose reads `.env` for its own `${VAR}` substitution. A Django secret key containing `$` triggers "variable is not set" warnings on every `docker compose up`. Generate keys without `$` (or escape as `$$`).
 - 2026-10-07: ruff's default rules flag Django idioms (class-level lists in models, generated migrations). `pyproject.toml` excludes `apps/*/migrations` and ignores RUF012 rather than littering models with `# noqa`.
 - 2026-10-07: WhiteNoise's `CompressedManifestStaticFilesStorage` needs `collectstatic` to have run or every `{% static %}` raises when `DEBUG` is off (tests run with DEBUG off). `local.py` swaps in plain `StaticFilesStorage` with `WHITENOISE_USE_FINDERS`; production keeps the manifest storage and the Dockerfile runs `collectstatic`.
+- 2026-10-07: `manage.py` defaults to local settings, so inside the container `python manage.py migrate` or `check --deploy` would run with DEBUG on. The Dockerfile sets `DJANGO_SETTINGS_MODULE=config.settings.production` so the image is always production; laptop runs are unaffected.
+- 2026-10-07: gunicorn 26 opens a control socket under the user's home directory. The non-root container user has no home, which logged a permission error; the Dockerfile CMD passes `--no-control-socket` since we do not use it.
+- 2026-10-07: testing the image locally behind production settings needs `X-Forwarded-Proto: https` on the request (as Caddy sends it), otherwise `SECURE_SSL_REDIRECT` answers 301. Example: `curl -H 'X-Forwarded-Proto: https' http://localhost:8001/health`.
 
 ## Porting checklist
 
