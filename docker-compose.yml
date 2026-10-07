@@ -1,0 +1,25 @@
+# Local development only: one PostgreSQL 16 container.
+# The app itself runs natively on the Mac (uv run python manage.py runserver).
+# Credentials here are for this throwaway local container and match
+# DATABASE_URL in .env.example. The server uses different ones.
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: accelerare
+      POSTGRES_PASSWORD: accelerare
+      POSTGRES_DB: accelerare
+    ports:
+      - "5432:5432"
+    volumes:
+      # Named volume: data survives `docker compose down` and container rebuilds.
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U accelerare -d accelerare"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
