@@ -79,11 +79,12 @@ jobs:
           cache-to: type=gha,mode=max
 
       # Boot the ARM image under emulation and ask it the questions that matter.
-      # Throwaway values only; /health does not touch the database.
+      # Throwaway values only (a random key, so the key-strength check stays meaningful);
+      # /health does not touch the database.
       - name: Smoke test
         run: |
           docker run -d --name smoke --platform linux/arm64 -p 8000:8000 \
-            -e SECRET_KEY=smoke-test-only \
+            -e SECRET_KEY="$(openssl rand -hex 32)" \
             -e ALLOWED_HOSTS=localhost \
             -e DATABASE_URL=postgres://u:p@localhost:5432/db \
             -e EMAIL_HOST=smtp.example.com \
@@ -99,7 +100,8 @@ jobs:
           done
           docker logs smoke
           test "$body" = "ok"
-          docker exec smoke python manage.py check --deploy
+          # Any warning fails the run, not just errors, so a new security warning is caught here.
+          docker exec smoke python manage.py check --deploy --fail-level WARNING
           docker exec smoke id -un | grep -qx app
 
       - name: Log in to ghcr.io
