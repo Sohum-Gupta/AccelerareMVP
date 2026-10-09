@@ -115,6 +115,10 @@ ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_CHANGE_EMAIL = False
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[Accelerare] "
+# Our reset form (verified addresses only, no "unknown email" error), and no
+# "you have no account, sign up?" mail to addresses we do not know.
+ACCOUNT_FORMS = {"reset_password": "apps.accounts.forms.PasswordResetRequestForm"}
+ACCOUNT_EMAIL_UNKNOWN_ACCOUNTS = False
 
 # Argon2 first: new passwords use it, and an existing PBKDF2 hash is upgraded
 # the next time its owner logs in. The others stay so old hashes still verify.
