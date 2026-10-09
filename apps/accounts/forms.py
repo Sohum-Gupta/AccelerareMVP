@@ -1,7 +1,7 @@
 """Forms for pages we own. Validation of the values themselves lives in services.py."""
 
 import pycountry
-from allauth.account.forms import ResetPasswordForm
+from allauth.account.forms import LoginForm, ResetPasswordForm, ResetPasswordKeyForm
 from django import forms
 
 from . import services
@@ -99,3 +99,32 @@ class PasswordResetRequestForm(ResetPasswordForm):
         if self.account:
             services.send_reset_notice(request, self.account, email)
         return email
+
+
+def _drop_placeholders(form: forms.Form) -> None:
+    """allauth puts the label inside each box too; our pages label fields once."""
+    for field in form.fields.values():
+        field.widget.attrs.pop("placeholder", None)
+
+
+class PasswordResetKeyForm(ResetPasswordKeyForm):
+    """
+    allauth's "choose a new password" form with the signup page's wording. The
+    labels match signup, the live checklist replaces Django's four-line help
+    text, and the boxes have no placeholders.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["password1"].label = "New password"
+        self.fields["password1"].help_text = ""
+        self.fields["password2"].label = "New password again"
+        _drop_placeholders(self)
+
+
+class AccountLoginForm(LoginForm):
+    """allauth's login form without placeholders, to match the signup page."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _drop_placeholders(self)

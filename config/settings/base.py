@@ -116,8 +116,13 @@ ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_CHANGE_EMAIL = False
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[Accelerare] "
 # Our reset form (verified addresses only, no "unknown email" error), and no
-# "you have no account, sign up?" mail to addresses we do not know.
-ACCOUNT_FORMS = {"reset_password": "apps.accounts.forms.PasswordResetRequestForm"}
+# "you have no account, sign up?" mail to addresses we do not know. The login
+# and new-password forms are allauth's with our labels and no placeholders.
+ACCOUNT_FORMS = {
+    "reset_password": "apps.accounts.forms.PasswordResetRequestForm",
+    "reset_password_from_key": "apps.accounts.forms.PasswordResetKeyForm",
+    "login": "apps.accounts.forms.AccountLoginForm",
+}
 ACCOUNT_EMAIL_UNKNOWN_ACCOUNTS = False
 # Trying to log in unverified sends a fresh link; once a minute per address,
 # the same as the profile page's Resend.
