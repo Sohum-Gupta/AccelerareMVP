@@ -34,6 +34,11 @@ docker compose pull
 echo "==> Applying migrations"
 docker compose run --rm web python manage.py migrate --noinput
 
+echo "==> Ensuring the cache table exists"
+# Rate limits are counted in a PostgreSQL table (settings CACHES). The command
+# does nothing if the table is already there.
+docker compose run --rm web python manage.py createcachetable
+
 echo "==> Starting containers"
 docker compose up -d --remove-orphans
 

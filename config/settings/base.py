@@ -39,6 +39,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # allauth: verification links, the login flow and rate limits. Only the
+    # core and the "account" (email + password) parts; no social login yet.
+    "allauth",
+    "allauth.account",
     "apps.accounts",
 ]
 
@@ -57,6 +61,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Required by allauth: it keeps the current request available to code
+    # that sends mail, so the adapter can build absolute links.
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -77,6 +84,46 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
+
+
+# Authentication
+# Django's own backend first (admin login, tests), then allauth's, which
+# resolves an email login through allauth's EmailAddress table so any verified
+# email on an account can log in.
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+
+# URL names rather than paths, so the pages can move. The login page is
+# allauth's until PR 4 replaces it under the same name.
+LOGIN_URL = "account_login"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/"
+
+# allauth. Email is the only login identifier; there is no username field on
+# Account. Verification is mandatory: nobody logs in until they have clicked
+# the link sent to the address they are logging in with.
+ACCOUNT_ADAPTER = "apps.accounts.adapter.AccountAdapter"
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+# One owner per verified address (the same rule as ContactPoint), and an
+# account may hold several addresses rather than swapping one for another.
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_CHANGE_EMAIL = False
+ACCOUNT_EMAIL_SUBJECT_PREFIX = "[Accelerare] "
+
+# Argon2 first: new passwords use it, and an existing PBKDF2 hash is upgraded
+# the next time its owner logs in. The others stay so old hashes still verify.
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
+]
 
 
 # Password validation
@@ -133,6 +180,20 @@ STORAGES = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# Cache
+# allauth counts login and reset attempts in the cache. The default in-memory
+# cache is private to each gunicorn worker, so the limits would only apply per
+# worker. A table in PostgreSQL is shared by all of them. The table is created
+# by `manage.py createcachetable` (deploy.sh runs it; tests create it alone).
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "cache_table",
+    },
+}
 
 
 # Email
