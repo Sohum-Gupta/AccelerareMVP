@@ -34,6 +34,11 @@ Things learned the hard way. Add an entry whenever something non-obvious comes u
 - 2026-10-09: `BaseUserManager.normalize_email` lowercases only the domain (`Alice@Example.COM` becomes `Alice@example.com`). Our `ContactPoint.value_normalised` lowercases the whole address, so the two columns differ on purpose; `Account.email` keeps Django's form.
 - 2026-10-09: A data migration can be tested for real: `MigrationExecutor(connection).migrate([("accounts", "0001_initial")])`, create a row through the historical model, build a fresh executor and migrate to the leaf nodes, then assert. Needs `@pytest.mark.django_db(transaction=True)`. See `tests/test_contact_points.py`.
 - 2026-10-09: A new non-null column on a table that already has rows in production breaks `migrate` on deploy. Add it nullable, backfill in a `RunPython` migration, tighten in a later PR. `Account.person` is the first instance.
+- 2026-10-09: `phonenumbers` fails bad input in two ways: `parse()` raises for blank text, an unknown country or no country without a leading `+`; but `"123"` parses fine and only `is_valid_number()` rejects it. `normalise_phone` handles both and raises one `ValidationError`. The UK's country code is `GB`, not `UK`.
+- 2026-10-09: `Account.email` is unique but case-sensitive on the part before the `@`, so `Bob@x.com` and `bob@x.com` would be two accounts. `register` checks `email__iexact` and always stores the lowercased form; login lookups (PR 3/4) must lowercase the same way.
+- 2026-10-09: `models.py` imports `normalise_email` from `normalisers.py`, not `services.py`, because `services.py` imports the models; the other direction would be a circular import.
+- 2026-10-09: Known edge, refused for now: account A verifies `x@`, account B registered with `x@` but never proved it, so `x@` is B's login name. `make_primary` for A is refused ("another account is using that address") because two accounts cannot share a login name. PR 3's collision page should explain it.
+- 2026-10-09: Accounts made before Milestone 1 (the superuser) have no phone, so "every account has exactly one phone" is not yet true for them. `change_phone` creates the first one; the profile page (PR 6) is where it gets added.
 
 ## Porting checklist
 
