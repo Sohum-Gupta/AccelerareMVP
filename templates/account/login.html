@@ -10,6 +10,6 @@
     {{ redirect_field }}
     <button type="submit">Log in</button>
   </form>
-  <p class="mt-4 text-sm"><a href="{% url 'account_reset_password' %}">Forgot your password?</a></p>
+  {# The "Forgot your password?" link comes from allauth's password field help text. #}
   <p class="text-sm">No account yet? <a href="{% url 'account_signup' %}">Sign up</a></p>
 {% endblock %}

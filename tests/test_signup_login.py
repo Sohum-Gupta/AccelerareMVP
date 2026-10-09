@@ -167,6 +167,13 @@ def test_login_page_uses_allauths_field_names(client):
 
 
 @pytest.mark.django_db
+def test_login_page_has_one_forgot_password_link(client):
+    # allauth adds the link as the password field's help text; the template must not add a second.
+    html = client.get("/accounts/login/").content.decode()
+    assert html.count("Forgot your password?") == 1
+
+
+@pytest.mark.django_db
 def test_unverified_login_goes_to_check_your_inbox_and_sends_a_fresh_link(client):
     services.register("bob@example.com", "+919876543210", None, PASSWORD)
 
