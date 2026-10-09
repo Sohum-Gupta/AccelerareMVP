@@ -45,6 +45,11 @@ survey-platform/
 ├── .env.example            # every setting the app reads, with safe defaults
 ├── docker-compose.yml      # local PostgreSQL only
 ├── Dockerfile              # app image for deployment
+├── deploy/                 # server-only files, copied to /opt/survey by the deploy step
+│   ├── docker-compose.yml  # caddy + web (worker added in Milestone 5)
+│   ├── Caddyfile
+│   ├── deploy.sh
+│   └── render_env.py       # Parameter Store JSON -> .env
 ├── manage.py
 ├── config/                 # Django project: settings, urls, wsgi
 │   ├── settings/
