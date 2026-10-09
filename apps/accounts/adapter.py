@@ -5,8 +5,15 @@ allauth asks its adapter whenever a decision depends on the site. Overriding a
 method here changes allauth's behaviour without copying its views.
 """
 
+import logging
+from smtplib import SMTPException
+
 from allauth.account.adapter import DefaultAccountAdapter
+from allauth.core import context as allauth_context
+from django.contrib import messages
 from django.db import transaction
+
+logger = logging.getLogger(__name__)
 
 
 class AccountAdapter(DefaultAccountAdapter):
@@ -25,3 +32,25 @@ class AccountAdapter(DefaultAccountAdapter):
         """
         with transaction.atomic():
             return super().confirm_email(request, email_address)
+
+    def send_mail(self, template_prefix, email, context):
+        """
+        Every email allauth sends (verification links, password reset) comes
+        through here. If the mail server refuses (Amazon SES refuses unverified
+        addresses while it is in its sandbox), the person's account and
+        addresses are already saved, so showing a 500 page would only lose them.
+        Log it, tell them, and mark the request so our own views can adjust
+        what they say.
+        """
+        try:
+            super().send_mail(template_prefix, email, context)
+        except (SMTPException, OSError):
+            logger.exception("Could not send an email")
+            request = allauth_context.request
+            if request is not None:
+                request.mail_failed = True
+                messages.warning(
+                    request,
+                    "We could not send the email just now. Your details are saved; "
+                    "please try again in a few minutes.",
+                )
