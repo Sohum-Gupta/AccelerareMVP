@@ -502,8 +502,8 @@ Things agreed but not done, so they are not forgotten. Move a line to the decisi
 - [ ] Live signup with an address SES has not verified: "check your inbox" plus a yellow warning, and the same warning on login. Use `admin@theaccelerare.com` for the live tests, in an incognito window.
 - [ ] Signup: submit empty, type in a box, its red error vanishes.
 - [ ] Admin: search an account by phone; make-primary and remove on a secondary email; removing a primary shows a red refusal. Then tick "Root admin can find an account by email or phone".
-- [ ] Profile page: stored `+number` picks the right flag; phone box width; "Not now" banner.
-- [ ] Live add-email, signup to login, reset pages and phone widget at phone width.
+- [ ] Profile page: stored `+number` picks the right flag; "Not now" banner. *(Phone box width and spacing at phone width were checked by headless screenshots in #27; the open flag dropdown was not.)*
+- [ ] Live add-email, signup to login, and the reset pages in a real browser.
 
 **Small code and docs follow-ups**
 - [ ] A test for the password-reset refused-mail path (it shares `AccountAdapter.send_mail` with signup but has none of its own).
