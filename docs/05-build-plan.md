@@ -80,13 +80,13 @@ Most of what you've built so far has been judged by "does it work when I run it.
 
 **Done when**
 
-- [ ] `uv run pytest` and `uv run ruff check .` pass locally and in CI.
-- [ ] `https://<domain>/health` returns `ok` with a valid certificate.
-- [ ] `https://<domain>/admin/` shows the Django login page.
-- [ ] A superuser created with `createsuperuser` can log into the admin on the server.
-- [ ] Pushing a trivial change to `main` deploys within a few minutes without you touching the server.
-- [ ] Sentry shows a deliberately raised exception from the server.
-- [ ] A billing budget alert exists on the AWS account.
+- [x] `uv run pytest` and `uv run ruff check .` pass locally and in CI.
+- [x] `https://<domain>/health` returns `ok` with a valid certificate.
+- [x] `https://<domain>/admin/` shows the Django login page.
+- [x] A superuser created with `createsuperuser` can log into the admin on the server.
+- [x] Pushing a trivial change to `main` deploys within a few minutes without you touching the server.
+- [x] Sentry shows a deliberately raised exception from the server.
+- [x] A billing budget alert exists on the AWS account.
 
 **Why this order / what to understand**
 
@@ -144,10 +144,10 @@ A few concepts worth understanding here rather than copying:
 
 **Done when**
 
-- [ ] A stranger can sign up on the live site, receive the email, verify, log in and log out on a phone. *(Needs SES production access; until then only verified addresses receive mail.)*
-- [ ] Password reset works on the live site, from a second verified email too.
-- [ ] A user can make a second email primary, log in with it, and remove the old one.
-- [ ] All tests above pass.
+- [ ] A stranger can sign up on the live site, receive the email, verify, log in and log out on a phone. *(Waiting on SES production access; until then only verified addresses receive mail. See "Open follow-ups".)*
+- [ ] Password reset works on the live site, from a second verified email too. *(Needs a second address SES can deliver to; see "Open follow-ups".)*
+- [ ] A user can make a second email primary, log in with it, and remove the old one. *(Same: needs a second deliverable address.)*
+- [x] All tests above pass. *(158 passed, ruff and `check --fail-level WARNING` clean, 2026-10-09.)*
 - [ ] Root admin can find an account by email or phone in the admin.
 
 **Why this order / what to understand**
@@ -486,6 +486,31 @@ Ask for help (here, or anyone experienced) rather than pushing on when:
 - You're about to write raw SQL, a custom migration operation, or anything with the word "clever" in your head.
 - Something works locally and not on the server. The difference is always in configuration; compare `.env` to `.env.example` first.
 
+## Open follow-ups
+
+Things agreed but not done, so they are not forgotten. Move a line to the decision log or delete it when it is finished.
+
+**Waiting on SES production access** (a pending AWS support case; see `04-infrastructure.md`, "Email sending")
+- [ ] Live signup by a stranger, verify, log in and out on a phone (Milestone 1, first "Done when" box).
+- [ ] Re-test every email flow with a real outside address once approved.
+
+**Business email addresses** (the founder will create more soon)
+- [ ] Verify one or two of the new addresses as SES email identities (AWS console, founder's action). While SES is sandboxed they are the only way to receive mail on a second address.
+- [ ] Use them to run the live checks for "reset from a second verified email" and "make a second email primary, log in with it, remove the old one", then tick those two Milestone 1 boxes.
+
+**Founder's browser checks still owed for Milestone 1**
+- [ ] Live signup with an address SES has not verified: "check your inbox" plus a yellow warning, and the same warning on login. Use `admin@theaccelerare.com` for the live tests, in an incognito window.
+- [ ] Signup: submit empty, type in a box, its red error vanishes.
+- [ ] Admin: search an account by phone; make-primary and remove on a secondary email; removing a primary shows a red refusal. Then tick "Root admin can find an account by email or phone".
+- [ ] Profile page: stored `+number` picks the right flag; phone box width; "Not now" banner.
+- [ ] Live add-email, signup to login, reset pages and phone widget at phone width.
+
+**Small code and docs follow-ups**
+- [ ] A test for the password-reset refused-mail path (it shares `AccountAdapter.send_mail` with signup but has none of its own).
+- [ ] One visual polish PR after PR 8.
+- [ ] Register `/health` with an uptime checker (`04-infrastructure.md`, step 8.4).
+- [ ] The README is being written by the founder separately.
+
 ## Decision log
 
 | Date | Decision | Reason |
@@ -511,3 +536,5 @@ Ask for help (here, or anyone experienced) rather than pushing on when:
 | 2026-10-09 | Minimum password length 10; live checklists on signup and the new-password page | Founder wanted visible requirements; 8 was low; "too common" and "too similar" stay server-side |
 | 2026-10-09 | Login lands on the profile page; the "add a personal email" banner is a nudge remembered by a nullable `Account.personal_email_prompt_dismissed_at`, and the add-email form is always on the profile | The profile is where people manage contacts; "not now" must not remove the ability to add an email later |
 | 2026-10-09 | Resending a verification link is limited to one per address per minute (cache); adding an email keeps the address even if the mail server refuses the message | `send_verification` has no limit of its own; SES is sandboxed, so a failed send must not lose what the person typed |
+| 2026-10-09 | The profile page is not behind `verified_email_required`; the guard goes on survey and enterprise views from Milestone 2 | An unverified account must be able to reach the profile to request a verification link or add an email |
+| 2026-10-09 | The Django admin never edits contacts directly; `ContactPoint` is read-only there, with actions that call `make_primary` and `remove_contact` | A contact lives in our `ContactPoint` and in allauth's `EmailAddress`; a plain admin edit would change one and leave the other behind |

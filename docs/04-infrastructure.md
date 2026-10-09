@@ -134,14 +134,14 @@ The server files live in the repository under `deploy/` and the pipeline copies 
 
 **7. Deploy pipeline** (`.github/workflows/ci.yml` and `deploy.yml`)
 1. On every push and pull request: `uv sync`, `ruff check`, `ruff format --check`, `pytest` against a PostgreSQL service container (`ci.yml`).
-2. On push to `main`, after tests pass: build the ARM image, smoke-test it, push to ghcr.io tagged with the commit SHA and `latest`.
+2. On push to `main`, after tests pass: build the ARM image, smoke-test it (boot it and run `manage.py check --deploy --fail-level WARNING`, so any new security or deprecation warning fails the run), push to ghcr.io tagged with the commit SHA and `latest`.
 3. The `deploy` job then connects over SSH with a **dedicated deploy key** (not the personal key), copies `deploy/` to `/opt/survey`, and runs `/opt/survey/deploy.sh`. Setup, done once: `ssh-keygen -t ed25519 -f ~/.ssh/survey-deploy-key -N ""`; append the `.pub` to the server's `~/.ssh/authorized_keys`; add three GitHub repository secrets: `DEPLOY_HOST` (the Elastic IP), `DEPLOY_SSH_KEY` (the private key file), `DEPLOY_KNOWN_HOSTS` (`<elastic-ip> ` followed by the server's `/etc/ssh/ssh_host_ed25519_key.pub` line). The job refuses any server whose host key differs. To revoke the pipeline's access, delete its line from `authorized_keys`.
 4. `deploy.sh`: render `.env` from Parameter Store (to a private temporary file, then moved into place), `docker compose pull`, `docker compose run --rm web python manage.py migrate`, `docker compose run --rm web python manage.py createcachetable` (the rate-limit cache table; a no-op once it exists), `docker compose up -d`, `docker compose exec web python manage.py check --deploy --fail-level WARNING`.
 
 **8. First run**
 1. `docker compose run --rm web python manage.py createsuperuser` for the root admin (use an address that is not the AWS root email).
 2. Open `https://<domain>/admin/` and confirm login. (Survey v1's 25 questions appear from Milestone 2, not before.)
-3. Register a test individual account and confirm the verification email arrives. *Needs Milestone 1's sign-up. SES delivery itself was tested on 2026-10-09 with a test message.*
+3. Register a test individual account and confirm the verification email arrives. *Sign-up exists since Milestone 1. Still to do by hand: a live sign-up with `admin@theaccelerare.com`, the only address SES can deliver to until production access is approved (see `05-build-plan.md`, "Open follow-ups"). SES delivery itself was tested on 2026-10-09 with a test message.*
 4. Confirm `/health` returns 200 and register it with the uptime checker. *Uptime checker not yet registered.*
 5. Trigger a deliberate error once and confirm it appears in Sentry. Until the site has a page that can fail, use `docker compose run --rm web python manage.py shell -c "1/0"`; a failing web request is checked in Milestone 7.
 
