@@ -10,8 +10,16 @@ Bad input raises django.core.exceptions.ValidationError, whose message a form
 can show to a person. Typing an address that another account has verified is
 allowed on purpose: anyone can type anything, and ownership is settled later,
 by the verification click.
+
+Every email also gets a row in allauth's EmailAddress table, written in the
+same transaction as the ContactPoint. allauth resolves logins and password
+resets through its table; ours is what matching and the profile page read.
+Keeping both in step here means neither ever sees an address the other lacks.
 """
 
+from allauth.account.models import EmailAddress
+from allauth.core import context as allauth_context
+from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
@@ -51,17 +59,21 @@ def _locked_contact(account: Account, contact: ContactPoint) -> ContactPoint:
     return fresh
 
 
-def register(email: str, phone: str, country: str | None, password: str) -> Account:
+def register(email: str, phone: str, country: str | None, password: str, request=None) -> Account:
     """
     Create a person, an account and its two contact points in one transaction.
-    Both contacts start unverified: the email is proven by the link we send
-    (PR 3); the phone by SMS, later. Raises EmailInUse if the address is
-    already a login name, in any letter case.
+    Both contacts start unverified: the email is proven by the link this sends
+    when given the request (a view passes it; a test may not); the phone by
+    SMS, later. Raises EmailInUse if the address is already a login name, in
+    any letter case, and ValidationError for a password Django's validators
+    reject (too short, too common, too like the email, all digits).
     """
     typed, email_n = _clean_email(email)
     phone_n = normalise_phone(phone, country)
     if not password:
         raise ValidationError("A password is required.")
+    # The unsaved Account only gives the similarity validator the email to compare.
+    validate_password(password, user=Account(email=email_n))
     if Account.objects.filter(email__iexact=email_n).exists():
         raise EmailInUse(email_n)
     try:
@@ -76,10 +88,28 @@ def register(email: str, phone: str, country: str | None, password: str) -> Acco
                 value_display=phone.strip(),
                 is_primary=True,
             )
+            EmailAddress.objects.create(user=account, email=email_n, primary=True)
     except IntegrityError:
         # Someone registered the same address between our check and our insert.
         raise EmailInUse(email_n) from None
+    if request is not None:
+        send_verification(request, account, email_n)
     return account
+
+
+def send_verification(request, account: Account, email: str) -> None:
+    """
+    Email a verification link for one of the account's addresses. The link is
+    signed, not stored, and expires after three days. The view that calls this
+    is responsible for not letting it be hammered: allauth's own resend page is
+    rate limited, this function is not.
+    """
+    address, _ = EmailAddress.objects.get_or_create(user=account, email=normalise_email(email))
+    # allauth's mail code reads the request from this context (its middleware
+    # sets it during a request; entering it again here is harmless) to build
+    # the absolute link.
+    with allauth_context.request_context(request):
+        address.send_confirmation(request)
 
 
 def add_email(account: Account, email: str) -> ContactPoint:
@@ -87,12 +117,14 @@ def add_email(account: Account, email: str) -> ContactPoint:
     typed, email_n = _clean_email(email)
     try:
         with transaction.atomic():
-            return ContactPoint.objects.create(
+            contact = ContactPoint.objects.create(
                 account=account,
                 kind=ContactPoint.Kind.EMAIL,
                 value_normalised=email_n,
                 value_display=typed,
             )
+            EmailAddress.objects.create(user=account, email=email_n)
+            return contact
     except IntegrityError:
         raise ValidationError("That email is already on your account.") from None
 
@@ -126,6 +158,13 @@ def make_primary(account: Account, contact: ContactPoint) -> None:
             raise ValidationError(
                 "Another account is using that address as its login name."
             ) from None
+        # Same change in allauth's table, same order: demote, then promote.
+        EmailAddress.objects.filter(user=account, primary=True).update(primary=False)
+        EmailAddress.objects.update_or_create(
+            user=account,
+            email=contact.value_normalised,
+            defaults={"primary": True, "verified": True},
+        )
 
 
 def remove_contact(account: Account, contact: ContactPoint) -> None:
@@ -140,6 +179,8 @@ def remove_contact(account: Account, contact: ContactPoint) -> None:
         if contact.is_primary:
             raise ValidationError("Make another email your login address before removing this one.")
         contact.delete()
+        if contact.kind == ContactPoint.Kind.EMAIL:
+            EmailAddress.objects.filter(user=account, email=contact.value_normalised).delete()
 
 
 def change_phone(account: Account, phone: str, country: str | None) -> ContactPoint:
