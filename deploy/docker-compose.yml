@@ -1,0 +1,39 @@
+# Server only. This is not the file used on your laptop (that one is the
+# docker-compose.yml in the repository root and only runs PostgreSQL).
+#
+# deploy.sh copies nothing and renders nothing here; it runs this file from
+# /opt/survey, next to the Caddyfile and the .env it builds from Parameter Store.
+#
+# There is no worker container yet. `manage.py run_worker` arrives in Milestone 5;
+# when it does, add a second service that reuses the web image with that command.
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates and Caddy's account live in volumes so a restart or an image
+      # update does not request new ones (Let's Encrypt limits how often you can).
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+  web:
+    # APP_IMAGE lets deploy.sh or a person pin an exact build, for example when
+    # rolling back: APP_IMAGE=ghcr.io/<owner>/<repo>:<commit-sha> docker compose up -d
+    image: ${APP_IMAGE:-ghcr.io/sohum-gupta/acceleraremvp:latest}
+    restart: unless-stopped
+    env_file: .env
+    # No published ports: only Caddy, on the same private Docker network, reaches
+    # gunicorn. The image's own CMD starts gunicorn on port 8000.
+    expose:
+      - "8000"
+
+volumes:
+  caddy_data:
+  caddy_config:
