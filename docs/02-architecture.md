@@ -78,7 +78,7 @@ erDiagram
 | --- | --- | --- |
 | `person` | id, created_at, merged_into (nullable) | The human. One per linked set of accounts. Merges set `merged_into`; unmerge clears it |
 | `account` | id, person_id, password_hash, status, created_at | One login. Status: active, deactivated, deleted |
-| `contact_point` | id, account_id, kind (email/phone), value_normalised, verified_at, is_primary | Every account has at least one email and exactly one phone. Unique on (kind, value_normalised) once verified. Unverified rows never auto-link |
+| `contact_point` | id, account_id, kind (email/phone), value_normalised, value_display, verified_at, is_primary | Every account has at least one email and exactly one phone. Three rules: unique on (kind, value_normalised) once verified (one owner per proven address); unique on (account, kind, value_normalised); at most one primary per kind per account. The primary email is the login name (`account.email` always equals it). Unverified rows never take part in login, reset or matching |
 | `enterprise` | id, name, created_by_account_id, created_at | Self-registered. No domain list |
 | `membership` | id, account_id, enterprise_id, role (member/admin), status (active/deactivated), joined_at, joined_via (invite_id or join_code_id) | Never deleted. Unique on (account_id, enterprise_id) |
 | `invite` | id, enterprise_id, email, token, tier (nullable), expires_at, accepted_at, revoked_at | Single use |
@@ -128,7 +128,7 @@ If the invite or code carries a tier, an entitlement is created on the membershi
 
 | Rule | Action | Reversible |
 | --- | --- | --- |
-| Same verified email across two accounts | Auto-link: both accounts set to one person; candidate recorded as `auto_linked` | Yes, root admin unmerges |
+| Second account verifies an email already verified on another | Cannot become two verified rows. The verifying user is told the address belongs to an existing account and offered login or reset of that account; optionally a candidate is recorded. No link, no merge | n/a |
 | Same verified phone across two accounts | Auto-link, same as email | Yes |
 | Same unverified phone across two accounts | Candidate `flagged` only | n/a |
 | Self-report "taken before" plus a prior response | Mark `possible_repeat` on the response; candidate `flagged` | n/a |
@@ -136,6 +136,19 @@ If the invite or code carries a tier, an entitlement is created on the membershi
 | Same name only | Nothing | n/a |
 
 Phone is mandatory at registration but verification is deferred, so the phone auto-link rule is inert and the unverified-phone rule only flags until SMS verification exists. All rules and thresholds live in `matching/rules.py`.
+
+**Recovery and recycled contacts (decided 2026-10-09).** No system can detect that an address or number has changed hands (a company reassigns a leaver's mailbox; an operator reissues a dormant number). Controlling an inbox proves ownership of the address today, not of an account that verified it earlier. So verification never acts silently: the design makes a takeover require a deliberate step, tells the real owner, and keeps it reversible.
+
+| Protection | What it does |
+| --- | --- |
+| No silent action on verify | Verifying an address held by another account only offers "log in or reset that account"; it never links or merges |
+| Reset is deliberate | Someone must request a reset and set a new password |
+| Owner is told | Every reset notifies the account's other verified emails (and phone, once SMS exists) |
+| Personal email prompt | Right after the first verification the user is asked for a personal address and can make it primary, so a lost work inbox is not their only way in |
+| Reversible and audited | Resets and contact changes are logged; root admin can restore |
+| Same rules for phones | A verified phone claimed by a second account gets the recovery prompt, never a link |
+
+Residual risk, accepted for the MVP: an account whose only verified contact is a recycled work address can be reset by the address's new holder with nobody notified. Later options if it proves real: require email and phone together for a reset, or re-verify contacts unused for a year. Account merging (two logins with real data into one) is a root-admin action on Person links, not a self-service feature.
 
 **Results (Phase 2).** The worker calls `compute_result(response)`; the plugin returns a structured payload tagged with its version; the row is stored. The results page loads the latest result for the response and filters its fields by the viewer's tier. Re-running a corrected algorithm inserts new rows; old ones stay.
 
@@ -179,6 +192,8 @@ Applied in `01-requirements.md` v2:
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-10-09 | A verified email or phone has one owner; collisions are recovered (log in or reset), never auto-linked or auto-merged; no self-service account merge | Recycled and shared inboxes would otherwise take over accounts silently; a merge of two logins with data is the riskiest code in the project. See "Recovery and recycled contacts" |
+| 2026-10-09 | `account.person` nullable at first, backfilled, tightened in a later migration | Production already had an account; "add, backfill, tighten" keeps every deploy safe |
 | 2026-10-05 | Monolith on PostgreSQL, server-rendered HTML, no separate frontend app | Solo Python developer; smallest surface to build and run |
 | 2026-10-05 | Tier is an entitlement; the survey has no tier; results computed in full and filtered on display | Founder: same survey for all, pay before or after, show what is paid for |
 | 2026-10-05 | Enterprises self-register; membership only via invite or code; no email-domain rules | Founder wants no manual review; domains cannot be trusted without it |

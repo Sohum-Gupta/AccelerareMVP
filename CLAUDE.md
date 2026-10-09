@@ -10,9 +10,9 @@ The planning docs in `docs/` are the source of truth. Read them in this order
 before doing any work:
 
 1. `docs/05-build-plan.md` — the milestone order and the "Done when" checklists.
-   **We are on Milestone 0.** Do not build anything from a later milestone.
+   **We are on Milestone 1 (Accounts); Milestone 0 is done.** Do not build anything from a later milestone.
 2. `docs/03-tech-stack.md` — repository layout, conventions, local dev steps.
-3. `docs/04-infrastructure.md` — the AWS runbook (used in the second half of M0).
+3. `docs/04-infrastructure.md` — the AWS runbook (what exists, and what is pending).
 4. `docs/02-architecture.md` and `docs/01-requirements.md` — background.
 
 ## Project facts
