@@ -1,0 +1,10 @@
+# Caddy is the front door: it answers on ports 80 and 443, gets and renews the
+# HTTPS certificate from Let's Encrypt by itself, and forwards requests to the
+# web container. It adds the X-Forwarded-Proto header that Django's production
+# settings rely on.
+#
+# The name below must match ALLOWED_HOSTS in Parameter Store and the A record
+# in DNS. Changing it is a one-line edit followed by a deploy.
+app.theaccelerare.com {
+	reverse_proxy web:8000
+}
