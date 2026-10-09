@@ -109,7 +109,7 @@ Each app exposes a small set of plain functions (for example `enterprises.servic
 5. `uv run python manage.py migrate` creates the schema and loads survey v1.
 6. `uv run python manage.py createsuperuser` creates the root admin.
 7. `uv run python manage.py runserver` and, in a second terminal, `uv run python manage.py run_worker`.
-8. `tailwindcss -i static/css/input.css -o static/css/app.css --watch` rebuilds CSS on change. Install with `brew install tailwindcss` (v4). `app.css` is generated but committed, so rebuild with `--minify` before committing a template change.
+8. `tailwindcss -i assets/tailwind.css -o static/css/app.css --watch` rebuilds CSS on change. Install with `brew install tailwindcss` (v4). `app.css` is generated but committed, so rebuild with `--minify` before committing a template change.
 
 Tests: `uv run pytest`. Lint: `uv run ruff check . && uv run ruff format --check .`.
 
