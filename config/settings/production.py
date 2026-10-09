@@ -39,7 +39,8 @@ sentry_sdk.init(
 # its connection details as OPTIONS. base.py's console mailer is replaced here
 # so the server really sends mail. All values are required: a missing one stops
 # the app at startup instead of failing the first time someone resets a password.
-# The password must be an app-specific password, never the mailbox's real one.
+# The credentials are Amazon SES SMTP credentials (a send-only IAM user), never
+# a mailbox password.
 MAILERS = {
     "default": {
         "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
