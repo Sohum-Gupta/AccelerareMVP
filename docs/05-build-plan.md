@@ -166,40 +166,67 @@ Accounts come before the survey because every later feature asks "who is this." 
 
 ## Milestone 2 — Survey and responses (individual context)
 
-**Goal:** a verified individual can read the disclosure, answer the self-report question, answer 25 questions with autosave, leave and resume, submit, and view their own responses. Submitted responses are immutable.
+*Re-planned on 2026-10-09 from the founder's questionnaire. The section below replaces the original one-question-per-page, 1–5 plan; the differences are in the decision log.*
+
+**Goal:** a verified individual can read the disclosure, answer the self-report question, answer the 25 statements five to a page with autosave, leave and resume, submit, and view their own responses. Submitted responses are immutable. The statements themselves are private: they are never committed to the public repository and arrive on the server as a file.
+
+**The survey, as specified by the founder**
+
+- The Accelerare Personality Diagnostic: 25 statements, each rated 1–4 (forced choice, no midpoint). The four labels are fixed for every statement: 1 "This does not describe me", 2 "This slightly describes me", 3 "This mostly describes me", 4 "This describes me very accurately" (full sentences in the template).
+- Five pages of five statements, in position order. Within a page the person may change any of the five answers. Clicking **Next** locks the page; locked answers can never be changed, and there is no back button.
+- Progress is saved on the server: every click is saved as it happens, and the response remembers how many pages are locked. Closing the browser, an outage or a new device resumes on the first unlocked page with the saved clicks selected.
+- A person may retake the survey after submitting; every submitted response is kept and listed. Gating retakes behind a paid licence is Milestone 4.
+- The intro text and the scale labels are public (they live in templates). The statements, the algorithm and the insights are private. The algorithm and insights are Milestone 5 and may end up in a second private repository; nothing in this milestone depends on that choice.
 
 **What you build**
 
-- `apps/survey/models.py`: `SurveyVersion` (number, published_at, question_count), `Question` (survey_version FK, position, text, min_value, max_value). `survey/fixtures/v1.json` with the 25 questions, loaded by a data migration. A helper `survey.services.current_version()`.
-- `apps/responses/models.py`: `Response` (account FK, membership FK nullable, survey_version FK, status draft/submitted, answers JSONField default dict, took_before bool nullable, took_before_where text, started_at, submitted_at nullable, possible_repeat bool default False). A `Meta` constraint: `submitted_at` is null if and only if status is draft.
-- `apps/responses/services.py`: `start_response(account, membership=None)` (reuses an existing draft for the same context rather than creating a second), `save_answer(response, question_id, value)` (validates range, rejects if submitted), `submit(response)` (validates all 25 present, sets status and timestamp in a transaction, enqueues jobs from milestone 5 onward).
-- Views: `responses:start` (disclosure page, FR-15, and self-report form, FR-16), `responses:question` (renders question *n*), `responses:save_answer` (HTMX POST, returns the next question fragment), `responses:review` (all answers, submit button), `responses:submit`, `responses:list` (own responses), `responses:detail`.
-- Templates: `responses/disclosure.html`, `question.html` (full page) and `_question_fragment.html` (HTMX partial), `review.html`, `list.html`, `detail.html`.
+- `apps/survey/models.py`: `SurveyVersion` (number, published_at, question_count), `Question` (survey_version FK, position, text, min_value, max_value, `metadata` JSONField default dict for whatever per-question fields arrive later). A data migration creates version 1 with 25 rows whose text is the placeholder "Question *n*", 1–4. A management command `load_questions <path>` reads a JSON file of 25 entries (`position`, `text`, any extra keys go into `metadata`) and updates the rows by position; it refuses a file that does not have exactly 25 positions 1–25. A helper `survey.services.current_version()`.
+- The private file. On the server it lives at `/opt/survey/private/survey_v1.json`, mounted read-only into the container; `deploy.sh` runs `load_questions` after `migrate` on every deploy, so a re-copied file is applied by the next deploy. On a laptop it lives in the gitignored `private/` directory at the repository root and is loaded by hand with the same command. GitHub never sees it: CI and the image smoke test run on the placeholder rows, and the loader's tests use `tests/fixtures/questions_sample.json`, a committed file with made-up wording.
+- `apps/responses/models.py`: `Response` (account FK, survey_version FK, status draft/submitted, answers JSONField default dict, `pages_completed` small integer default 0, took_before bool nullable, took_before_where text, started_at, submitted_at nullable, possible_repeat bool default False). A `Meta` constraint: `submitted_at` is null if and only if status is draft. The nullable membership FK from the architecture doc is added in Milestone 3 with its own migration, when `Membership` exists.
+- `apps/responses/services.py`: `start_response(account)` (returns the open draft if there is one, otherwise a new draft on the current version), `save_answer(response, question_id, value)` (validates the id belongs to the version and the value is in range; refuses a locked page or a submitted response), `complete_page(response, page)` (refuses unless all five answers on that page exist and the page is the next unlocked one; bumps `pages_completed`), `submit(response)` (all pages locked and every question answered; sets status and timestamp in a transaction; enqueues jobs from Milestone 5 onward). A refused write raises a small exception the views turn into a 409.
+- Views: `responses:start` (disclosure page, FR-15, and self-report form, FR-16; creates or resumes the draft), `responses:page` (renders page *n*; without a number redirects to the first unlocked page), `responses:save_answer` (HTMX POST, saves one answer, returns the saved state of that statement), `responses:next_page` (ordinary POST, locks the page), `responses:review` (all answers read-only, submit button), `responses:submit`, `responses:list` (own responses, "Take again" when no draft is open), `responses:detail`.
+- Templates: `responses/disclosure.html`, `page.html` (five statements) and `_statement.html` (HTMX partial), `review.html`, `list.html`, `detail.html`.
 - Root admin: `Response` registered with all fields read-only when `status == submitted`.
 
 **Technical detail**
 
-- `answers` is a JSON object keyed by question id as a string: `{"1": 3, "2": 5}`. Using the database id rather than position means a future reordering of questions does not corrupt old answers.
-- Autosave: each question fragment is a form with five radio buttons and `hx-post="{% url 'responses:save_answer' response.id %}" hx-trigger="change" hx-target="#question" hx-swap="innerHTML"`. The view saves and returns the next unanswered question's fragment. Include the CSRF token via `hx-headers` on the body or a `<meta>` tag read by a small inline script.
-- Resume: `responses:question` without a number redirects to the first unanswered question, computed from `answers` keys versus the version's question ids.
-- Immutability: `save_answer` and `submit` check `status == draft` and return 409 otherwise. The admin makes fields read-only. There is no model-level lock; the service layer is the gate, which is why all writes go through services.
-- `submit` validates server-side that every question id in the version has a value within range. The review page shows which are missing and links to them.
-- Concurrency: a user with two tabs open can race `save_answer`. Use `select_for_update()` on the response row inside the service so the JSON update is serialised. This is also the pattern `submit` uses.
-- The disclosure text names the viewer: "your answers will be visible to you and to <platform name>" for individuals; milestone 3 adds "and to <enterprise name>'s administrators."
+- `answers` is a JSON object keyed by question id as a string: `{"1": 3, "2": 4}`. Using the database id rather than position means a future reordering of questions does not corrupt old answers.
+- Page *n* holds the statements with positions 5n-4 to 5n; page size is a constant in `survey`. Page *n* is locked when `pages_completed >= n`.
+- Autosave: each statement is a form with four radio buttons and `hx-post="{% url 'responses:save_answer' response.id %}" hx-trigger="change"` targeting its own element. The CSRF token is already on `<body>` through `hx-headers` (Milestone 1). Next is a plain form post so it works without HTMX.
+- Resume: `responses:page` without a number redirects to page `pages_completed + 1`, or to review when all pages are locked.
+- Immutability: `save_answer`, `complete_page` and `submit` check status and page locks and the view answers 409 otherwise. The admin makes fields read-only. There is no model-level lock; the service layer is the gate, which is why all writes go through services.
+- Concurrency: a person with two tabs open can race `save_answer`. Use `select_for_update()` on the response row inside the service so the JSON update is serialised. `complete_page` and `submit` use the same lock.
+- Every response view is behind `accounts.decorators.verified_email_required`.
+- The disclosure text names the viewer: "your answers will be visible to you and to Accelerare" for individuals; milestone 3 adds "and to <enterprise name>'s administrators."
 
 **Tests**
 
-- Fixture loads 25 questions, all 1–5, positions 1–25.
-- `start_response` twice for the same account and context returns the same draft.
-- `save_answer` rejects value 0, 6, a non-integer, an unknown question id, and any write to a submitted response.
-- Resume lands on the first unanswered question after answering 1–7 out of order.
-- `submit` fails with 24 answers and succeeds with 25; after success, `save_answer` returns 409.
+- Migration creates 25 questions, positions 1–25, all 1–4, with placeholder text.
+- `load_questions` applies the sample file (text and metadata) and refuses a file with 24 entries or a duplicate position.
+- `start_response` twice for the same account returns the same draft; after submit it returns a new draft.
+- `save_answer` rejects value 0, 5, a non-integer, an unknown question id, a question on a locked page, and any write to a submitted response.
+- `complete_page` refuses with four of five answered and succeeds with five; it refuses a page that is not the next unlocked one.
+- Resume lands on page 2 after locking page 1 with answers saved out of order, and shows the saved answers for page 2.
+- `submit` fails with four pages locked and succeeds with five; after success, `save_answer` returns 409.
 - A user's list shows only their own responses; `detail` for another user's response returns 404.
-- Page tests: disclosure, question, review, list and detail render for a verified user; all redirect for an unverified user.
+- Page tests: disclosure, page, review, list and detail render for a verified user; all redirect for an unverified user.
+
+**PR plan** (agreed 2026-10-09; one branch and one pull request each, in this order)
+
+1. `m2-survey-models` — survey app, models, placeholder migration, `load_questions`, `current_version()`, admin, sample fixture, tests.
+2. `m2-response-model` — responses app, `Response` with `pages_completed` and the constraint, read-only admin, tests.
+3. `m2-response-services` — `start_response`, `save_answer`, `complete_page`, `submit` under `select_for_update`, the 409 exception, service tests.
+4. `m2-disclosure` — URLs, `responses:start`, disclosure and self-report templates, guard, link from the profile page, page tests.
+5. `m2-pages-autosave` — `responses:page`, `save_answer`, `next_page`, templates, resume, phone-width screenshots, tests.
+6. `m2-review-submit` — review and submit views and templates, tests.
+7. `m2-list-detail` — list and detail, "Take again", tests.
+8. `m2-deploy-private-file` — compose mount, `deploy.sh` runs `load_questions`, porting checklist. Touches the server: explain, wait for the founder's go; the founder copies the file up.
+9. `m2-docs` — tick boxes the founder confirmed, NOTES entries, follow-ups.
 
 **Done when**
 
-- [ ] On the live site, you can take the survey on a phone, close the browser mid-way, reopen, resume, and submit.
+- [ ] On the live site, you can take the survey on a phone, close the browser mid-way, reopen, resume on the right page, and submit.
+- [ ] The live site shows the real statements, not placeholders, and the public repository contains none of them.
 - [ ] Your submitted response appears in your list and detail pages and cannot be edited.
 - [ ] Root admin sees the response in the admin, read-only.
 - [ ] All tests pass.
@@ -208,11 +235,13 @@ Accounts come before the survey because every later feature asks "who is this." 
 
 This is the first milestone that delivers the product's core, and it does so before enterprises exist. That's deliberate: the survey flow for an individual and for an enterprise member is identical except for one nullable foreign key. Building it once in the simple case and then adding the key is less work than designing both at once.
 
-*Why questions live in the database.* The fixture is just the way v1 gets in. From then on, the code never knows what the questions say; it reads them. Version 2 is a new `SurveyVersion` row plus questions, and old responses still point at version 1, so the detail page renders them correctly forever.
+*Why questions live in the database.* The placeholder migration and the private file are just the way v1 gets in. From then on, the code never knows what the statements say; it reads them. Version 2 is a new `SurveyVersion` row plus questions, and old responses still point at version 1, so the detail page renders them correctly forever.
+
+*Why a private file rather than a private repository.* The repository and the Docker image on ghcr.io are public, so anything committed is readable by anyone and anything built into the image is too. The statements are data that changes rarely, so a file copied to the server once, outside the image, keeps them out of both with no new accounts or tokens. Code (the algorithm) cannot be delivered that way comfortably; that decision is deferred to Milestone 5.
 
 *Why JSON for answers.* The alternative is an `Answer` table with one row per question per response. For 25 numeric answers with no branching, that's 25 rows to write per response and a join to read, for no benefit. JSON keeps the whole response in one row, which also makes the CSV export and the algorithm input trivial. PostgreSQL's JSONB is indexed and queryable if you ever need it.
 
-*Why services, not views.* The `submit` rule ("all 25, in range, status draft, set timestamp, enqueue jobs, all atomic") must be identical whether triggered from the web, a test, or a future admin action. If it lives in a view, it's only available to the view. Putting it in `services.py` makes the view five lines and the rule one place.
+*Why services, not views.* The `submit` rule ("all pages locked, all 25 in range, status draft, set timestamp, enqueue jobs, all atomic") must be identical whether triggered from the web, a test, or a future admin action. If it lives in a view, it's only available to the view. Putting it in `services.py` makes the view five lines and the rule one place.
 
 *What HTMX is doing.* Normally a form submit replaces the whole page. HTMX intercepts it, sends the request in the background, and swaps the server's HTML response into a target element. The server still renders HTML; there's no JSON API and no client-side state. When something looks wrong, open the browser's network tab: you'll see a normal POST and a normal HTML response.
 
@@ -505,6 +534,10 @@ Things agreed but not done, so they are not forgotten. Move a line to the decisi
 - [ ] Profile page: stored `+number` picks the right flag; "Not now" banner. *(Phone box width and spacing at phone width were checked by headless screenshots in #27; the open flag dropdown was not.)*
 - [ ] Live add-email, signup to login, and the reset pages in a real browser.
 
+**Milestone 2 (survey)**
+- [ ] The founder keeps the master copy of `survey_v1.json` outside the repository (password manager or private drive) and copies it to the server in PR 8.
+- [ ] Decide in Milestone 5 how the algorithm and the insights stay private: a second private repository installed as a package (then the ghcr.io image must be made private and the server needs `docker login`), or a file loaded at run time.
+
 **Small code and docs follow-ups**
 - [ ] A test for the password-reset refused-mail path (it shares `AccountAdapter.send_mail` with signup but has none of its own).
 - [ ] Register `/health` with an uptime checker (`04-infrastructure.md`, step 8.4).
@@ -514,6 +547,12 @@ Things agreed but not done, so they are not forgotten. Move a line to the decisi
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-10-09 | Survey scale is 1–4 forced choice, not 1–5; four fixed labels | Founder's questionnaire: no neutral midpoint, every answer commits a direction |
+| 2026-10-09 | Five statements a page; Next locks the page for good; no back button; answers still autosave per click | Founder's choice; progress survives a closed browser, and locked pages stop second-guessing |
+| 2026-10-09 | The statements are private: placeholder rows in the migration, real wording loaded from a file outside the repository and the image; intro text and labels stay public | Repository and ghcr.io image are public and the founder wants them to stay so; algorithm and insights handled in Milestone 5 |
+| 2026-10-09 | `Question.metadata` JSON instead of named columns for per-question attributes | Many per-question fields are expected later; keep them in the private file with no migration each time |
+| 2026-10-09 | Retakes allowed freely; each submitted response kept and listed; the membership key waits for Milestone 3 | Licence gating is Milestone 4; `Membership` does not exist yet |
+| 2026-10-09 | Milestone 2 split into nine PRs: survey models; response model; services; disclosure; pages and autosave; review and submit; list and detail; deploy the private file; docs | Same method as Milestone 1 |
 | 2026-10-09 | Verified email collisions are recovered, never auto-linked or auto-merged; Milestone 5 loses its verified-email rule | Recycled and shared inboxes would take over accounts silently; see `02-architecture.md`, "Recovery and recycled contacts" |
 | 2026-10-09 | Milestone 1 widened: login with any verified email, make primary, remove email, reset notices, post-verification personal-email prompt, phone country selector | Founder: one account per person across employers in India, US and UK; people rarely return to a profile page |
 | 2026-10-09 | allauth verification `mandatory`: no login until the address is verified | Simplest with allauth, and it makes "never log in with an unverified address" automatic; the survey-view guard stays as a second line |

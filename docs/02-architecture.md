@@ -44,7 +44,7 @@ One codebase, split by domain so each part can be reasoned about alone. Each mod
 | --- | --- | --- |
 | `accounts` | Person, Account, ContactPoint, sessions, password reset | Only verified contact points take part in matching |
 | `enterprises` | Enterprise, Membership, Invite, JoinCode, SeatPool | The only way into an enterprise is a valid invite or code |
-| `survey` | SurveyVersion, Question | Questions are data, not code; v1 has 25 questions scored 1–5 |
+| `survey` | SurveyVersion, Question | Questions are data, not code; v1 has 25 statements scored 1–4; the wording is loaded from a private file, never committed |
 | `responses` | Response (draft/submitted), autosave, submission | Submitted responses are immutable |
 | `entitlements` | Entitlement (person- or membership-level tier) | Seat pool is enforced here |
 | `matching` | MatchCandidate, auto-link, merge, unmerge | All thresholds in one file |
@@ -85,8 +85,8 @@ erDiagram
 | `join_code` | id, enterprise_id, code, tier (nullable), max_uses, uses, expires_at, revoked_at | Shared code with a cap; `max_uses = 1` is a per-person code |
 | `seat_pool` | id, enterprise_id, tier (1–3), seats | Set by root admin until payments exist |
 | `survey_version` | id, number, published_at, question_count | v1 only in MVP |
-| `question` | id, survey_version_id, position, text, min_value, max_value | 25 rows for v1, all 1–5 |
-| `response` | id, account_id, membership_id (nullable), survey_version_id, status (draft/submitted), answers (JSONB), took_before (self-report), took_before_where, started_at, submitted_at, possible_repeat (bool) | `answers` is `{"q1": 3, "q2": 5, ...}`; `membership_id` null means individual context |
+| `question` | id, survey_version_id, position, text, min_value, max_value, metadata (JSONB) | 25 rows for v1, all 1–4; `metadata` holds later per-question fields |
+| `response` | id, account_id, membership_id (nullable), survey_version_id, status (draft/submitted), answers (JSONB), took_before (self-report), took_before_where, pages_completed, started_at, submitted_at, possible_repeat (bool) | `answers` is `{"1": 3, "2": 4, ...}` keyed by question id; `membership_id` null means individual context and is added in Milestone 3 |
 | `entitlement` | id, person_id (nullable), membership_id (nullable), tier, source (seat/purchase/manual), granted_by_account_id, granted_at, revoked_at | Exactly one of person_id / membership_id is set |
 | `result` | id, response_id, algorithm_version, payload (JSONB), computed_at | Empty table in MVP. Several rows per response are allowed (one per algorithm version) |
 | `match_candidate` | id, account_a_id, account_b_id, signals (JSONB), status (auto_linked/flagged/confirmed/rejected), resolved_by, resolved_at | Signals record which rules fired |
