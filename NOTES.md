@@ -17,6 +17,16 @@ Things learned the hard way. Add an entry whenever something non-obvious comes u
 - 2026-10-07: `manage.py check --deploy` exits 0 when it only finds warnings. The smoke test passes `--fail-level WARNING` so a new security warning fails the run.
 - 2026-10-07: The image is built for `linux/arm64` on an x86 runner through QEMU emulation (about two minutes). The smoke test boots the emulated ARM image, so an architecture-specific failure shows up in CI and not on the server.
 - 2026-10-07: The ghcr.io package inherited the public repo's visibility; an anonymous `docker pull` works. If the repo is ever made private, the server will need `docker login ghcr.io` with a token that has `read:packages`.
+- 2026-10-09: RDS adds an inbound rule for the creator's own IP to the new `db` security group even with public access off. Delete it, and allow 5432 only from the `app` group.
+- 2026-10-09: `ssm:GetParametersByPath` is authorised against the path itself (`/survey/prod`), not the parameters under it. An IAM policy listing only `.../survey/prod/*` gets AccessDenied; list both `.../survey/prod` and `.../survey/prod/*`.
+- 2026-10-09: Every public IPv4 address bills about $3.65 a month, including an attached Elastic IP. An allocated but unattached one bills too, so release it if the instance is deleted.
+- 2026-10-09: `t4g` instances default to credit mode Unlimited, which can bill extra under sustained load. Launch with Standard.
+- 2026-10-09: Adding a user to the `docker` group only applies to new logins. After `usermod -aG docker ubuntu`, log out and back in or `docker` says permission denied.
+- 2026-10-09: Docker Compose expands `$` in `env_file` values and treats ` #` as a comment. `deploy/render_env.py` single-quotes every value; a value containing a single quote or line break is refused. Checked with throwaway values and `docker compose config`.
+- 2026-10-09: Microsoft 365 is retiring password-based SMTP (rolling out from 2026), so Django's SMTP backend cannot use a mailbox there for long. Email goes through Amazon SES instead; full reasoning in `docs/04-infrastructure.md`, "Email sending".
+- 2026-10-09: Sentry labels events `production` by default, not `prod`. The server's first test event arrived with `send_default_pii=False` (Users: 0).
+- 2026-10-09: VS Code warns "Context access might be invalid: IMAGE" for `env.IMAGE` in `deploy.yml`. It is set at run time through `$GITHUB_ENV`, so the editor cannot see it; the workflow runs fine.
+- 2026-10-09: `docker compose up -d` on the Mac needs Docker Desktop running first; "failed to connect to the docker API" means the daemon is off.
 
 ## Porting checklist
 
@@ -35,3 +45,9 @@ Append a row whenever a new external dependency appears.
 | `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` | the sending mailbox (personal for now, Amazon SES later) | server env in production (AWS Parameter Store) | create an app-specific password for the mailbox, store the five values; port defaults to 587 |
 | Container image `ghcr.io/<owner>/<repo>` | GitHub (the repo's owner) | built by `deploy.yml` on every push to `main`; name derived from `github.repository` | nothing to edit. After moving the repo, the first push to `main` publishes under the new owner. Check the package's visibility, and update the server's compose file to the new image name |
 | `GITHUB_TOKEN` (push to ghcr.io) | GitHub, created per run | automatic; `packages: write` on the image job only | nothing to do, no personal access token is stored anywhere |
+| AWS account and region | the AWS account owner (created 2026-10-08, paid plan); region `us-west-2` | AWS console | create the account, enable root MFA, an admin IAM user, billing access for IAM, a $50 budget with an 80% alert; then follow `docs/04-infrastructure.md` in the new region |
+| Parameter Store `/survey/prod/*` | the AWS account | AWS Systems Manager, region of the server | eight required SecureString parameters plus `SENTRY_DSN`; see runbook section 4 |
+| `survey-ec2-role` (IAM role) | the AWS account | IAM | inline policy allowing `ssm:GetParametersByPath`, `GetParameter`, `GetParameters` on `/survey/prod` and `/survey/prod/*`; attach to the instance |
+| `DEPLOY_HOST`, `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS` | GitHub repository secrets | repo Settings, Secrets and variables, Actions | create a deploy-only ED25519 key, add its public half to the server's `authorized_keys`, store the private half, the server address and the server's host key line |
+| Sentry project | Sentry organisation `accelerare` (US region) | Sentry; DSN in Parameter Store as `/survey/prod/SENTRY_DSN` | create a Django project, copy its DSN into Parameter Store |
+| Amazon SES (planned) | the AWS account | SES console, DNS at GoDaddy, SMTP credentials in Parameter Store | verify the sending subdomain with three DKIM records, create SMTP credentials, request production access; see runbook "Email sending" |
