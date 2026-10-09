@@ -5,7 +5,9 @@ description = "Accelerare survey platform"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "argon2-cffi>=25.1.0",
     "django>=6.1.2",
+    "django-allauth>=65.19.7",
     "django-environ>=0.14.0",
     "gunicorn>=26.2.0",
     "phonenumbers>=9.0.41",
