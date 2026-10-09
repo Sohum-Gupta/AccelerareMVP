@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 /* Where Tailwind looks for class names. Paths are relative to this file. */
-@source "../../templates";
-@source "../../apps";
+@source "../templates";
+@source "../apps";
 
 /* Design values live here so a re-theme is one edit. Placeholder palette. */
 @theme {
