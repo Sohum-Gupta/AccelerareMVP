@@ -31,6 +31,9 @@ Things learned the hard way. Add an entry whenever something non-obvious comes u
 - 2026-10-09: A new SES account is in the sandbox: it delivers only to verified addresses, so a test needs the recipient verified as an email identity first. Verifying a single address does not verify its domain, and nothing should ever send *from* it.
 - 2026-10-09: SES accepting a message (`send_mail` returns 1) is not delivery. Open the received message's source and read `Authentication-Results`. Ours shows `dkim=pass` for `app.theaccelerare.com`, `dmarc=pass`, and SPF passing only for Amazon's bounce domain, so DMARC rests on DKIM until a custom MAIL FROM domain is added.
 - 2026-10-09: The SES console's SMTP page offers "Mail Manager SMTP" as Recommended. We use the plain "IAM SMTP credentials" card instead (see the runbook decision log). The SMTP username is the IAM user's access key id, not the IAM user's name; pasting the name into `EMAIL_HOST_USER` would fail authentication.
+- 2026-10-09: `BaseUserManager.normalize_email` lowercases only the domain (`Alice@Example.COM` becomes `Alice@example.com`). Our `ContactPoint.value_normalised` lowercases the whole address, so the two columns differ on purpose; `Account.email` keeps Django's form.
+- 2026-10-09: A data migration can be tested for real: `MigrationExecutor(connection).migrate([("accounts", "0001_initial")])`, create a row through the historical model, build a fresh executor and migrate to the leaf nodes, then assert. Needs `@pytest.mark.django_db(transaction=True)`. See `tests/test_contact_points.py`.
+- 2026-10-09: A new non-null column on a table that already has rows in production breaks `migrate` on deploy. Add it nullable, backfill in a `RunPython` migration, tighten in a later PR. `Account.person` is the first instance.
 
 ## Porting checklist
 
