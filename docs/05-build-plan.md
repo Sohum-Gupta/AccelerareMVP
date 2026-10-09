@@ -106,21 +106,23 @@ A few concepts worth understanding here rather than copying:
 
 ## Milestone 1 — Accounts
 
-**Goal:** a person can register with an email, a phone and a password, verify the email, log in, log out, reset their password, and add a second email.
+**Goal:** a person can register with an email, a phone and a password, verify the email, log in (with the primary or any verified email), log out, reset their password from any verified email, and manage their emails: add, make primary, remove. *Scope widened 2026-10-09; see the decision log.*
 
 **What you build**
 
-- `apps/accounts/models.py`: `Person` (id, created_at, merged_into nullable self-FK), `Account.person` FK, `ContactPoint` (account FK, `kind` choices email/phone, `value_normalised`, `value_display`, `verified_at` nullable, `is_primary`). Unique constraint on `(kind, value_normalised)` where `verified_at` is not null (a partial unique index via `UniqueConstraint(condition=...)`).
-- `apps/accounts/services.py`: `register(email, phone, password) -> Account` (creates Person, Account, two ContactPoints, sends verification), `add_email(account, email)`, `normalise_email`, `normalise_phone` (E.164 via the `phonenumbers` library, default region IN).
-- allauth configured for email-only accounts, mandatory verification, and `ACCOUNT_EMAIL_VERIFICATION = "mandatory"`. A signal handler on allauth's `email_confirmed` that sets `ContactPoint.verified_at` for that email.
-- Templates: `accounts/signup.html`, `login.html`, `password_reset*.html`, `verify_sent.html`, `profile.html` (shows contact points, lets the user add a second email and resend verification).
+- `apps/accounts/models.py`: `Person` (id, created_at, merged_into nullable self-FK), `Account.person` FK (nullable at first, backfilled by a data migration, made required in a later PR), `ContactPoint` (account FK, `kind` choices email/phone, `value_normalised`, `value_display`, `verified_at` nullable, `is_primary`). Three constraints, all `UniqueConstraint`: `(kind, value_normalised)` where `verified_at` is not null; `(account, kind, value_normalised)`; `(account, kind)` where `is_primary`. The manager creates the Person and the primary email ContactPoint for every new account so `createsuperuser` keeps the invariants. *(Done in PR `m1-models`.)*
+- `apps/accounts/services.py`: `register(email, phone, country, password) -> Account` (creates Person, Account, two ContactPoints, sends verification), `add_email(account, email)`, `make_primary(account, contact)` (verified emails only; updates `Account.email` in the same transaction), `remove_contact(account, contact)` (refuses the primary and the last email), `change_phone`, `normalise_email`, `normalise_phone` (E.164 via the `phonenumbers` library, region from the form's country selector: India, US, UK first, full list below; a leading `+` overrides it).
+- allauth configured for email-only accounts, mandatory verification, and `ACCOUNT_EMAIL_VERIFICATION = "mandatory"`. A signal handler on allauth's `email_confirmed` that sets `ContactPoint.verified_at` for that email. When the address is already verified on another account, the confirmation page says so and offers login or password reset for that account; nothing is linked or merged.
+- Templates: `accounts/signup.html`, `login.html`, `password_reset*.html`, `verify_sent.html`, `verify_done.html` (the one-time prompt "add a personal email so you can always get back in", skippable), `profile.html` (lists contact points; add email, resend verification, make primary, remove; change phone).
 - `templates/base.html` with Tailwind and HTMX loaded, a responsive nav, and a flash-message area.
 - Root admin: register `Person`, `Account`, `ContactPoint` in Django admin with search on email and phone.
 
 **Technical detail**
 
-- Email is normalised by lowercasing and trimming; do not strip Gmail dots or plus-aliases, because the matching rule must be exact. Phone is normalised to E.164 (`+91XXXXXXXXXX`) so the same number typed with spaces or a leading zero matches.
-- The login identifier is the primary email. A second email is for verification and matching only; login with it is a Phase 3 nicety.
+- Email is normalised by lowercasing and trimming; do not strip Gmail dots or plus-aliases, because the matching rule must be exact. Phone is validated with `phonenumbers` for the chosen country (reject what does not parse as a plausible number) and normalised to E.164 (`+91…`, `+1…`, `+44…`) so the same number typed with spaces or a leading zero matches.
+- The login identifier is the primary email **or any verified email** on the account (pulled forward from Phase 3 on 2026-10-09). Unverified non-primary emails never log in: two accounts may hold the same unverified address, so the lookup would be ambiguous. Confirm whether allauth resolves email logins through its own email table; if it checks only `Account.email`, do the lookup in our login view.
+- Password reset: the address typed must be a verified contact point (or the primary) on an account; the link goes there and a notice goes to the account's other verified emails. The page always says "if an account exists, we sent a link".
+- `Account.email` always equals the primary email ContactPoint. Only services change either, inside one transaction.
 - An unverified account can log in but cannot start a survey. Enforce this in a decorator or mixin (`verified_email_required`) used by every response view from milestone 2.
 - Password hashing: put `Argon2PasswordHasher` first in `PASSWORD_HASHERS` and install `argon2-cffi`.
 - Rate limiting on login and password reset: allauth provides `ACCOUNT_RATE_LIMITS`; turn it on.
@@ -130,15 +132,20 @@ A few concepts worth understanding here rather than copying:
 
 - Register creates one Person, one Account, two ContactPoints; the email one is unverified; a verification email was sent.
 - Clicking the verification link sets `verified_at`; a second click is harmless.
-- Two accounts cannot both verify the same email (constraint error at the database level, friendly error at the form level).
-- Phone `098765 43210` and `+91 98765 43210` normalise to the same value.
+- Two accounts cannot both verify the same email (constraint error at the database level; the confirmation page offers login or reset of the existing account). Unverified duplicates across accounts are allowed; the same value twice on one account is not; at most one primary per kind.
+- Existing accounts (the production superuser) get a Person and a primary email ContactPoint from the backfill migration.
+- Phone `098765 43210` with country India and `+91 98765 43210` normalise to the same value; a US and a UK number normalise correctly; `123` is rejected.
+- Login succeeds with the primary email and with a verified second email; fails with an unverified second email.
+- Make primary changes `Account.email` and login; removing the primary or the last email is refused.
+- A password reset sends a notice to the account's other verified emails.
 - Unverified account is redirected away from a view decorated `verified_email_required`.
 - Password reset flow end to end (request, email contains link, link sets new password, old password no longer works).
 
 **Done when**
 
-- [ ] A stranger can sign up on the live site, receive the email, verify, log in and log out on a phone.
-- [ ] Password reset works on the live site.
+- [ ] A stranger can sign up on the live site, receive the email, verify, log in and log out on a phone. *(Needs SES production access; until then only verified addresses receive mail.)*
+- [ ] Password reset works on the live site, from a second verified email too.
+- [ ] A user can make a second email primary, log in with it, and remove the old one.
 - [ ] All tests above pass.
 - [ ] Root admin can find an account by email or phone in the admin.
 
@@ -321,7 +328,7 @@ Nothing in the MVP *shows* a tier-filtered result yet, so it's fair to ask why b
 - `apps/jobs/models.py`: `Job` (kind, payload JSON, status queued/running/done/failed, attempts, max_attempts default 5, run_after, locked_at nullable, last_error text, created_at). `jobs.enqueue(kind, payload, run_after=None)`. A registry decorator `@job("kind")` that maps kinds to handler functions.
 - `apps/jobs/management/commands/run_worker.py`: a loop that, inside a transaction, selects the oldest queued job with `run_after <= now()` using `select_for_update(skip_locked=True)`, marks it running, commits, runs the handler, then marks done or schedules a retry with backoff (`2 ** attempts` minutes) or failed after max attempts. Sleeps one second when idle. Handles `SIGTERM` by finishing the current job and exiting.
 - Handlers: `send_email(kind payload: template, to, context)`, `run_matching(account_id | response_id)`, `compute_result(response_id)` (no-op in MVP but wired), later `export_csv`.
-- `apps/matching/rules.py`: each rule is a function `(account) -> list[Candidate]` returning the other account ids and the signals that fired. Rules: verified email match, verified phone match, unverified phone match (flag), self-report-plus-prior-response (flag, also sets `possible_repeat`), name-plus-memberships (flag). Thresholds and the list of enabled rules in one `RULES` constant.
+- `apps/matching/rules.py`: each rule is a function `(account) -> list[Candidate]` returning the other account ids and the signals that fired. Rules: verified phone match (auto-link, inert until SMS verification), unverified phone match (flag), self-report-plus-prior-response (flag, also sets `possible_repeat`), name-plus-memberships (flag). There is no verified-email rule: a verified email has one owner by constraint, and a second claim is handled by the Milestone 1 recovery flow (optionally recording a `flagged` candidate). Thresholds and the list of enabled rules in one `RULES` constant.
 - `apps/matching/models.py`: `MatchCandidate` (account_a, account_b, signals JSON, status auto_linked/flagged/confirmed/rejected, resolved_by nullable, resolved_at nullable; unique on the unordered pair). `apps/matching/services.py`: `run_for_account`, `auto_link(a, b)` (moves `b.person` to `a.person`, marks the old person `merged_into`), `confirm(candidate, actor)`, `reject(candidate, actor)`, `unlink(candidate, actor)` (reverses: creates or restores a separate person for b).
 - `apps/audit/models.py`: `AuditLog` (actor FK nullable, action, target_type, target_id, detail JSON, at). `audit.record(actor, action, target, detail)` called from every admin-facing service in the same transaction.
 - Root admin: a `MatchCandidate` admin list filtered to flagged by default, with actions confirm/reject/unlink, each writing audit rows. Enterprise admin responses table shows the `possible_repeat` flag.
@@ -339,7 +346,7 @@ Nothing in the MVP *shows* a tier-filtered result yet, so it's fair to ask why b
 **Tests**
 
 - Worker: enqueue three jobs, run one loop iteration three times, all done in order; a handler that raises is retried with increasing `run_after` and marked failed after five attempts with the error text stored.
-- Email rule: two accounts with the same *verified* email are auto-linked and share a Person; same email but one unverified → nothing.
+- Email: a second account attempting to verify an already-verified email is refused by the constraint and sees the recovery page; nothing is linked. Same email but one unverified → nothing.
 - Phone rule: same verified phone links; same unverified phone flags only.
 - Self-report: a submission with `took_before=True` by an account with an earlier submitted response sets `possible_repeat` and creates a flagged candidate.
 - Name rule: same name, both with memberships → flagged; same name, no memberships → nothing.
@@ -482,6 +489,9 @@ Ask for help (here, or anyone experienced) rather than pushing on when:
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-10-09 | Verified email collisions are recovered, never auto-linked or auto-merged; Milestone 5 loses its verified-email rule | Recycled and shared inboxes would take over accounts silently; see `02-architecture.md`, "Recovery and recycled contacts" |
+| 2026-10-09 | Milestone 1 widened: login with any verified email, make primary, remove email, reset notices, post-verification personal-email prompt, phone country selector | Founder: one account per person across employers in India, US and UK; people rarely return to a profile page |
+| 2026-10-09 | Milestone 1 split into eight PRs: models; normalisers and `register`; allauth and verification; layout, signup, login; reset; profile; admin and `verified_email_required`; live check and docs | Small reviewable diffs; each leaves `main` deployable |
 | 2026-10-07 | Django 6.1 (current release) rather than 5.2 LTS | Already installed; 6.2 LTS lands April 2027 as a small bump. Note 6.1 uses `MAILERS` instead of `EMAIL_BACKEND` |
 | 2026-10-05 | Deploy an empty site before any feature | Isolates infrastructure problems from application problems |
 | 2026-10-05 | Individual survey flow before enterprises | Same flow; one nullable key difference; simpler to build once |

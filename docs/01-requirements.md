@@ -53,7 +53,9 @@ Numbered so later docs and code can cite them. "Must" items block the MVP; "shou
 **Accounts and auth**
 
 1. FR-1 (must): A user can register with email and password, verify the email, log in, log out, and reset a password.
-2. FR-2 (must): An account must have at least one email (personal or enterprise) and a phone number; a second email is optional. Email is verified at registration. Phone is collected but unverified in MVP (SMS verification deferred); only verified contact details take part in auto-linking.
+2. FR-2 (must): An account must have at least one email (personal or enterprise) and a phone number; a second email is optional and is prompted for once, right after the first email is verified. Email is verified at registration. Phone is validated (with a country, India/US/UK first) but unverified in MVP (SMS verification deferred); only verified contact details take part in matching, login or password reset. *Updated 2026-10-09.*
+   - FR-2a (must): A verified email or phone belongs to exactly one account. Verifying an address that another account already holds never links or merges anything; the person is told it belongs to an existing account and offered login or password reset for that account.
+   - FR-2b (must): A user can log in with the primary email or any verified email, reset the password from any verified email, make any verified email the primary (login) address, and remove a non-primary email. A reset notifies the account's other verified contacts.
 3. FR-3 (must): Enterprise membership is granted only by accepting an email invite or redeeming a valid code. Email domains grant nothing.
 4. FR-4 (should): An account can hold memberships in more than one enterprise at once.
 5. FR-5 (deferred): SSO (SAML or OIDC) as an optional login method per enterprise.
@@ -100,7 +102,7 @@ Matching is best-effort: the system flags likely repeats, never acts on them aut
 
 | Signal | Strength | Notes |
 | --- | --- | --- |
-| Same verified email on two accounts (any email field) | Strong | Auto-links the accounts to one person; reversible |
+| Second account tries to verify an email already verified elsewhere | Strong | Cannot exist as two verified rows (FR-2a). Handled by the recovery flow, not by linking; a candidate may be recorded for root admin |
 | Same verified phone number | Strong | Auto-links; inert until SMS verification exists (deferred) |
 | Same unverified phone number | Weak | Flag only, until verification exists |
 | Self-report "I have taken this before" (FR-16) | Strong intent, weak identity | Prompt for the email or company used before to help matching |
@@ -109,7 +111,7 @@ Matching is best-effort: the system flags likely repeats, never acts on them aut
 
 Requirements:
 
-1. FR-26 (must): On contact verification and on survey submission, the system runs matching, auto-links on verified email or phone, and records every candidate with the signals that fired.
+1. FR-26 (must): On contact verification and on survey submission, the system runs matching, auto-links on a verified phone (once phone verification exists), and records every candidate with the signals that fired. A verified email has one owner (FR-2a), so email never produces two accounts to link. *Updated 2026-10-09.*
 2. FR-27 (must): Root admin sees all candidates (auto-linked and flagged), can confirm or reject flagged ones, and can undo an automatic link.
 3. FR-28 (must): Enterprise admins see a "possible repeat" flag on a response, without seeing the other enterprise's data.
 4. FR-29 (should): Matching rules live in one place so thresholds can change without touching intake code.
@@ -180,6 +182,8 @@ Decisions made in Planning Session 1 (2026-10-05), newest first. Later sessions 
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-10-09 | A verified email has one owner; a second claim is recovered (log in or reset the existing account), never auto-linked or auto-merged | Controlling an inbox proves ownership of the address today, not of an account verified earlier; recycled corporate and shared mailboxes would otherwise take over accounts silently. Recovery needs a deliberate reset that the owner is notified of and root admin can reverse |
+| 2026-10-09 | Login with any verified email, reset from any verified email, change the primary email, remove emails; second email prompted after first verification; phone with country (IN/US/UK first) | Founder: one account per person across employers; people rarely return to a profile page; three target markets |
 | 2026-10-05 | Tier is an entitlement on person or membership; the survey has no tier (Session 2) | Founder: same survey for all, pay before or after, show what is paid for |
 | 2026-10-05 | Enterprises self-register; membership only via invite or code; no email-domain rules (Session 2) | Founder wants no manual review |
 | 2026-10-05 | Verified email and phone auto-link accounts; name only flags (Session 2) | Founder decision |
