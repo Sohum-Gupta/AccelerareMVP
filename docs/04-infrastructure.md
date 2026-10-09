@@ -22,7 +22,7 @@ flowchart LR
     end
     W --> R[(RDS PostgreSQL<br/>db.t4g.micro)]
     K --> R
-    W --> M[SMTP: Amazon SES<br/>set up after Milestone 0]
+    W --> M[SMTP: Amazon SES<br/>sandbox until AWS approves]
     K --> M
     GH[GitHub Actions] -->|ssh, copy deploy/, run deploy.sh| EC2
     W --> S[Sentry]
@@ -46,7 +46,7 @@ flowchart LR
 | Secrets | SSM Parameter Store, SecureString, under `/survey/prod/` | `DATABASE_URL`, `DB_PASSWORD`, `SECRET_KEY`, `EMAIL_*`, `DEFAULT_FROM_EMAIL`, `SENTRY_DSN`, `ALLOWED_HOSTS`. `deploy.sh` renders them to `/opt/survey/.env` through `deploy/render_env.py` |
 | Container registry | GitHub Container Registry (ghcr.io) | Free for this use; avoids ECR setup |
 | CI/CD | GitHub Actions | Test and lint on every push; on `main` build, push, then deploy over SSH with a key used only for deploys |
-| Email | Amazon SES over SMTP from `app.theaccelerare.com`, set up after Milestone 0 | Placeholder values until then; see "Email sending" |
+| Email | Amazon SES over SMTP from `app.theaccelerare.com`, set up 2026-10-09 | Test mail delivered; production access requested and pending (sandbox: verified recipients only). See "Email sending" |
 | Error tracking | Sentry free tier, one project (`survey-platform`, organisation `accelerare`, US data region) | DSN in Parameter Store. `local` has no DSN; the server reports as environment `production` |
 | Uptime | A free external checker (UptimeRobot or similar) hitting `https://<domain>/health` every 5 minutes, alert by email | Detects the site being down; Sentry does not. Not yet set up |
 | Metrics and alarms | CloudWatch: EC2 CPU > 80% for 15 min, EC2 status check failed, RDS free storage < 2 GB, RDS CPU > 80%; all to one SNS topic emailing you | Default EC2 metrics do not include disk and memory; the CloudWatch agent adds them (optional for trial). Not yet set up |
@@ -70,7 +70,7 @@ EC2, disk and IPv4 prices are from published rates as remembered when this was w
 
 ## Runbook: first-time setup
 
-Record anything you change from these steps directly in this section. Sections 1 to 7, and steps 8.1, 8.2 and 8.5, were completed on 2026-10-08/09; steps 8.3 and 8.4 wait for SES and the uptime checker.
+Record anything you change from these steps directly in this section. Sections 1 to 7, and steps 8.1, 8.2 and 8.5, were completed on 2026-10-08/09; step 8.3 waits for Milestone 1 (the first real verification email) and step 8.4 for the uptime checker.
 
 **1. Account**
 1. Create the account; enable MFA on the root user (an authenticator app, with the app's cloud backup turned on first). AWS gives no recovery codes: the safeguards are that backup, a second MFA device, and a root email you will keep for good. Never use root again afterwards.
@@ -118,7 +118,7 @@ Record anything you change from these steps directly in this section. Sections 1
 - `DB_PASSWORD`: the RDS master password.
 - `DATABASE_URL`: `postgres://survey:<password>@<rds-endpoint>:5432/survey`. Characters `@ : / # ? %` in the password must be URL-encoded.
 - `ALLOWED_HOSTS`: the domain (`app.theaccelerare.com`).
-- `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`: required (the app refuses to start without them). **Placeholders until SES is set up** (`placeholder.invalid`, `placeholder`, `placeholder`, and the real sender address). Real email delivery is untested. `EMAIL_PORT` is optional (587).
+- `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`: required (the app refuses to start without them). Set on 2026-10-09 to the SES SMTP endpoint, the SES SMTP username and password, and `Accelerare <noreply@app.theaccelerare.com>` (see "Email sending"). `EMAIL_PORT` is optional (587).
 - `SENTRY_DSN`: from the Sentry project (optional: empty turns reporting off). Created 2026-10-09.
 
 **5. Domain**
@@ -141,7 +141,7 @@ The server files live in the repository under `deploy/` and the pipeline copies 
 **8. First run**
 1. `docker compose run --rm web python manage.py createsuperuser` for the root admin (use an address that is not the AWS root email).
 2. Open `https://<domain>/admin/` and confirm login. (Survey v1's 25 questions appear from Milestone 2, not before.)
-3. Register a test individual account and confirm the verification email arrives. *Needs the email setup below; not yet done.*
+3. Register a test individual account and confirm the verification email arrives. *Needs Milestone 1's sign-up. SES delivery itself was tested on 2026-10-09 with a test message.*
 4. Confirm `/health` returns 200 and register it with the uptime checker. *Uptime checker not yet registered.*
 5. Trigger a deliberate error once and confirm it appears in Sentry. Until the site has a page that can fail, use `docker compose run --rm web python manage.py shell -c "1/0"`; a failing web request is checked in Milestone 7.
 
@@ -163,11 +163,16 @@ The app needs email for verification links, password resets and enterprise invit
 | **Amazon SES over SMTP** | **Chosen.** No new code, no expiring secret, a reputation separate from business mail, built for volume. |
 | Other providers (Postmark, SendGrid, Resend) | Fallback if SES approval is refused or delayed. |
 
-Setup plan (not done yet):
-1. In SES (us-west-2), verify the sending identity, preferably the subdomain `app.theaccelerare.com`. Add the three DKIM CNAME records in GoDaddy, as new lines under `app`. Do not touch the root SPF record, which lists only Microsoft.
-2. Create SMTP credentials in the SES console (this creates a send-only IAM user) and store them as SecureString parameters. This is the one exception to "no AWS keys on the server": the credentials can only send mail.
-3. Request production access (leave the sandbox) by describing the mail as verification, password-reset and invite emails, how addresses are collected and how bounces are handled. Do this early; review takes about a day, may ask for more detail, and can be refused. Until it is approved, SES delivers only to verified addresses.
-4. Set `EMAIL_HOST` (the SES SMTP endpoint for the region; confirm the host name in the console), `EMAIL_PORT=587`, `DEFAULT_FROM_EMAIL=Accelerare <noreply@app.theaccelerare.com>`, then deploy.
+Setup, done 2026-10-09:
+1. In SES (us-west-2), created a domain identity for the subdomain `app.theaccelerare.com` with Easy DKIM (RSA 2048). Added the three DKIM CNAME records in GoDaddy. The Name is `<token>._domainkey.app` (GoDaddy appends `.theaccelerare.com` itself) and the Value is `<token>.dkim.amazonses.com`. The root SPF record, which lists only Microsoft, was not touched. No custom MAIL FROM domain, no configuration set, no tenant. DKIM showed Successful within minutes.
+2. Created SMTP credentials with **Create SMTP credentials** in the "IAM SMTP credentials" card. This makes a send-only IAM user (`ses-smtp-user.<timestamp>`, in the group `AWSSESSendingGroupDoNotRename`, whose only permission is `ses:SendRawEmail`). The username and password are shown once; they went into a password manager and into Parameter Store as `EMAIL_HOST_USER` and `EMAIL_HOST_PASSWORD`. This is the one exception to "no AWS keys on the server": the credential can only send mail. Do not rename or delete the user or group. To rotate, create new credentials the same way, update the two parameters, deploy, then delete the old user.
+3. The console now also offers **Mail Manager SMTP** as "Recommended" (managed credentials with rotation through Secrets Manager, traffic policies, processing charges). Not chosen: it costs extra, adds Secrets Manager, and we need none of its features. Revisit if hand rotation becomes a chore.
+4. Set `EMAIL_HOST=email-smtp.us-west-2.amazonaws.com` (the console page did not display the endpoint; this is AWS's standard name for the region and the test confirmed it), `EMAIL_PORT` left at 587, `DEFAULT_FROM_EMAIL=Accelerare <noreply@app.theaccelerare.com>`, then ran `deploy.sh`. The deploy check reported no issues.
+5. Verified `admin@theaccelerare.com` as an email identity, because the sandbox delivers only to verified addresses. It is a recipient only; nothing sends from it.
+6. Test from the server: `send_mail` through the web container returned 1 and the message arrived in the Microsoft 365 inbox from `Accelerare <noreply@app.theaccelerare.com>`. Its headers showed `dkim=pass` for `app.theaccelerare.com` and for `amazonses.com`, `dmarc=pass`, `compauth=pass`, SCL 1. SPF passed for Amazon's bounce domain, not ours, so DMARC passes through DKIM alone (the expected result without a custom MAIL FROM domain).
+7. Requested production access on 2026-10-09 (transactional mail). The automated first reply asked for the URL, email type, volume, recipient source, bounce and complaint handling and a sample email; answered on the same case. **Status: awaiting AWS.** Until it is approved SES delivers only to verified addresses (and at most 200 a day), so a stranger cannot receive a verification email yet. Milestone 1's "done when" depends on this.
+
+The reply promised: keep the account-level suppression list on, check the SES reputation dashboard weekly by hand, never retry hard bounces, and add SNS bounce and complaint recording as the product matures.
 
 Tradeoffs accepted: the sandbox wait; setup in AWS and GoDaddy; a send-only credential on the server; bounce and complaint rates must be watched (AWS can pause sending if they get too high); `noreply@` gets no answers.
 
@@ -245,4 +250,5 @@ Writing Terraform at this point is worthwhile; by then every setting is understo
 | 2026-10-09 | No worker container until Milestone 5 | `run_worker` does not exist yet and would crash-loop |
 | 2026-10-09 | Dedicated deploy key and pinned host key for the pipeline | Revocable on its own; refuses a lookalike server |
 | 2026-10-09 | Email through Amazon SES over SMTP | See "Email sending" |
+| 2026-10-09 | SES: IAM SMTP credentials, not Mail Manager | Mail Manager costs extra and adds Secrets Manager; we need no rules or rotation yet |
 | 2026-10-09 | EC2 credit mode Standard | Fixes the monthly cost; Unlimited can bill extra |
