@@ -1,0 +1,86 @@
+from django import forms
+from django.contrib import admin, messages
+from django.core.exceptions import ValidationError
+
+from apps.accounts.models import Account
+
+from . import services
+from .models import Entitlement
+
+# Licences are granted, upgraded and revoked through services.py so the rules sit
+# in one place. The add form picks an account (the licence goes to its person);
+# afterwards only the tier can be changed. There is no delete: revoke instead.
+
+
+class GrantForm(forms.ModelForm):
+    account = forms.ModelChoiceField(
+        Account.objects.all(), help_text="The licence goes to this account's person."
+    )
+
+    class Meta:
+        model = Entitlement
+        fields = ("account", "tier", "source")
+
+
+@admin.register(Entitlement)
+class EntitlementAdmin(admin.ModelAdmin):
+    list_display = ("id", "logins", "tier", "source", "granted_at", "granted_by", "active")
+    list_filter = ("tier", "source")
+    search_fields = (
+        "person__accounts__email",
+        "person__accounts__contact_points__value_normalised",
+        "person__accounts__contact_points__value_display",
+    )
+    list_select_related = ("granted_by",)
+    actions = ["revoke_selected"]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("person__accounts")
+
+    def get_form(self, request, obj=None, **kwargs):
+        if obj is None:
+            kwargs["form"] = GrantForm
+        return super().get_form(request, obj, **kwargs)
+
+    def get_fields(self, request, obj=None):
+        if obj is None:
+            return ("account", "tier", "source")
+        return ("person", "tier", "source", "granted_by", "granted_at", "revoked_at")
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is None:
+            return ()
+        return ("person", "source", "granted_by", "granted_at", "revoked_at")
+
+    @admin.display(description="Logins")
+    def logins(self, entitlement):
+        return ", ".join(a.email for a in entitlement.person.accounts.all())
+
+    @admin.display(boolean=True, description="Active")
+    def active(self, entitlement):
+        return entitlement.is_active
+
+    def save_model(self, request, obj, form, change):
+        try:
+            if change:
+                services.change_tier(obj, form.cleaned_data["tier"])
+            else:
+                account = form.cleaned_data["account"]
+                created = services.grant_individual(
+                    account.person,
+                    form.cleaned_data["tier"],
+                    form.cleaned_data["source"],
+                    request.user,
+                )
+                obj.pk = created.pk  # so the admin's redirect finds the new row
+        except ValidationError as error:
+            self.message_user(request, " ".join(error.messages), messages.ERROR)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.action(description="Revoke the selected licences", permissions=["change"])
+    def revoke_selected(self, request, queryset):
+        for entitlement in queryset:
+            services.revoke(entitlement)
+        self.message_user(request, f"Revoked {queryset.count()} licence(s).", messages.SUCCESS)
