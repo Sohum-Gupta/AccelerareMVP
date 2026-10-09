@@ -1,8 +1,5 @@
 """Thin views: read the form, call a service, show the result."""
 
-import logging
-from smtplib import SMTPException
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
@@ -12,8 +9,6 @@ from django.views.decorators.http import require_POST
 from . import services
 from .forms import AddEmailForm, PhoneForm, SignupForm
 from .models import ContactPoint
-
-logger = logging.getLogger(__name__)
 
 
 def signup(request):
@@ -58,14 +53,10 @@ def _render_profile(request, add_email_form=None, phone_form=None):
 
 
 def _send_link(request, email):
-    """Mail failures (SES is still in its sandbox) must not lose the address we just saved."""
-    try:
-        services.send_verification(request, request.user, email)
-    except (SMTPException, OSError):
-        logger.exception("Could not send a verification link")
-        messages.warning(
-            request, f"Added {email}, but we could not send the link. Try Resend in a minute."
-        )
+    """The adapter warns if the mail server refuses; the address we just saved stays either way."""
+    services.send_verification(request, request.user, email)
+    if getattr(request, "mail_failed", False):
+        messages.info(request, f"Added {email}. Use Resend to get its link.")
         return
     messages.success(request, f"Added {email}. We sent it a link; open it to verify the address.")
 

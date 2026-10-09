@@ -119,6 +119,9 @@ ACCOUNT_EMAIL_SUBJECT_PREFIX = "[Accelerare] "
 # "you have no account, sign up?" mail to addresses we do not know.
 ACCOUNT_FORMS = {"reset_password": "apps.accounts.forms.PasswordResetRequestForm"}
 ACCOUNT_EMAIL_UNKNOWN_ACCOUNTS = False
+# Trying to log in unverified sends a fresh link; once a minute per address,
+# the same as the profile page's Resend.
+ACCOUNT_EMAIL_CONFIRMATION_COOLDOWN = 60
 
 # Argon2 first: new passwords use it, and an existing PBKDF2 hash is upgraded
 # the next time its owner logs in. The others stay so old hashes still verify.

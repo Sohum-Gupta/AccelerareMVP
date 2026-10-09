@@ -109,11 +109,12 @@ def test_add_email_rejects_a_duplicate_with_a_message(client, signed_in):
 
 
 def test_add_email_keeps_the_address_when_the_mail_server_refuses(client, signed_in):
-    with mock.patch.object(services, "send_verification", side_effect=SMTPException("sandbox")):
+    with mock.patch("django.core.mail.EmailMessage.send", side_effect=SMTPException("sandbox")):
         response = client.post("/accounts/profile/email/add/", {"email": "work@example.com"})
     assert response["Location"] == PROFILE
     assert signed_in.contact_points.filter(value_normalised="work@example.com").exists()
-    assert "could not send" in client.get(PROFILE).content.decode()
+    page = client.get(PROFILE).content.decode()
+    assert "could not send the email" in page and "Use Resend" in page
 
 
 def test_resend_sends_once_then_waits_a_minute(client, signed_in):
