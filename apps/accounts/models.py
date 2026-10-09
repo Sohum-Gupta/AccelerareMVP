@@ -93,6 +93,11 @@ class Account(AbstractBaseUser, PermissionsMixin):
         Person, null=True, blank=True, on_delete=models.PROTECT, related_name="accounts"
     )
 
+    # Set when the person presses "Not now" on the profile page's "add a personal
+    # email" banner, so it is not shown again. Adding an email stays possible
+    # whether or not it is set.
+    personal_email_prompt_dismissed_at = models.DateTimeField(null=True, blank=True)
+
     objects = AccountManager()
 
     USERNAME_FIELD = "email"

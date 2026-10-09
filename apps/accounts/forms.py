@@ -57,6 +57,29 @@ class SignupForm(forms.Form):
         return cleaned
 
 
+class AddEmailForm(forms.Form):
+    email = forms.EmailField(
+        label="Add an email", widget=forms.EmailInput(attrs={"autocomplete": "email"})
+    )
+
+
+class PhoneForm(forms.Form):
+    """The profile's change-phone form: the same two fields the signup page has."""
+
+    phone = forms.CharField(
+        label="Phone",
+        widget=forms.TextInput(
+            attrs={"type": "tel", "autocomplete": "tel-national", "data-phone-input": ""}
+        ),
+        help_text="Used to tell people apart. We do not text you yet.",
+    )
+    country = forms.ChoiceField(
+        label="Country of your phone number",
+        choices=country_choices,
+        help_text="So we can read a number typed without the country code.",
+    )
+
+
 class PasswordResetRequestForm(ResetPasswordForm):
     """
     allauth's reset form with two changes. It looks the address up only among

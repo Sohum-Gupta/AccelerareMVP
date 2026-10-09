@@ -20,9 +20,11 @@ Keeping both in step here means neither ever sees an address the other lacks.
 from allauth.account.models import EmailAddress
 from allauth.core import context as allauth_context
 from django.contrib.auth.password_validation import validate_password
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
 from .models import Account, ContactPoint
 from .normalisers import normalise_email, normalise_phone
@@ -110,6 +112,33 @@ def send_verification(request, account: Account, email: str) -> None:
     # the absolute link.
     with allauth_context.request_context(request):
         address.send_confirmation(request)
+
+
+RESEND_COOLDOWN_SECONDS = 60
+
+
+def resend_verification(request, account: Account, contact: ContactPoint) -> None:
+    """
+    Send a fresh link for one of the account's unverified emails, at most once a
+    minute per address. send_verification itself is not rate limited, so the
+    profile page goes through here. The count lives in Django's cache, which is
+    the shared database table, so both gunicorn workers see it.
+    """
+    if contact.account_id != account.pk or contact.kind != ContactPoint.Kind.EMAIL:
+        raise ValidationError("That is not one of your emails.")
+    if contact.verified_at is not None:
+        raise ValidationError("That email is already verified.")
+    # add() stores only if the key is absent, so it is both the check and the count.
+    if not cache.add(f"resend-verification:{contact.pk}", 1, RESEND_COOLDOWN_SECONDS):
+        raise ValidationError("A link was sent a moment ago. Give it a minute, then try again.")
+    send_verification(request, account, contact.value_normalised)
+
+
+def dismiss_personal_email_prompt(account: Account) -> None:
+    """Remember that the person chose "Not now"; the banner stops, adding an email still works."""
+    if account.personal_email_prompt_dismissed_at is None:
+        account.personal_email_prompt_dismissed_at = timezone.now()
+        account.save(update_fields=["personal_email_prompt_dismissed_at"])
 
 
 def account_for_reset(typed: str) -> Account | None:
