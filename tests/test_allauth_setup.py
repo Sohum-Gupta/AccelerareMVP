@@ -10,8 +10,6 @@ from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.utils import timezone
 
-from apps.accounts.models import Account
-
 from .test_account_services import make_account
 
 
@@ -22,20 +20,11 @@ def test_new_passwords_are_hashed_with_argon2():
     assert account.check_password("a-long-test-password")
 
 
-def test_allauth_signup_page_is_closed(client, db):
-    """Our signup page (PR 4) calls services.register; allauth's must not make accounts."""
-    response = client.get("/accounts/signup/")
-    assert response.status_code == 200
-    assert "account/signup_closed.html" in [t.name for t in response.templates]
-    response = client.post(
-        "/accounts/signup/",
-        {
-            "email": "x@example.com",
-            "password1": "a-long-test-password",
-            "password2": "a-long-test-password",
-        },
-    )
-    assert not Account.objects.filter(email="x@example.com").exists()
+def test_allauth_signup_stays_closed():
+    """/accounts/signup/ is our view now; allauth's own signup must still refuse to make accounts."""
+    from apps.accounts.adapter import AccountAdapter
+
+    assert AccountAdapter().is_open_for_signup(request=None) is False
 
 
 def test_allauth_pages_are_mounted(client, db):

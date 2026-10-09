@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Sign up · Accelerare{% endblock %}
+{% block content %}
+  <h1>Sign up</h1>
+  <form method="post" action="{% url 'account_signup' %}" novalidate>
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}<p class="mb-3 text-sm text-red-700">{{ error }}</p>{% endfor %}
+    {% for field in form %}{% include "includes/field.html" with field=field %}{% endfor %}
+    <button type="submit">Sign up</button>
+  </form>
+  <p class="mt-4 text-sm">Already have an account? <a href="{% url 'account_login' %}">Log in</a></p>
+{% endblock %}
