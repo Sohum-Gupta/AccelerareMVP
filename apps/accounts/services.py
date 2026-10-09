@@ -112,6 +112,48 @@ def send_verification(request, account: Account, email: str) -> None:
         address.send_confirmation(request)
 
 
+def account_for_reset(typed: str) -> Account | None:
+    """
+    The active account that has verified this address, or None. Only a verified
+    contact point counts: an unverified address may sit on several accounts, and
+    mailing a reset link to an address nobody has proven would hand the account
+    to whoever typed it. The unique constraint on verified emails means there
+    is at most one match.
+    """
+    contact = (
+        ContactPoint.objects.select_related("account")
+        .filter(
+            kind=ContactPoint.Kind.EMAIL,
+            value_normalised=normalise_email(typed),
+            verified_at__isnull=False,
+            account__is_active=True,
+        )
+        .first()
+    )
+    return contact.account if contact else None
+
+
+def send_reset_notice(request, account: Account, typed: str) -> None:
+    """
+    Tell the account's other verified emails that a reset was requested. The
+    notice has no link and no secret, so it is safe to send to an inbox we only
+    half trust (an old work address, say): it just warns the owner.
+    """
+    from allauth.account.adapter import get_adapter
+
+    typed_n = normalise_email(typed)
+    others = account.contact_points.filter(
+        kind=ContactPoint.Kind.EMAIL, verified_at__isnull=False
+    ).exclude(value_normalised=typed_n)
+    with allauth_context.request_context(request):
+        for contact in others:
+            get_adapter().send_mail(
+                "account/email/password_reset_notice",
+                contact.value_normalised,
+                {"requested_for": typed_n},
+            )
+
+
 def add_email(account: Account, email: str) -> ContactPoint:
     """Add an unverified, non-primary email. The caller sends the verification link."""
     typed, email_n = _clean_email(email)

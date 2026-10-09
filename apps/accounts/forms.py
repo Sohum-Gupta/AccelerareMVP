@@ -1,7 +1,10 @@
 """Forms for pages we own. Validation of the values themselves lives in services.py."""
 
 import pycountry
+from allauth.account.forms import ResetPasswordForm
 from django import forms
+
+from . import services
 
 # Shown first, in this order, then everyone else alphabetically.
 FIRST_COUNTRIES = ["US", "IN", "GB"]
@@ -50,3 +53,24 @@ class SignupForm(forms.Form):
         ):
             self.add_error("password2", "The two passwords do not match.")
         return cleaned
+
+
+class PasswordResetRequestForm(ResetPasswordForm):
+    """
+    allauth's reset form with two changes. It looks the address up only among
+    verified contact points (allauth would also fall back to unverified rows and
+    to Account.email), and it never says whether an account exists: an unknown
+    address passes validation and simply gets no mail.
+    """
+
+    def clean_email(self):
+        typed = self.cleaned_data["email"].strip()
+        self.account = services.account_for_reset(typed)
+        self.users = [self.account] if self.account else []
+        return typed
+
+    def save(self, request, **kwargs):
+        email = super().save(request, **kwargs)
+        if self.account:
+            services.send_reset_notice(request, self.account, email)
+        return email
