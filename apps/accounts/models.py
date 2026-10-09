@@ -13,7 +13,7 @@ database rules.
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models, transaction
 
-from .services import normalise_email
+from .normalisers import normalise_email
 
 
 class Person(models.Model):
