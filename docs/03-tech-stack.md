@@ -82,7 +82,7 @@ Each app exposes a small set of plain functions (for example `enterprises.servic
 
 **Person and contact points.** `Person` is a separate model that `Account` points to. `ContactPoint` rows hold emails and phones. allauth manages its own `EmailAddress` table for verification; a signal copies each verified email into `ContactPoint` so matching reads one table.
 
-**allauth usage.** allauth handles verification emails, tokens and the verify-link view. The project supplies its own signup, login, enterprise-join and invite-accept views and templates; they call allauth's helpers rather than using allauth's pages. allauth's own URLs are mounted only for the pieces used (verification, password reset).
+**allauth usage.** allauth handles verification emails, tokens and the verify-link view. The project supplies its own signup, login, enterprise-join and invite-accept views and templates; they call allauth's helpers rather than using allauth's pages. All of allauth's account URLs are mounted under `/accounts/`, because allauth links between its pages by name; the pages we replace (signup, login) are shadowed by our own views registered under the same names, and the adapter keeps allauth's signup closed. allauth's pages wear our layout through `templates/allauth/layouts/base.html`, which extends `base.html`.
 
 **Autosave.** Each question is a small form. Answering it sends an HTMX request to `responses:save_answer`, which writes one key into `response.answers` and returns the next question fragment. Submit is a separate view that validates all 25 answers are present, sets `status=submitted`, and enqueues jobs.
 
@@ -152,6 +152,7 @@ Tests: `uv run pytest`. Lint: `uv run ruff check . && uv run ruff format --check
 | 2026-10-05 | HTMX plus Django templates, no JavaScript framework | Autosave and inline updates without a frontend build |
 | 2026-10-05 | Tailwind via standalone CLI | Matches the Wix design without a Node project |
 | 2026-10-05 | Custom job table and worker, no Celery or Redis | Zero fixed cost; swappable |
+| 2026-10-09 | allauth's `EmailAddress` table kept in step with `ContactPoint` by the services, in one transaction | allauth resolves logins and resets through its table; ours is what matching and the profile read; neither may see an address the other lacks |
 | 2026-10-05 | `uv`, `ruff`, `pytest` | Fast, single-purpose, standard |
 | 2026-10-05 | Docker Compose for local PostgreSQL only; app runs natively on the Mac | Same database engine as production; fast reload loop |
 | 2026-10-05 | Sentry free tier from the first deploy | Errors must be visible without user reports |
