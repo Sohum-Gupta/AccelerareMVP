@@ -27,7 +27,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from .models import Account, ContactPoint
-from .normalisers import normalise_email, normalise_phone
+from .normalisers import display_phone, normalise_email, normalise_phone
 
 
 class EmailInUse(Exception):
@@ -87,7 +87,7 @@ def register(email: str, phone: str, country: str | None, password: str, request
                 account=account,
                 kind=ContactPoint.Kind.PHONE,
                 value_normalised=phone_n,
-                value_display=phone.strip(),
+                value_display=display_phone(phone_n),
                 is_primary=True,
             )
             EmailAddress.objects.create(user=account, email=email_n, primary=True)
@@ -280,13 +280,13 @@ def change_phone(account: Account, phone: str, country: str | None) -> ContactPo
                 account=account,
                 kind=ContactPoint.Kind.PHONE,
                 value_normalised=phone_n,
-                value_display=phone.strip(),
+                value_display=display_phone(phone_n),
                 is_primary=True,
             )
         if current.value_normalised == phone_n:
             return current
         current.value_normalised = phone_n
-        current.value_display = phone.strip()
+        current.value_display = display_phone(phone_n)
         current.verified_at = None
         current.save(update_fields=["value_normalised", "value_display", "verified_at"])
         return current

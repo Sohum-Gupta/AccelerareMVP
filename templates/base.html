@@ -20,7 +20,7 @@
           {# allauth's logout needs a POST; a plain link would be refused. #}
           <form method="post" action="{% url 'account_logout' %}">
             {% csrf_token %}
-            <button type="submit" class="cursor-pointer bg-transparent text-brand underline hover:bg-transparent hover:text-brand-dark">Log out</button>
+            <button type="submit" class="link-button">Log out</button>
           </form>
         {% else %}
           <a href="{% url 'account_login' %}">Log in</a>

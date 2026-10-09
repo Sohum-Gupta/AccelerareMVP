@@ -7,11 +7,11 @@ The page must load the intl-tel-input assets and js/phone-input.js (see account/
 <div class="mb-4" data-phone-root>
   <label for="{{ phone.id_for_label }}">{{ phone.label }}</label>
   {{ phone }}
-  {% if phone.help_text %}<p class="mt-1 text-sm text-slate-600">{{ phone.help_text }}</p>{% endif %}
-  {% for error in phone.errors %}<p class="mt-1 text-sm text-red-700" data-error-for="{{ phone.id_for_label }}">{{ error }}</p>{% endfor %}
+  {% if phone.help_text %}<p class="mt-1 mb-0 text-sm text-slate-600">{{ phone.help_text }}</p>{% endif %}
+  {% for error in phone.errors %}<p class="mt-1 mb-0 text-sm text-red-700" data-error-for="{{ phone.id_for_label }}">{{ error }}</p>{% endfor %}
   <div class="mt-3" data-phone-country>
     <label for="{{ country.id_for_label }}">{{ country.label }}</label>
     {{ country }}
-    {% for error in country.errors %}<p class="mt-1 text-sm text-red-700">{{ error }}</p>{% endfor %}
+    {% for error in country.errors %}<p class="mt-1 mb-0 text-sm text-red-700">{{ error }}</p>{% endfor %}
   </div>
 </div>

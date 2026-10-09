@@ -163,3 +163,14 @@ def test_new_password_page_has_the_live_checklists(client):
     request_reset(client, "bob@example.com")
     page = client.get(reset_link(), follow=True).content.decode()
     assert 'data-hints="password"' in page and 'data-hints="match"' in page
+
+
+@pytest.mark.django_db
+def test_new_password_page_matches_signup_wording(client):
+    make_account(client)
+    request_reset(client, "bob@example.com")
+    page = client.get(reset_link(), follow=True).content.decode()
+    assert "New password</label>" in page and "New password again</label>" in page
+    # The live checklist replaces Django's validator help text and the placeholders.
+    assert "Your password can" not in page
+    assert "placeholder=" not in page

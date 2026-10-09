@@ -507,7 +507,6 @@ Things agreed but not done, so they are not forgotten. Move a line to the decisi
 
 **Small code and docs follow-ups**
 - [ ] A test for the password-reset refused-mail path (it shares `AccountAdapter.send_mail` with signup but has none of its own).
-- [ ] One visual polish PR after PR 8.
 - [ ] Register `/health` with an uptime checker (`04-infrastructure.md`, step 8.4).
 - [ ] The README is being written by the founder separately.
 

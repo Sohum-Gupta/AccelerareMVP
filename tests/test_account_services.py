@@ -86,7 +86,7 @@ def test_register_creates_person_account_and_two_primary_contacts():
     assert email.is_primary and email.verified_at is None  # proven only by the link
 
     phone = account.contact_points.get(kind=ContactPoint.Kind.PHONE)
-    assert (phone.value_normalised, phone.value_display) == ("+919876543210", "098765 43210")
+    assert (phone.value_normalised, phone.value_display) == ("+919876543210", "+91 98765 43210")
     assert phone.is_primary and phone.verified_at is None  # SMS verification comes later
 
     assert account.contact_points.count() == 2
@@ -310,7 +310,7 @@ def test_change_phone_replaces_the_number_and_resets_verification():
 
     phone.refresh_from_db()
     assert phone.value_normalised == "+14155552671"
-    assert phone.value_display == "(415) 555-2671"
+    assert phone.value_display == "+1 415-555-2671"
     assert phone.is_primary and phone.verified_at is None  # a new number is unproven
     assert account.contact_points.filter(kind=ContactPoint.Kind.PHONE).count() == 1
 

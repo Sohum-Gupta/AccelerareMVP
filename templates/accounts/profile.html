@@ -12,7 +12,7 @@
   {% if show_personal_email_prompt %}
     <section class="mb-6 rounded-md border border-slate-300 bg-white p-4" aria-labelledby="prompt-title">
       <h2 id="prompt-title" class="mb-1 text-base font-semibold">Add a personal email</h2>
-      <p class="mb-3 text-sm text-slate-700">If your work address stops working, a personal one lets you always get back in. You can add it now or any time below.</p>
+      <p class="mb-3 text-sm text-slate-700">If your work address stops working, a personal one lets you always get back in. You can add it now or later from this page.</p>
       <form method="post" action="{% url 'profile_add_email' %}" novalidate>
         {% csrf_token %}
         {% include "includes/field.html" with field=add_email_form.email %}
@@ -20,7 +20,7 @@
       </form>
       <form method="post" action="{% url 'profile_dismiss_prompt' %}" class="mt-3">
         {% csrf_token %}
-        <button type="submit" class="cursor-pointer bg-transparent text-brand underline hover:bg-transparent hover:text-brand-dark">Not now</button>
+        <button type="submit" class="link-button">Not now</button>
       </form>
     </section>
   {% endif %}
@@ -48,7 +48,7 @@
           {% endif %}
           {% if not contact.is_primary %}
             <form method="post" action="{% url 'profile_remove_contact' contact.pk %}">
-              {% csrf_token %}<button type="submit">Remove</button>
+              {% csrf_token %}<button type="submit" class="button-secondary">Remove</button>
             </form>
           {% endif %}
         </div>

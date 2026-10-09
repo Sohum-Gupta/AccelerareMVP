@@ -164,6 +164,7 @@ def test_login_page_uses_allauths_field_names(client):
     assert 'name="login"' in html
     assert 'name="password"' in html
     assert 'href="/accounts/signup/"' in html
+    assert "placeholder=" not in html  # labels sit above the boxes, as on signup
 
 
 @pytest.mark.django_db
