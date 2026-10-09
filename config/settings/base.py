@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "allauth.account",
     "apps.accounts",
     "apps.survey",
+    "apps.entitlements",
 ]
 
 # Must be set before the first migration runs; changing it later means
