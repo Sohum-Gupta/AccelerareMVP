@@ -7,6 +7,7 @@ import re
 
 import pytest
 from django.core import mail
+from django.urls import reverse
 
 from apps.accounts import services
 from apps.accounts.forms import country_choices
@@ -184,3 +185,23 @@ def test_wrong_password_shows_an_error_on_the_login_page(client):
 
     assert response.status_code == 200
     assert "_auth_user_id" not in client.session
+
+
+# --- phone widget --------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_signup_page_wires_up_the_phone_widget(client):
+    html = client.get(reverse("account_signup")).content.decode()
+    assert "data-phone-input" in html and "data-phone-root" in html
+    assert "intlTelInput.min.js" in html and "js/phone-input.js" in html
+    # Still a real dropdown in the HTML, so the form works without JavaScript.
+    assert '<select name="country"' in html
+
+
+def test_vendored_widget_files_exist_where_the_css_expects_them():
+    from pathlib import Path
+
+    base = Path(__file__).resolve().parent.parent / "static/vendor/intl-tel-input"
+    for name in ("js/intlTelInput.min.js", "css/intlTelInput.min.css", "img/flags.webp"):
+        assert (base / name).is_file(), name

@@ -25,7 +25,9 @@ class SignupForm(forms.Form):
     email = forms.EmailField(widget=forms.EmailInput(attrs={"autocomplete": "email"}))
     phone = forms.CharField(
         label="Phone",
-        widget=forms.TextInput(attrs={"type": "tel", "autocomplete": "tel"}),
+        widget=forms.TextInput(
+            attrs={"type": "tel", "autocomplete": "tel-national", "data-phone-input": ""}
+        ),
         help_text="Used to tell people apart. We do not text you yet.",
     )
     country = forms.ChoiceField(

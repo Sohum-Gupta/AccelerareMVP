@@ -24,3 +24,6 @@
     @apply cursor-pointer rounded-md bg-brand px-4 py-2 font-medium text-white hover:bg-brand-dark;
   }
 }
+
+/* intl-tel-input wraps the phone box in .iti; let it fill the column like the other inputs. */
+.iti { width: 100%; }
