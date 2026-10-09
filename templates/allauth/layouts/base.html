@@ -3,14 +3,8 @@
 Every allauth page (login, password reset, confirm email) extends allauth's
 own layout, which extends this file. Pointing it at our base.html gives all
 of them our shell without copying allauth's views. The `title` and `content`
-blocks are ours; `head_title` is allauth's name for the page title.
+blocks are ours; `head_title` is allauth's name for the page title. Flash
+messages are shown by base.html, not here.
 {% endcomment %}
 {% block title %}{% block head_title %}{% endblock %} · Accelerare{% endblock %}
-{% block content %}
-  {% if messages %}
-    <ul class="messages">
-      {% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}
-    </ul>
-  {% endif %}
-  {% block body %}{% endblock %}
-{% endblock %}
+{% block content %}{% block body %}{% endblock %}{% endblock %}

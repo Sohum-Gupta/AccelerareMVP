@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+/* Where Tailwind looks for class names. Paths are relative to this file. */
+@source "../../templates";
+@source "../../apps";
+
+/* Design values live here so a re-theme is one edit. Placeholder palette. */
+@theme {
+  --color-brand: #1d4ed8;
+  --color-brand-dark: #1e3a8a;
+}
+
+/* Plain defaults for bare tags, so pages that only use <h1>, <p>, <a>,
+   <button> and <input> (allauth's, ours) look sane without per-tag classes. */
+@layer base {
+  h1 { @apply mb-4 text-2xl font-semibold; }
+  p { @apply mb-3; }
+  a { @apply text-brand underline; }
+  label { @apply mb-1 block text-sm font-medium; }
+  input:not([type="checkbox"]), select {
+    @apply w-full rounded-md border border-slate-300 bg-white px-3 py-2;
+  }
+  button[type="submit"] {
+    @apply cursor-pointer rounded-md bg-brand px-4 py-2 font-medium text-white hover:bg-brand-dark;
+  }
+}
