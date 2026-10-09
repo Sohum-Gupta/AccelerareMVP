@@ -57,4 +57,7 @@ def test_login_resends_a_link_but_only_once_a_minute(client, mailoutbox):
 def test_the_login_resend_cooldown_matches_the_profile_page():
     from django.conf import settings
 
-    assert settings.ACCOUNT_EMAIL_CONFIRMATION_COOLDOWN == services.RESEND_COOLDOWN_SECONDS
+    assert (
+        settings.ACCOUNT_RATE_LIMITS["confirm_email"]
+        == f"1/{services.RESEND_COOLDOWN_SECONDS}s/key"
+    )
