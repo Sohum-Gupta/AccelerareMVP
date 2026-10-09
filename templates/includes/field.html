@@ -22,6 +22,6 @@ Server validation is unchanged and still the authority.
       {% endif %}
     </ul>
   {% endif %}
-  {% if field.help_text %}<p class="mt-1 text-sm text-slate-600">{{ field.help_text }}</p>{% endif %}
-  {% for error in field.errors %}<p class="mt-1 text-sm text-red-700" data-error-for="{{ field.id_for_label }}">{{ error }}</p>{% endfor %}
+  {% if field.help_text %}<p class="mt-1 mb-0 text-sm text-slate-600">{{ field.help_text }}</p>{% endif %}
+  {% for error in field.errors %}<p class="mt-1 mb-0 text-sm text-red-700" data-error-for="{{ field.id_for_label }}">{{ error }}</p>{% endfor %}
 </div>

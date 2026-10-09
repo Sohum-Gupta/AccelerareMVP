@@ -35,5 +35,14 @@
   .hint[data-met="true"]::before { content: "\2713"; }
 }
 
+/* Buttons that must be <button> (a POST) but should not look like the main
+   action: a link-styled one for "Log out" and "Not now", and a quiet outlined
+   one for "Remove". Being in the components layer, they override the base
+   button[type="submit"] rule above. */
+@layer components {
+  .link-button { @apply cursor-pointer bg-transparent p-0 text-brand underline hover:bg-transparent hover:text-brand-dark; }
+  .button-secondary { @apply border border-slate-300 bg-white text-slate-800 hover:bg-slate-100; }
+}
+
 /* intl-tel-input wraps the phone box in .iti; let it fill the column like the other inputs. */
 .iti { width: 100%; }
