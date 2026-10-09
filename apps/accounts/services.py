@@ -99,6 +99,13 @@ def register(email: str, phone: str, country: str | None, password: str, request
     return account
 
 
+def has_verified_email(account: Account) -> bool:
+    """True once the account has proven at least one email address."""
+    return account.contact_points.filter(
+        kind=ContactPoint.Kind.EMAIL, verified_at__isnull=False
+    ).exists()
+
+
 def send_verification(request, account: Account, email: str) -> None:
     """
     Email a verification link for one of the account's addresses. The link is
