@@ -1,0 +1,27 @@
+{% extends "account/base_entrance.html" %}
+{% comment %}
+The page a verification link opens. Three cases:
+- the link is live: one button, so a mail scanner that follows links cannot verify on the person's behalf;
+- the address is already verified by another account: say so and offer that account's login and reset;
+- the link is dead (used or expired): the usual reason is that it already worked.
+{% endcomment %}
+{% block head_title %}Confirm your email{% endblock %}
+{% block content %}
+  <h1>Confirm your email</h1>
+  {% if confirmation %}
+    {% if can_confirm %}
+      <p>Press the button to confirm that <strong>{{ confirmation.email_address.email }}</strong> is yours.</p>
+      <form method="post" action="{% url 'account_confirm_email' confirmation.key %}">
+        {% csrf_token %}
+        {{ redirect_field }}
+        <button type="submit">Confirm</button>
+      </form>
+    {% else %}
+      <p><strong>{{ confirmation.email_address.email }}</strong> is already verified on another account, so it cannot be added to this one.</p>
+      <p>If that other account is yours, <a href="{% url 'account_login' %}">log in to it</a> or <a href="{% url 'account_reset_password' %}">reset its password</a>. An account can only use one login name, and a verified email belongs to exactly one account.</p>
+    {% endif %}
+  {% else %}
+    <p>This link no longer works. Usually that means it has already been used and the address is verified: <a href="{% url 'account_login' %}">log in</a> to check.</p>
+    <p>Links also expire after three days. If this one did, <a href="{% url 'account_login' %}">logging in</a> with that address sends a fresh one.</p>
+  {% endif %}
+{% endblock %}

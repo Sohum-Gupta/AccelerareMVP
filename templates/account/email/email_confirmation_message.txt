@@ -1,0 +1,10 @@
+{% autoescape off %}Hello,
+
+Someone entered this email address on Accelerare. If it was you, open this link to confirm the address:
+
+{{ activate_url }}
+
+The link works for three days. If it was not you, ignore this message and nothing will happen.
+
+Accelerare
+{% endautoescape %}
