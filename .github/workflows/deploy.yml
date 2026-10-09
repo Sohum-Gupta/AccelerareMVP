@@ -4,7 +4,8 @@
 # On push to main:  CI runs first; if it passes, the image is built and pushed.
 # On pull requests that touch the image inputs: the image is built and
 # smoke-tested but never pushed, so a broken Dockerfile is caught before merge.
-# The SSH deploy to the server is added later, once the server exists.
+# After a push to main publishes the image, the deploy job copies deploy/ to the
+# server over SSH and runs deploy.sh there. Pull requests never reach the server.
 name: Deploy
 
 on:
@@ -124,3 +125,46 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           provenance: false
           cache-from: type=gha
+
+  # Runs only after the image was built, smoke-tested and pushed from main.
+  # Three repository secrets are needed (Settings > Secrets and variables > Actions):
+  #   DEPLOY_HOST        the server's address
+  #   DEPLOY_SSH_KEY     private half of a key used only for deploys
+  #   DEPLOY_KNOWN_HOSTS the server's SSH host key, so a lookalike server is refused
+  deploy:
+    needs: image
+    if: ${{ !cancelled() && needs.image.result == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    # One deploy at a time, and never cut one off half way.
+    concurrency:
+      group: server-deploy
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Trust only our server, and load the deploy key
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      # StrictHostKeyChecking=yes refuses to connect if the server's key is not the one
+      # in known_hosts, instead of asking or silently accepting.
+      - name: Copy the server files
+        run: |
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            deploy/docker-compose.yml deploy/Caddyfile deploy/deploy.sh deploy/render_env.py \
+            "ubuntu@${DEPLOY_HOST}:/opt/survey/"
+
+      - name: Run deploy.sh on the server
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "ubuntu@${DEPLOY_HOST}" /opt/survey/deploy.sh
