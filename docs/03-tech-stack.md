@@ -84,7 +84,7 @@ Each app exposes a small set of plain functions (for example `enterprises.servic
 
 **allauth usage.** allauth handles verification emails, tokens and the verify-link view. The project supplies its own signup, login, enterprise-join and invite-accept views and templates; they call allauth's helpers rather than using allauth's pages. All of allauth's account URLs are mounted under `/accounts/`, because allauth links between its pages by name; the pages we replace (signup, login) are shadowed by our own views registered under the same names, and the adapter keeps allauth's signup closed. allauth's pages wear our layout through `templates/allauth/layouts/base.html`, which extends `base.html`.
 
-**Autosave.** Each question is a small form. Answering it sends an HTMX request to `responses:save_answer`, which writes one key into `response.answers` and returns the next question fragment. Submit is a separate view that validates all 25 answers are present, sets `status=submitted`, and enqueues jobs.
+**Autosave.** Five statements a page; each statement is a small form. Answering it sends an HTMX request to `responses:save_answer`, which writes one key into `response.answers`. A plain Next post locks the page (`complete_page`). Submit is a separate view that validates all pages are locked and all 25 answers are present, sets `status=submitted`, and enqueues jobs.
 
 **Tenant scoping.** `enterprises.scoping.for_admin(request)` returns the active admin membership or raises; every enterprise-scoped queryset is built from it (`Response.objects.filter(membership__enterprise=membership.enterprise)`). No view reads an enterprise id from the URL.
 
@@ -96,7 +96,7 @@ Each app exposes a small set of plain functions (for example `enterprises.servic
 
 **Enterprise admin.** Custom views and templates under `/enterprise/<slug>/`; the slug is resolved and then discarded in favour of the membership from `for_admin()`.
 
-**Survey definition.** `survey/fixtures/v1.json` holds the 25 questions and is loaded by a data migration. Questions are read from the database at runtime.
+**Survey definition.** A data migration creates survey v1 with 25 placeholder rows. The real statements are private: `manage.py load_questions <file>` fills them in from a JSON file that is never committed (`private/` on a laptop, `/opt/survey/private/` on the server, run by `deploy.sh`). Questions are read from the database at runtime.
 
 **Settings split.** `base.py` holds everything common; `local.py` turns on debug and the console email backend; `production.py` enforces HTTPS, secure cookies and real email. The environment selects which one loads.
 
@@ -106,7 +106,7 @@ Each app exposes a small set of plain functions (for example `enterprises.servic
 2. `git clone`, then `uv sync` to create the virtualenv and install dependencies.
 3. `cp .env.example .env` and fill in a database URL pointing at the Compose PostgreSQL.
 4. `docker compose up -d` starts PostgreSQL.
-5. `uv run python manage.py migrate` creates the schema and loads survey v1.
+5. `uv run python manage.py migrate` creates the schema and survey v1 with placeholder statements. Ask the founder for `survey_v1.json`, put it in `private/` (gitignored) and run `uv run python manage.py load_questions private/survey_v1.json` for the real wording.
 6. `uv run python manage.py createsuperuser` creates the root admin.
 7. `uv run python manage.py runserver` and, in a second terminal, `uv run python manage.py run_worker`.
 8. `tailwindcss -i assets/tailwind.css -o static/css/app.css --watch` rebuilds CSS on change. Install with `brew install tailwindcss` (v4). `app.css` is generated but committed, so rebuild with `--minify` before committing a template change.

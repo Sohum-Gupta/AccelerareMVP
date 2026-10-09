@@ -172,7 +172,7 @@ Open questions to resolve before or during the Architecture session:
 - [x] Codes: resolved, both shared codes with a cap and per-person codes, plus email invites (FR-7).
 - [x] Auto-link: resolved, verified email and phone auto-link; name flags.
 - [x] Domain verification: resolved, no domains; invites and codes only (FR-3, FR-6).
-- [x] Survey shape: resolved, 25 questions, each answered 1–5, no branching.
+- [x] Survey shape: resolved, 25 statements, each rated 1–4 (changed from 1–5 on 2026-10-09), five a page, no branching.
 - [x] Languages: resolved, English only; strings externalised.
 - [ ] Phone verification by SMS: deferred; needs an Indian SMS provider and DLT registration.
 
@@ -188,7 +188,7 @@ Decisions made in Planning Session 1 (2026-10-05), newest first. Later sessions 
 | 2026-10-05 | Enterprises self-register; membership only via invite or code; no email-domain rules (Session 2) | Founder wants no manual review |
 | 2026-10-05 | Verified email and phone auto-link accounts; name only flags (Session 2) | Founder decision |
 | 2026-10-05 | Phone number and at least one email are mandatory at registration (Session 2) | Founder decision; improves repeat-user matching once phone verification exists |
-| 2026-10-05 | Survey is 25 numeric 1–5 questions, no branching, English only (Session 2) | Stated by founder |
+| 2026-10-05 | Survey is 25 numeric questions, no branching, English only (Session 2); scale changed to 1–4 on 2026-10-09 | Stated by founder |
 | 2026-10-05 | Data is jointly owned by person, enterprise and platform; it persists after a member leaves | Stated by founder |
 | 2026-10-05 | Enterprises buy seat pools per tier, and can mix tiers across members | Stated by founder |
 | 2026-10-05 | Repeat-user detection is best-effort flagging plus a self-report question; misses are acceptable | No reliable cross-employer identifier exists |
