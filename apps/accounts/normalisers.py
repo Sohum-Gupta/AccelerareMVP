@@ -38,3 +38,13 @@ def normalise_phone(value: str, country: str | None) -> str:
     if not phonenumbers.is_valid_number(number):
         raise ValidationError("Enter a valid phone number.", code="invalid_phone")
     return phonenumbers.format_number(number, phonenumbers.PhoneNumberFormat.E164)
+
+
+def display_phone(e164: str) -> str:
+    """
+    The form a person reads: `+91 98765 43210`, `+1 415-555-2671`. Always
+    carries the country code, so numbers from different countries do not look
+    alike on the profile page. Takes the E.164 string normalise_phone returned.
+    """
+    number = phonenumbers.parse(e164, None)
+    return phonenumbers.format_number(number, phonenumbers.PhoneNumberFormat.INTERNATIONAL)
