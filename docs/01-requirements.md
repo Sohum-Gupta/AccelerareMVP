@@ -81,7 +81,7 @@ Numbered so later docs and code can cite them. "Must" items block the MVP; "shou
 **Viewing and export**
 
 18. FR-18 (must): Each role sees a filterable, sortable table of the responses in its scope (own, enterprise, all), with status, date, tier, and enterprise columns.
-19. FR-19 (must): Clicking a response shows every question and answer in full.
+19. FR-19 (must): Clicking a response shows every question and answer in full. *Overridden on 2026-10-09 for the person's own scope: a person never sees their answers after submitting, only date, status, tier and results. Root admin keeps the full view; enterprise admin scope is undecided.*
 20. FR-20 (must): Enterprise admins and root admin can export their scope as CSV.
 21. FR-21 (deferred): Charts, aggregates, dashboards.
 
@@ -94,7 +94,7 @@ Numbered so later docs and code can cite them. "Must" items block the MVP; "shou
 
 **Tiers and entitlements**
 
-26. FR-34 (must): A tier is held as an entitlement on a person (individual purchase) or on a membership (enterprise seat). Results are computed in full and filtered on display by the viewer's entitlement. Entitlements can be granted before or after a response is submitted.
+26. FR-34 (must): A tier is held as an entitlement on a person (individual purchase) or on a membership (enterprise seat). Results are computed in full and filtered on display by the viewer's entitlement. Entitlements can be granted before or after a response is submitted. *Changed on 2026-10-09: a licence must exist before an attempt starts; it is one attempt plus results at its tier, upgradeable in place.*
 
 ## Repeat-user identification
 
@@ -184,7 +184,8 @@ Decisions made in Planning Session 1 (2026-10-05), newest first. Later sessions 
 | --- | --- | --- |
 | 2026-10-09 | A verified email has one owner; a second claim is recovered (log in or reset the existing account), never auto-linked or auto-merged | Controlling an inbox proves ownership of the address today, not of an account verified earlier; recycled corporate and shared mailboxes would otherwise take over accounts silently. Recovery needs a deliberate reset that the owner is notified of and root admin can reverse |
 | 2026-10-09 | Login with any verified email, reset from any verified email, change the primary email, remove emails; second email prompted after first verification; phone with country (IN/US/UK first) | Founder: one account per person across employers; people rarely return to a profile page; three target markets |
-| 2026-10-05 | Tier is an entitlement on person or membership; the survey has no tier (Session 2) | Founder: same survey for all, pay before or after, show what is paid for |
+| 2026-10-05 | Tier is an entitlement on person or membership; the survey has no tier (Session 2) | Founder: same survey for all, pay before or after, show what is paid for. *"Pay before or after" overridden 2026-10-09: pay before, one licence per attempt* |
+| 2026-10-09 | The survey is behind a paywall: a licence of any tier is one attempt plus results at its tier; registration stays free; a person never sees their answers after submitting | Founder's rule (see `05-build-plan.md` decision log) |
 | 2026-10-05 | Enterprises self-register; membership only via invite or code; no email-domain rules (Session 2) | Founder wants no manual review |
 | 2026-10-05 | Verified email and phone auto-link accounts; name only flags (Session 2) | Founder decision |
 | 2026-10-05 | Phone number and at least one email are mandatory at registration (Session 2) | Founder decision; improves repeat-user matching once phone verification exists |
