@@ -7,10 +7,11 @@ import re
 
 import pytest
 from django.core import mail
+from django.template.loader import render_to_string
 from django.urls import reverse
 
 from apps.accounts import services
-from apps.accounts.forms import country_choices
+from apps.accounts.forms import SignupForm, country_choices
 from apps.accounts.models import Account, ContactPoint, Person
 
 from .test_verification import PASSWORD, last_link, login
@@ -205,3 +206,39 @@ def test_vendored_widget_files_exist_where_the_css_expects_them():
     base = Path(__file__).resolve().parent.parent / "static/vendor/intl-tel-input"
     for name in ("js/intlTelInput.min.js", "css/intlTelInput.min.css", "img/flags.webp"):
         assert (base / name).is_file(), name
+
+
+# --- live hints ----------------------------------------------------------------
+
+
+def test_checklist_length_matches_the_server_rule():
+    from django.conf import settings
+
+    options = next(
+        v["OPTIONS"]
+        for v in settings.AUTH_PASSWORD_VALIDATORS
+        if v["NAME"].endswith("MinimumLengthValidator")
+    )
+    html = render_to_string(
+        "includes/field.html", {"field": SignupForm()["password1"], "hints": "password"}
+    )
+    assert f'data-min="{options["min_length"]}"' in html
+    assert f"At least {options['min_length']} characters" in html
+
+
+@pytest.mark.django_db
+def test_signup_page_has_hints_for_email_password_and_match(client):
+    html = client.get(reverse("account_signup")).content.decode()
+    for kind in ("email", "password", "match"):
+        assert f'data-hints="{kind}"' in html
+    assert "js/live-hints.js" in html
+    assert 'data-match="id_password1"' in html
+
+
+@pytest.mark.django_db
+def test_nine_character_password_is_now_refused(client):
+    response = client.post(
+        reverse("account_signup"), signup_data(password1="nine-char", password2="nine-char")
+    )
+    assert response.status_code == 200
+    assert "too short" in response.content.decode()

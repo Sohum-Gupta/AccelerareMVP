@@ -25,5 +25,15 @@
   }
 }
 
+/* Live checklists (static/js/live-hints.js sets data-met on each line). Each
+   line starts with a symbol as well as a colour, so it does not rely on colour. */
+@layer components {
+  .hint-list { @apply mt-2 mb-0 list-none space-y-1 p-0 text-sm; }
+  .hint { @apply flex items-start gap-2 text-slate-600; }
+  .hint::before { content: "\25CB"; @apply shrink-0; }
+  .hint[data-met="true"] { @apply text-green-700; }
+  .hint[data-met="true"]::before { content: "\2713"; }
+}
+
 /* intl-tel-input wraps the phone box in .iti; let it fill the column like the other inputs. */
 .iti { width: 100%; }

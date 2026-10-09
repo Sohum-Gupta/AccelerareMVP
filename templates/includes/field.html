@@ -1,7 +1,27 @@
-{# One form field: label, input, help text and errors. Usage: {% include "includes/field.html" with field=form.email %} #}
+{% comment %}
+One form field: label, input, help text, errors.
+Usage: include with field=form.email
+Optional live hints, shown by js/live-hints.js while the person types:
+  hints="email"     a valid-looking address
+  hints="password"  length and not-only-digits (keep 10 in step with MinimumLengthValidator; a test checks)
+  hints="match"     matches another field; also pass match_with=form.password1
+Server validation is unchanged and still the authority.
+{% endcomment %}
 <div class="mb-4">
   <label for="{{ field.id_for_label }}">{{ field.label }}</label>
   {{ field }}
+  {% if hints %}
+    <ul class="hint-list" hidden aria-live="polite" data-hints="{{ hints }}" data-for="{{ field.id_for_label }}"{% if match_with %} data-match="{{ match_with.id_for_label }}"{% endif %} data-min="10">
+      {% if hints == "email" %}
+        <li class="hint" data-rule="email">Looks like an email address, like name@example.com</li>
+      {% elif hints == "password" %}
+        <li class="hint" data-rule="length">At least 10 characters</li>
+        <li class="hint" data-rule="not-digits">Not only numbers</li>
+      {% elif hints == "match" %}
+        <li class="hint" data-rule="match">Passwords match</li>
+      {% endif %}
+    </ul>
+  {% endif %}
   {% if field.help_text %}<p class="mt-1 text-sm text-slate-600">{{ field.help_text }}</p>{% endif %}
   {% for error in field.errors %}<p class="mt-1 text-sm text-red-700">{{ error }}</p>{% endfor %}
 </div>

@@ -11,10 +11,10 @@
   <form method="post" action="{% url 'account_signup' %}" novalidate>
     {% csrf_token %}
     {% for error in form.non_field_errors %}<p class="mb-3 text-sm text-red-700">{{ error }}</p>{% endfor %}
-    {% include "includes/field.html" with field=form.email %}
+    {% include "includes/field.html" with field=form.email hints="email" %}
     {% include "includes/phone_input.html" with phone=form.phone country=form.country %}
-    {% include "includes/field.html" with field=form.password1 %}
-    {% include "includes/field.html" with field=form.password2 %}
+    {% include "includes/field.html" with field=form.password1 hints="password" %}
+    {% include "includes/field.html" with field=form.password2 hints="match" match_with=form.password1 %}
     <button type="submit">Sign up</button>
   </form>
   <p class="mt-4 text-sm">Already have an account? <a href="{% url 'account_login' %}">Log in</a></p>

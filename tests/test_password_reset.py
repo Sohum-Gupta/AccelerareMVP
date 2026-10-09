@@ -155,3 +155,11 @@ def test_reset_requests_are_rate_limited(client):
         request_reset(client, "bob@example.com")
     # allauth allows 5 per minute per address; the rest are refused, not mailed.
     assert len(mail.outbox) == 5
+
+
+@pytest.mark.django_db
+def test_new_password_page_has_the_live_checklists(client):
+    make_account(client)
+    request_reset(client, "bob@example.com")
+    page = client.get(reset_link(), follow=True).content.decode()
+    assert 'data-hints="password"' in page and 'data-hints="match"' in page
