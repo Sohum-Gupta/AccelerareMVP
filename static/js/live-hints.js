@@ -44,3 +44,16 @@
     update();
   });
 })();
+
+// Server errors come from the last submit. Once the person edits that field
+// they may be out of date (a "required" error beside a filled-in box), so hide
+// them; the server checks again on the next submit.
+(function () {
+  document.querySelectorAll("[data-error-for]").forEach(function (error) {
+    var input = document.getElementById(error.dataset.errorFor);
+    if (!input) return;
+    input.addEventListener("input", function () {
+      error.hidden = true;
+    });
+  });
+})();

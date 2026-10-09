@@ -249,3 +249,13 @@ def test_nine_character_password_is_now_refused(client):
     )
     assert response.status_code == 200
     assert "too short" in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_server_errors_carry_the_hook_that_hides_them_when_the_field_is_edited(client):
+    html = client.post(
+        reverse("account_signup"),
+        signup_data(email="", phone="", password1="", password2=""),
+    ).content.decode()
+    for field_id in ("id_email", "id_phone", "id_password1", "id_password2"):
+        assert f'data-error-for="{field_id}"' in html
