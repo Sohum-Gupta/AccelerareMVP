@@ -12,6 +12,7 @@ dependencies = [
     "gunicorn>=26.2.0",
     "phonenumbers>=9.0.41",
     "psycopg[binary]>=3.3.6",
+    "pycountry>=26.2.16",
     "sentry-sdk>=2.71.0",
     "whitenoise>=6.12.0",
 ]
