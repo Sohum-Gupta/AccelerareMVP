@@ -86,8 +86,8 @@ erDiagram
 | `seat_pool` | id, enterprise_id, tier (1–3), seats | Set by root admin until payments exist |
 | `survey_version` | id, number, published_at, question_count | v1 only in MVP |
 | `question` | id, survey_version_id, position, text, min_value, max_value, metadata (JSONB) | 25 rows for v1, all 1–4; `metadata` holds later per-question fields |
-| `response` | id, account_id, membership_id (nullable), survey_version_id, status (draft/submitted), answers (JSONB), took_before (self-report), took_before_where, pages_completed, started_at, submitted_at, possible_repeat (bool) | `answers` is `{"1": 3, "2": 4, ...}` keyed by question id; `membership_id` null means individual context and is added in Milestone 3 |
-| `entitlement` | id, person_id (nullable), membership_id (nullable), tier, source (seat/purchase/manual), granted_by_account_id, granted_at, revoked_at | Exactly one of person_id / membership_id is set |
+| `response` | id, account_id, membership_id (nullable), survey_version_id, status (draft/submitted), answers (JSONB), took_before (self-report), took_before_where, entitlement_id (one-to-one), pages_completed, started_at, submitted_at, possible_repeat (bool) | `answers` is `{"1": 3, "2": 4, ...}` keyed by question id; `membership_id` null means individual context and is added in Milestone 3 |
+| `entitlement` | id, person_id (nullable), membership_id (nullable), tier, source (seat/purchase/manual), granted_by_account_id, granted_at, revoked_at | Exactly one of person_id / membership_id is set. A licence: one survey attempt (the `response` that points at it) plus results at its tier; upgraded in place |
 | `result` | id, response_id, algorithm_version, payload (JSONB), computed_at | Empty table in MVP. Several rows per response are allowed (one per algorithm version) |
 | `match_candidate` | id, account_a_id, account_b_id, signals (JSONB), status (auto_linked/flagged/confirmed/rejected), resolved_by, resolved_at | Signals record which rules fired |
 | `audit_log` | id, actor_account_id, action, target_type, target_id, detail (JSONB), at | Append-only. Deletions leave a row here after the data is gone |
@@ -195,7 +195,7 @@ Applied in `01-requirements.md` v2:
 | 2026-10-09 | A verified email or phone has one owner; collisions are recovered (log in or reset), never auto-linked or auto-merged; no self-service account merge | Recycled and shared inboxes would otherwise take over accounts silently; a merge of two logins with data is the riskiest code in the project. See "Recovery and recycled contacts" |
 | 2026-10-09 | `account.person` nullable at first, backfilled, tightened in a later migration | Production already had an account; "add, backfill, tighten" keeps every deploy safe |
 | 2026-10-05 | Monolith on PostgreSQL, server-rendered HTML, no separate frontend app | Solo Python developer; smallest surface to build and run |
-| 2026-10-05 | Tier is an entitlement; the survey has no tier; results computed in full and filtered on display | Founder: same survey for all, pay before or after, show what is paid for |
+| 2026-10-05 | Tier is an entitlement; the survey has no tier; results computed in full and filtered on display | Founder: same survey for all, pay before or after, show what is paid for. *2026-10-09: pay before; a licence is one attempt* |
 | 2026-10-05 | Enterprises self-register; membership only via invite or code; no email-domain rules | Founder wants no manual review; domains cannot be trusted without it |
 | 2026-10-05 | Verified email and verified phone auto-link accounts; name only flags; all links reversible | Founder decision; verification requirement prevents hijack |
 | 2026-10-05 | Phone mandatory at registration, unverified in MVP; phone auto-link inert until SMS verification exists | Founder decision; SMS in India needs a provider and DLT registration |

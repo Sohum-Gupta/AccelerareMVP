@@ -12,7 +12,7 @@ before doing any work:
 1. `docs/05-build-plan.md` — the milestone order and the "Done when" checklists.
    **Milestone 0 is done. Milestone 1 (Accounts) is code-complete and live (main `2d5d60e`, 2026-10-09);
    its remaining "Done when" boxes are live checks listed under "Open follow-ups". Milestone 2 (Survey)
-   is in progress: its section was re-planned on 2026-10-09 and lists the nine PRs in order; check
+   is in progress: its section was re-planned on 2026-10-09 (statements private, 1–4 scale, licences) and lists the ten PRs in order; check
    which are merged before starting the next.** Do not build anything from a later milestone than the
    one in progress.
 2. `docs/03-tech-stack.md` — repository layout, conventions, local dev steps.
