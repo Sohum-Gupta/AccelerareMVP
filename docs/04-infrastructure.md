@@ -244,7 +244,7 @@ Writing Terraform at this point is worthwhile; by then every setting is understo
 
 | Date | Decision | Reason |
 | --- | --- | --- |
-| 2026-10-09 | The survey wording is loaded through a superuser-only admin page (Milestone 2 PR 9, proposed), not by copying a file to `/opt/survey/private/` | Staff should not need SSH; the file would also need a compose mount and a deploy step. Pending the founder's confirmation |
+| 2026-10-09 | The survey wording is loaded through a superuser-only admin page (Milestone 2 PR 9; confirmed by the founder, not built yet), not by copying a file to `/opt/survey/private/` | Staff should not need SSH; the file would also need a compose mount and a deploy step |
 | 2026-10-05 | Single EC2 with Docker Compose over ECS, App Runner or Elastic Beanstalk | Cheapest thing that runs a long-lived worker; no load balancer cost; fully understandable |
 | 2026-10-05 | RDS PostgreSQL rather than PostgreSQL on the same instance | Managed backups and restore; data is the asset |
 | 2026-10-05 | Caddy for TLS | Automatic certificates, three-line config |
