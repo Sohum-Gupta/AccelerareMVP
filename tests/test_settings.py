@@ -36,6 +36,15 @@ def test_production_settings_import(monkeypatch):
     assert mailer["OPTIONS"]["use_tls"] is True
     assert production.DEFAULT_FROM_EMAIL == "Accelerare <noreply@example.com>"
 
+    # Sentry gets the URL and traceback, never the request body or local variables
+    # (they can hold answers, emails or the private survey wording).
+    import sentry_sdk
+
+    options = sentry_sdk.get_client().options
+    assert options["send_default_pii"] is False
+    assert options["max_request_body_size"] == "never"
+    assert options["include_local_variables"] is False
+
 
 def test_production_requires_email_settings(monkeypatch):
     """A missing mail variable must stop startup, not fail on the first reset email."""
