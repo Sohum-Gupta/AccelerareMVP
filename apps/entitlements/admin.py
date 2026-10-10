@@ -1,6 +1,9 @@
+from datetime import timedelta
+
 from django import forms
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 from apps.accounts.models import Account
 
@@ -22,10 +25,34 @@ class GrantForm(forms.ModelForm):
         fields = ("account", "tier", "source")
 
 
+class UnusedLicenceFilter(admin.SimpleListFilter):
+    """Licences someone holds but has not started the survey with, by how long."""
+
+    title = "unused licences"
+    parameter_name = "unused"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("any", "Unused (any age)"),
+            ("7", "Unused for 7+ days"),
+            ("30", "Unused for 30+ days"),
+        ]
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value not in ("any", "7", "30"):
+            return queryset
+        # Active, and no attempt has consumed it.
+        queryset = queryset.filter(revoked_at__isnull=True, response__isnull=True)
+        if value != "any":
+            queryset = queryset.filter(granted_at__lte=timezone.now() - timedelta(days=int(value)))
+        return queryset
+
+
 @admin.register(Entitlement)
 class EntitlementAdmin(admin.ModelAdmin):
     list_display = ("id", "logins", "tier", "source", "granted_at", "granted_by", "active")
-    list_filter = ("tier", "source")
+    list_filter = (UnusedLicenceFilter, "tier", "source")
     search_fields = (
         "person__accounts__email",
         "person__accounts__contact_points__value_normalised",

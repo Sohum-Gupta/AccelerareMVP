@@ -26,8 +26,10 @@ from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from apps.funnel import services as funnel
+
 from .models import Account, ContactPoint
-from .normalisers import display_phone, normalise_email, normalise_phone
+from .normalisers import display_phone, normalise_email, normalise_phone, phone_country
 
 
 class EmailInUse(Exception):
@@ -91,6 +93,11 @@ def register(email: str, phone: str, country: str | None, password: str, request
                 is_primary=True,
             )
             EmailAddress.objects.create(user=account, email=email_n, primary=True)
+            # Same transaction: a sign-up that rolls back leaves no event. The
+            # event holds the phone's country, never the account.
+            funnel.record_event(
+                funnel.Kind.SIGNED_UP, country=phone_country(phone_n), channel="direct"
+            )
     except IntegrityError:
         # Someone registered the same address between our check and our insert.
         raise EmailInUse(email_n) from None

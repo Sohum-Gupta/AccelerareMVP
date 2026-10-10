@@ -1,0 +1,47 @@
+{% extends "admin/change_list.html" %}
+{% comment %}
+The funnel summary, shown above the list of events. The numbers follow whatever
+filters are chosen on the right.
+{% endcomment %}
+{% block result_list %}
+<div style="margin-bottom: 1.5rem; max-width: 52rem;">
+  <h2>Funnel</h2>
+  <p class="help">
+    How many times each step happened in the period and filters shown. Each
+    percentage compares one step's count with another's; it is not the same people
+    followed through, so a step can look better than it is if the people moving
+    through it signed up in an earlier period.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Step</th>
+        <th>Count</th>
+        <th>Of the step before</th>
+        <th>Of all sign-ups</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in funnel_rows %}
+      <tr>
+        <td>{{ forloop.counter }}. {{ row.label }}</td>
+        <td><strong>{{ row.count }}</strong></td>
+        <td>{% if row.of_previous is None %}&ndash;{% else %}{{ row.of_previous }}%{% endif %}</td>
+        <td>{% if row.of_signups is None %}&ndash;{% else %}{{ row.of_signups }}%{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p>Licences upgraded in this period: <strong>{{ upgraded }}</strong></p>
+  {% if page_rows %}
+  <h3>Pages finished</h3>
+  <table>
+    <thead><tr><th>Page</th><th>Count</th></tr></thead>
+    <tbody>
+      {% for row in page_rows %}<tr><td>{{ row.page }}</td><td>{{ row.count }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{{ block.super }}
+{% endblock %}

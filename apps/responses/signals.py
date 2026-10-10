@@ -2,8 +2,8 @@
 Creates the "Support staff" group and gives it its permissions.
 
 Support staff are Django staff accounts that are not superusers: they can grant
-and revoke licences and look things up for debugging, and they see which
-questions a response has answered but never the answers. A superuser makes
+and revoke licences, look things up for debugging, and read the funnel, and they
+see which questions a response has answered but never the answers. A superuser makes
 someone support staff by ticking "staff" and adding them to this group.
 
 Done after migrate rather than in a migration because permissions are created
@@ -18,8 +18,9 @@ from django.dispatch import receiver
 
 GROUP_NAME = "Support staff"
 
-# (app label, model, actions)
-PERMISSIONS = [
+# (app label, model, actions). Two jobs, named so they can become two groups
+# later (debugging staff, insights staff); "Support staff" does both for now.
+DEBUGGING = [
     ("entitlements", "entitlement", ("add", "change", "view")),
     ("responses", "response", ("view",)),
     ("accounts", "account", ("view",)),
@@ -28,6 +29,10 @@ PERMISSIONS = [
     ("survey", "surveyversion", ("view",)),
     ("survey", "question", ("view",)),
 ]
+INSIGHTS = [
+    ("funnel", "funnelevent", ("view",)),
+]
+PERMISSIONS = DEBUGGING + INSIGHTS
 
 
 @receiver(post_migrate, dispatch_uid="responses.support_staff_group")
