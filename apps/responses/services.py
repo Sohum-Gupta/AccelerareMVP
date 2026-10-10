@@ -165,7 +165,8 @@ def complete_page(response, page, answers=None):
     `answers` ({question id: value}) is what the page showed when Next was
     pressed. It is saved first, in the same transaction, so the page that gets
     locked is the page the person saw, even if an autosave failed or another tab
-    saved something different. Any refusal leaves everything as it was.
+    saved something different. A page that is not complete yet keeps the valid
+    choices it was sent; any other refusal leaves everything as it was.
     """
     with transaction.atomic():
         response = _lock(response)
@@ -179,20 +180,25 @@ def complete_page(response, page, answers=None):
             raise Invalid("Please finish the earlier pages first.")
         for question_id, value in (answers or {}).items():
             _apply_answer(response, question_id, value)
-        if page == 1 and response.took_before is None:
-            raise Incomplete("Please say whether you have taken this survey before.")
         on_page = [q for q in _questions(response) if page_of(q.position) == page]
-        if _unanswered(response, on_page):
-            raise Incomplete(f"Please answer all {len(on_page)} statements on this page first.")
-        response.pages_completed = page
-        response.save(update_fields=["answers", "pages_completed"])
-        funnel.record_event(
-            funnel.Kind.PAGE_LOCKED,
-            page=page,
-            tier=response.entitlement.tier,
-            source=response.entitlement.source,
-        )
-        return response
+        if page == 1 and response.took_before is None:
+            refusal = Incomplete("Please say whether you have taken this survey before.")
+        elif _unanswered(response, on_page):
+            refusal = Incomplete(f"Please answer all {len(on_page)} statements on this page first.")
+        else:
+            response.pages_completed = page
+            response.save(update_fields=["answers", "pages_completed"])
+            funnel.record_event(
+                funnel.Kind.PAGE_LOCKED,
+                page=page,
+                tier=response.entitlement.tier,
+                source=response.entitlement.source,
+            )
+            return response
+        # Not ready to lock, but keep the choices that were sent, so nobody has to
+        # tick them again (raising inside the transaction would undo them).
+        response.save(update_fields=["answers"])
+    raise refusal
 
 
 def submit(response):

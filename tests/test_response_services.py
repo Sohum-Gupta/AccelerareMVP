@@ -384,6 +384,13 @@ class TestCompletePage:
         assert draft.pages_completed == 0
         assert set(draft.answers.values()) == {3}
 
+    def test_an_incomplete_page_keeps_the_shown_answers(self, draft):
+        shown = {str(q.pk): 2 for q in on_page(1)[:4]}
+        with pytest.raises(services.Incomplete):
+            services.complete_page(draft, 1, shown)
+        draft.refresh_from_db()
+        assert draft.pages_completed == 0 and draft.answers == shown
+
     def test_shown_answers_do_not_unlock_a_locked_page(self, draft):
         draft = services.complete_page(answer_page(draft, 1, value=3), 1)
         with pytest.raises(services.Locked):
