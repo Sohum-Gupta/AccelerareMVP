@@ -97,8 +97,8 @@ class TestWithALicence:
 
     def test_yes_and_how_starts_the_survey(self, client, licensed):
         response = client.post(START, {"took_before": "yes", "took_before_via": "company"})
-        assert response.status_code == 302 and response.url == START
         draft = Response.objects.get()
+        assert response.status_code == 302 and response.url == f"/survey/{draft.pk}/"
         assert draft.account == licensed and draft.status == "draft"
         assert draft.took_before is True and draft.took_before_via == "company"
         assert licences.unused_licence(licensed) is None  # the licence is consumed
@@ -146,6 +146,7 @@ class TestWithALicence:
         services.complete_page(draft, 1)
         html = page(client)
         assert "Your survey is in progress" in html and 'name="took_before"' not in html
+        assert f'href="/survey/{draft.pk}/"' in html and "Continue" in html
         response = client.post(START, {"took_before": "yes", "took_before_via": "other"})
         assert response.status_code == 302
         draft.refresh_from_db()
