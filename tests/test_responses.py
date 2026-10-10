@@ -79,6 +79,13 @@ class TestDatabaseRules:
         assert response.answers == {} and response.pages_completed == 0
         assert response.took_before is None and response.possible_repeat is False
 
+    def test_the_via_answer_needs_a_yes(self, bob):
+        with pytest.raises(IntegrityError), transaction.atomic():
+            start(bob, took_before=False, took_before_via="company")
+        with pytest.raises(IntegrityError), transaction.atomic():
+            start(bob, took_before=None, took_before_via="other")
+        assert start(bob, took_before=True, took_before_via="other").took_before_via == "other"
+
     def test_a_response_blocks_deleting_what_it_points_at(self, bob):
         from django.db.models import ProtectedError
 
@@ -142,7 +149,7 @@ def support(client, db):
 def answered_response(bob):
     questions = list(current_version().questions.all())
     answers = {str(q.pk): 3 for q in questions[:14]}
-    return start(bob, answers=answers, took_before=True, took_before_where="SECRET-PLACE")
+    return start(bob, answers=answers, took_before=True, took_before_via="company")
 
 
 @pytest.mark.django_db
@@ -151,7 +158,7 @@ class TestAdmin:
         response = answered_response(bob)
         url = f"/admin/responses/response/{response.pk}/change/"
         page = client.get(url).content.decode()
-        assert "SECRET-PLACE" in page and "&quot;" in page  # the answers JSON is shown
+        assert "Took before via" in page and "&quot;" in page  # self-report and answers JSON
         assert 'name="answers"' not in page  # as text, not an editable box
         assert client.post(url, {"status": "submitted"}).status_code == 403
 
@@ -160,13 +167,12 @@ class TestAdmin:
         assert client.get("/admin/responses/response/").status_code == 200
         page = client.get(f"/admin/responses/response/{response.pk}/change/").content.decode()
         assert "14 of 25: 1, 2, 3" in page
-        assert "SECRET-PLACE" not in page
         assert "Took before" not in page and "Answers" not in page
         assert "{&quot;" not in page  # no answers JSON rendered
 
     def test_support_staff_cannot_find_a_response_through_its_answers(self, client, support, bob):
         answered_response(bob)
-        page = client.get("/admin/responses/response/", {"q": "SECRET-PLACE"}).content.decode()
+        page = client.get("/admin/responses/response/", {"q": "company"}).content.decode()
         assert "bob@example.com" not in page
 
     def test_nobody_can_add_or_delete(self, client, root, bob):  # noqa: F811
