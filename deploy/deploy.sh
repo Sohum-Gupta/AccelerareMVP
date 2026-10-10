@@ -4,7 +4,7 @@
 # 1. Build .env from Parameter Store (the server's IAM role is the only credential).
 # 2. Pull the newest image.
 # 3. Run database migrations *before* starting the new containers.
-# 4. Start (or restart) everything.
+# 4. Start (or restart) everything, then reload Caddy's configuration.
 # 5. Run Django's deployment check against the running container.
 #
 # Safe to run again at any time. To roll back, pin an older build first:
@@ -41,6 +41,13 @@ docker compose run --rm web python manage.py createcachetable
 
 echo "==> Starting containers"
 docker compose up -d --remove-orphans
+
+echo "==> Reloading Caddy's configuration"
+# The deploy copies the Caddyfile over the old one in place, which the running
+# container sees, but Caddy only reads it at start. `up -d` does not restart an
+# unchanged container, so ask it to reload. A broken Caddyfile fails here and
+# Caddy keeps serving with the previous configuration.
+docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 
 echo "==> Deployment check"
 docker compose exec -T web python manage.py check --deploy --fail-level WARNING
