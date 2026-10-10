@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Before you begin · Accelerare{% endblock %}
+{% block head %}
+  <script src="{% static 'js/self-report.js' %}" defer></script>
+{% endblock %}
+{% block content %}
+  <h1>The Accelerare Personality Diagnostic</h1>
+
+  <section class="mb-6" aria-labelledby="who-sees">
+    <h2 id="who-sees" class="mb-2 text-lg font-semibold">Who sees your answers</h2>
+    <p>While you take the survey, your answers are visible to you and to Accelerare. After you submit, you will see your results, not your answers. Accelerare keeps your answers to produce your results and to improve the diagnostic.</p>
+  </section>
+
+  <section class="mb-6" aria-labelledby="how-it-works">
+    <h2 id="how-it-works" class="mb-2 text-lg font-semibold">How it works</h2>
+    <ul class="mb-3 list-disc space-y-1 pl-5">
+      <li>25 statements, five to a page. For each one, say how well it describes you.</li>
+      <li>There is no right answer and no midpoint: pick the closest fit.</li>
+      <li>Pressing <strong>Next</strong> locks that page for good. There is no back button, so check your five before you move on.</li>
+      <li>Every click is saved. If you close the browser or lose connection, you carry on from the first unlocked page.</li>
+      <li>It takes about ten minutes.</li>
+    </ul>
+  </section>
+
+  {% if state == "no_licence" %}
+    <section class="rounded-md border border-slate-300 bg-white p-4" role="status" aria-labelledby="licence-title">
+      <h2 id="licence-title" class="mb-1 text-base font-semibold">You need a licence to take the survey</h2>
+      <p class="mb-0 text-sm text-slate-700">Accelerare adds licences by hand for now. Once one is on your account, this page will show the survey.</p>
+    </section>
+  {% elif state == "in_progress" %}
+    <section class="rounded-md border border-slate-300 bg-white p-4" role="status" aria-labelledby="progress-title">
+      <h2 id="progress-title" class="mb-1 text-base font-semibold">Your survey is in progress</h2>
+      <p class="mb-0 text-sm text-slate-700">Your answers so far are saved. The statements open in the next update.</p>
+    </section>
+  {% else %}
+    <section aria-labelledby="self-report-title">
+      <h2 id="self-report-title" class="mb-2 text-lg font-semibold">One question first</h2>
+      {% if resuming %}
+        <p class="text-sm text-slate-700">You have already started. You can still change this answer until you lock the first page.</p>
+      {% endif %}
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% for error in form.non_field_errors %}
+          <p class="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">{{ error }}</p>
+        {% endfor %}
+        <fieldset class="mb-4">
+          <legend class="mb-1 text-sm font-medium">{{ form.took_before.label }}</legend>
+          <div class="flex flex-wrap gap-x-6 gap-y-2" data-self-report>
+            {% for radio in form.took_before %}
+              <label for="{{ radio.id_for_label }}" class="mb-0 flex items-center gap-2 text-base font-normal">
+                {{ radio.tag }} {{ radio.choice_label }}
+              </label>
+            {% endfor %}
+          </div>
+          {% for error in form.took_before.errors %}<p class="mt-1 mb-0 text-sm text-red-700" data-error-for="{{ form.took_before.id_for_label }}">{{ error }}</p>{% endfor %}
+        </fieldset>
+        <div data-self-report-via>
+          {% include "includes/field.html" with field=form.took_before_via %}
+        </div>
+        <button type="submit">{% if resuming %}Save and continue{% else %}Start the survey{% endif %}</button>
+      </form>
+    </section>
+  {% endif %}
+{% endblock %}

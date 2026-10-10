@@ -37,4 +37,5 @@ urlpatterns = [
     # mounting a subset risks a missing name at run time. Pages we replace
     # (signup, login) are shadowed by our own views under the same names.
     path("accounts/", include("allauth.account.urls")),
+    path("survey/", include("apps.responses.urls")),
 ]
