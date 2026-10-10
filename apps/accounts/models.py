@@ -98,6 +98,11 @@ class Account(AbstractBaseUser, PermissionsMixin):
     # whether or not it is set.
     personal_email_prompt_dismissed_at = models.DateTimeField(null=True, blank=True)
 
+    # Set by erasure.erase_account when this account had a completed survey: the
+    # identity (email, phone, name) is gone, the responses are kept. Null for
+    # everyone else, because an account with nothing to keep is deleted outright.
+    anonymised_at = models.DateTimeField(null=True, blank=True)
+
     objects = AccountManager()
 
     USERNAME_FIELD = "email"
