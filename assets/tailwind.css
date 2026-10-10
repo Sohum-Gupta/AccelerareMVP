@@ -17,9 +17,10 @@
   p { @apply mb-3; }
   a { @apply text-brand underline; }
   label { @apply mb-1 block text-sm font-medium; }
-  input:not([type="checkbox"]), select {
+  input:not([type="checkbox"]):not([type="radio"]), select {
     @apply w-full rounded-md border border-slate-300 bg-white px-3 py-2;
   }
+  input[type="radio"] { @apply h-4 w-4 accent-brand; }
   button[type="submit"] {
     @apply cursor-pointer rounded-md bg-brand px-4 py-2 font-medium text-white hover:bg-brand-dark;
   }
