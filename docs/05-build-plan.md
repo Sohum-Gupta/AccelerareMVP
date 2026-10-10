@@ -46,7 +46,7 @@ Most of what you've built so far has been judged by "does it work when I run it.
 
 **Keep a `NOTES.md`.** Every time you learn something non-obvious (a Django gotcha, a Docker quirk), write it there. It becomes the onboarding doc for the next developer, who may be you after a long break.
 
-**The Django admin is the operations hub.** The end goal is that nontechnical staff handle about 99% of issues, so every operational task (granting or revoking a licence, looking up an account, erasing one, reading the funnel, and from PR 9 loading the survey wording) should be doable from the Django admin with plain-language labels, a confirmation page for anything destructive, and a history entry saying who did it. AWS console use should be minimal and GitHub use as little as possible. When a plan step needs SSH, the AWS console or a code change for something staff will do repeatedly, propose an admin alternative first. Two admin levels exist: superusers see everything; the "Support staff" group (debugging and business-insight staff, which for now are the same people) sees licences, accounts, which questions a response has answered (never the answers) and the funnel. Staff actions that go through a service bypass the admin's automatic history, so they call `log_change` themselves.
+**The Django admin is the operations hub.** The end goal is that nontechnical staff handle about 99% of issues, so every operational task (granting or revoking a licence, looking up an account, erasing one, reading the funnel, loading the survey wording) should be doable from the Django admin with plain-language labels, a confirmation page for anything destructive, and a history entry saying who did it. AWS console use should be minimal and GitHub use as little as possible. When a plan step needs SSH, the AWS console or a code change for something staff will do repeatedly, propose an admin alternative first. Two admin levels exist: superusers see everything; the "Support staff" group (debugging and business-insight staff, which for now are the same people) sees licences, accounts, which questions a response has answered (never the answers) and the funnel. Staff actions that go through a service bypass the admin's automatic history, so they call `log_change` themselves.
 
 **Deploy constantly.** After milestone 0 the deploy is automatic. Merge to `main` daily even when the change is small. A deploy that has not happened for two weeks is a deploy you are afraid of.
 
@@ -170,9 +170,9 @@ Accounts come before the survey because every later feature asks "who is this." 
 
 *Re-planned on 2026-10-09 from the founder's questionnaire and licence rules. This section replaces the original one-question-per-page, 1–5, no-paywall plan; the differences are in the decision log.*
 
-**Goal:** a verified individual who holds a licence can read the disclosure, answer the self-report question, answer the 25 statements five to a page with autosave, leave and resume, submit, and see their survey history. A licence is one attempt. Submitted responses are immutable, and the person never sees their answers again after submitting. The statements are private: they are never committed to the public repository and are loaded from a file the founder keeps (through an admin page from PR 9).
+**Goal:** a verified individual who holds a licence can read the disclosure, answer the self-report question, answer the 25 statements five to a page with autosave, leave and resume, submit, and see their survey history. A licence is one attempt. Submitted responses are immutable, and the person never sees their answers again after submitting. The statements are private: they are never committed to the public repository and are loaded from a file the founder keeps, through an admin page (PR 9).
 
-**Status (2026-10-10).** Merged and deployed: PR 1 survey models and `load_questions` (#31), PR 2 licences (#32), PR 3 the `Response` model and the two-level admin (#33), PR 3b erasing an account (#34), PR 3c the funnel (#35), PR 4 response services (#37), PR 5 the start page and the licence gate (#38), PR 6 statement pages with autosave (#39), PRs 7 and 8 combined: review, submit, history and result (#40). Main is `6ee5144` with 400 tests. Left: PR 9 (survey wording in the admin, confirmed) and PR 10 (the remaining docs and the live checks). Nothing in "Done when" is ticked yet: those are live checks for the founder. The PR plan below is the revised one agreed with the founder; the original ten-PR list is superseded.
+**Status (2026-10-10).** Code-complete and deployed. Merged: PR 1 survey models and `load_questions` (#31), PR 2 licences (#32), PR 3 the `Response` model and the two-level admin (#33), PR 3b erasing an account (#34), PR 3c the funnel (#35), PR 4 response services (#37), PR 5 the start page and the licence gate (#38), PR 6 statement pages with autosave (#39), PRs 7 and 8 combined: review, submit, history and result (#40), PR 9 the survey wording in the admin (#42), PR 10 docs and the last small fixes (#43). 457 tests. Left: PR 11, the founder's live checks (the tasklist at the top of "Open follow-ups"), then a docs-only change that ticks the "Done when" boxes they confirm. "All tests pass" is ticked; the other boxes are live checks. The PR plan below is the revised one agreed with the founder; the original ten-PR list is superseded.
 
 **The product rules, as specified by the founder**
 
@@ -194,7 +194,7 @@ Accounts come before the survey because every later feature asks "who is this." 
 **What you build**
 
 - `apps/survey/models.py`: `SurveyVersion` (number, published_at, question_count), `Question` (survey_version FK, position, text, min_value, max_value, `metadata` JSONField default dict for whatever per-question fields arrive later). A data migration creates version 1 with 25 rows whose text is the placeholder "Question *n*", 1–4. A management command `load_questions <path>` reads a JSON file of 25 entries (`position`, `text`, any extra keys go into `metadata`) and updates the rows by position; it refuses a file that does not have exactly 25 positions 1–25. A helper `survey.services.current_version()`.
-- The private file. The real statements arrive as a JSON file the founder keeps outside the repository. **Confirmed by the founder on 2026-10-09 (PR 9, not built yet):** a superuser-only admin page where the founder pastes or uploads the JSON, sees how many questions will change, and applies it through `survey.services.load_questions`; no SSH, no server mount, no `deploy.sh` step. On a laptop the file still lives in the gitignored `private/` directory and is loaded by hand with `manage.py load_questions`. GitHub never sees it: CI and the image smoke test run on the placeholder rows, and the loader's tests use `tests/fixtures/questions_sample.json`, a committed file with made-up wording. (The original plan mounted `/opt/survey/private/survey_v1.json` into the container and ran `load_questions` in `deploy.sh`; it is dropped.)
+- The private file. The real statements arrive as a JSON file the founder keeps outside the repository. **Built in PR 9 (#42), as confirmed by the founder on 2026-10-09:** a superuser-only admin page where the founder pastes or uploads the JSON, sees how many questions will change, and applies it through `survey.services.load_questions`; no SSH, no server mount, no `deploy.sh` step. On a laptop the file still lives in the gitignored `private/` directory and is loaded by hand with `manage.py load_questions`. GitHub never sees it: CI and the image smoke test run on the placeholder rows, and the loader's tests use `tests/fixtures/questions_sample.json`, a committed file with made-up wording. (The original plan mounted `/opt/survey/private/survey_v1.json` into the container and ran `load_questions` in `deploy.sh`; it is dropped.)
 - *Built in PR 2, with `change_tier` and an unused-licences filter added.* `apps/entitlements/models.py`: `Entitlement` (person FK, tier 1–3, source purchase/manual, granted_by FK nullable, granted_at, revoked_at nullable). This is the individual half of the Milestone 4 table; Milestone 4 adds the nullable membership FK, the seat source and seat pools to the same model. `apps/entitlements/services.py`: `grant_individual(person, tier, source, granted_by)`, `revoke(entitlement)`, `unused_licence(account) -> Entitlement | None` (active, not yet linked to a response, oldest first), `has_survey_access(account)` (an open draft or an unused licence). Root admin: `Entitlement` in the Django admin with account search, grant through a form that calls the service, a revoke action, and the tier editable in place for upgrades. A decorator `entitlements.decorators.survey_access_required`, stacked on `accounts.decorators.verified_email_required`.
 - *Model built in PR 3; the self-report column is changed in PR 4.* `apps/responses/models.py`: `Response` (account FK, survey_version FK, `entitlement` OneToOneField to `Entitlement`, status draft/submitted, answers JSONField default dict, `pages_completed` small integer default 0, `took_before` bool nullable, `took_before_via` (individual, company, other; set only when `took_before` is yes; replaces the text column `took_before_where`), started_at, submitted_at nullable, possible_repeat bool default False). A `Meta` constraint: `submitted_at` is null if and only if status is draft. The one-to-one makes "one licence, one attempt" a database rule. The nullable membership FK from the architecture doc is added in Milestone 3 with its own migration, when `Membership` exists.
 - `apps/responses/services.py`: `start_response(account)` (returns the open draft if there is one; otherwise consumes the oldest unused licence and creates a draft on the current version; raises `NoLicence` if there is none), `save_answer(response, question_id, value)` (validates the id belongs to the version and the value is in range; refuses a locked page, a later page than the one being answered, or a submitted response), `complete_page(response, page, answers)` (saves the ticks the page showed, then refuses unless all five answers on that page exist, the page is the next unlocked one and, for page 1, the self-report is answered; an incomplete page keeps the ticks it was sent; bumps `pages_completed`), `submit(response)` (all pages locked and every question answered; sets status and timestamp in a transaction; enqueues jobs from Milestone 5 onward). A refused write raises `Refused` or a subclass (`NoLicence`, `Locked`, `Incomplete`, `Invalid`). Every service locks the row and returns the fresh instance; callers use the return value. A deleted draft raises `Response.DoesNotExist`.
@@ -242,10 +242,12 @@ Accounts come before the survey because every later feature asks "who is this." 
 6. `m2-pages-autosave` (#39): the statement pages, autosave, Next and resume; answers only for the page being answered; Next saves the ticks shown; real-browser checks at phone width.
 7 and 8. `m2-review-submit-history` (#40, combined at the founder's request so Submit lands on a real result page): review, submit, history and result; "Free (licence withdrawn)"; history is the hub.
 
-*Still to build:*
+9. `m2-survey-wording-in-admin` (#42; confirmed by the founder on 2026-10-09; replaces "deploy the private file"): a superuser-only "Load the survey wording…" button on the current survey version's admin page. Paste or upload the JSON, Check shows how many statements change (counts only, never the wording) and how many unfinished and submitted attempts are on the version, and Apply goes through `load_questions` (version row locked; refused if someone changed the wording since the preview; a submitted survey on the version needs an "I understand" tick). Plain-English errors (not JSON, wrong count, duplicate or missing position, empty text, over 200 KB or 1,000 characters a statement, values the database cannot store); the history entry records who did it and the counts. Support staff cannot see or reach it. Sentry no longer receives request bodies or local variables.
+10. `m2-docs` (#43): the docs synced with PR 9; NOTES entries; Caddy refuses request bodies over 5 MB and `deploy.sh` reloads Caddy on every deploy; the licence grant form searches for the account instead of listing every one; a test for a refused password-reset mail; the founder's remaining live checks collected into one tasklist.
 
-9. `m2-survey-wording-in-admin` (**built**; confirmed by the founder on 2026-10-09; replaces "deploy the private file"): a superuser-only "Load the survey wording…" button on the current survey version's admin page. Paste or upload the JSON, Check shows how many statements change (counts only, never the wording) and how many unfinished and submitted attempts are on the version, and Apply goes through `load_questions` (version row locked; refused if someone changed the wording since the preview; a submitted survey on the version needs an "I understand" tick). Plain-English errors (not JSON, wrong count, duplicate or missing position, empty text, over 200 KB or 1,000 characters a statement, values the database cannot store); the history entry records who did it and the counts. Support staff cannot see or reach it. Sentry no longer receives request bodies or local variables.
-10. `m2-docs`: tick the "Done when" boxes once the founder has done the live checks, last NOTES entries and follow-ups. (The status, decisions and follow-ups from PRs 4 to 8 were synced on 2026-10-10.)
+*Still to do:*
+
+11. `m2-live-checks` (the founder, then a docs-only PR): work through the tasklist at the top of "Open follow-ups"; the PR ticks the Milestone 1 and 2 "Done when" boxes the results confirm and moves finished follow-ups to the decision log. Milestone 2 is closed when its boxes are ticked.
 
 **Done when**
 
@@ -255,7 +257,7 @@ Accounts come before the survey because every later feature asks "who is this." 
 - [ ] Root admin sees the response in the admin, read-only; a Support staff account sees which questions are answered but not the values.
 - [ ] On the live site, a test account is erased from the admin both ways (one with no completed survey, one with a completed survey) and the same email can sign up again.
 - [ ] The funnel page in the admin shows the live sign-ups, verifications, licences and survey events.
-- [ ] All tests pass.
+- [x] All tests pass. *(457 passed, ruff, `check --fail-level WARNING` and `makemigrations --check` clean, 2026-10-10.)*
 
 **Why this order / what to understand**
 
@@ -566,54 +568,66 @@ Ask for help (here, or anyone experienced) rather than pushing on when:
 
 Things agreed but not done, so they are not forgotten. Move a line to the decision log or delete it when it is finished.
 
-**Waiting on SES production access** (a pending AWS support case; see `04-infrastructure.md`, "Email sending")
-- [ ] Live signup by a stranger, verify, log in and out on a phone (Milestone 1, first "Done when" box).
-- [ ] Re-test every email flow with a real outside address once approved.
+**Milestone 2 PR 11: the founder's tasklist** (live site, top to bottom. Report the results in a new chat; PR 11 then ticks the "Done when" boxes they confirm.)
 
-**Business email addresses** (the founder will create more soon)
-- [ ] Verify one or two of the new addresses as SES email identities (AWS console, founder's action). While SES is sandboxed they are the only way to receive mail on a second address.
-- [ ] Use them to run the live checks for "reset from a second verified email" and "make a second email primary, log in with it, remove the old one", then tick those two Milestone 1 boxes.
+*A. Load the real survey wording (Done when 2)*
+- [ ] Save the master copy of `survey_v1.json` in a password manager or private drive. It is never committed.
+- [ ] Admin → Survey versions → Survey version 1 → "Load the survey wording…". Paste the JSON or choose the file and press Check: expect "changes the wording of 25". Press Apply. The version's History shows who did it and the counts, never the wording.
+- [ ] On the laptop, in the project folder, check the public repository holds none of the statements. This prints how many statements appear anywhere in the git history and must print 0: `uv run python -c "import json,subprocess;d=json.load(open('private/survey_v1.json'));print(sum(1 for e in d if subprocess.run(['git','log','--all','--format=%h','-S',e['text']],capture_output=True,text=True).stdout.strip()))"`
 
-**Founder's browser checks still owed for Milestone 1**
+*B. Take the survey on a phone (Done when 1 and 3)*
+- [ ] With a verified test account that has no licence (use `admin@theaccelerare.com`, which SES can deliver to): the start page shows the "you need a licence" notice and no statement page opens.
+- [ ] Grant it a licence: Entitlements → Add, type part of the email in the Account search box, tier 1, source manual.
+- [ ] On a real phone: start, answer page 1 and part of page 2, close the browser, reopen, and check it resumes on page 2 with the saved ticks and shows the real wording. Finish and submit.
+- [ ] My surveys shows the response with its tier, no page shows the answers, and Start asks for a second licence.
+- [ ] Revoke that licence in the admin; the result now shows "Free (licence withdrawn)".
+
+*C. The admin (Done when 4 and 6)*
+- [ ] As superuser, the response is read-only and shows the answers.
+- [ ] Make a Support staff account: sign up a second test account (its email need not be verified to use the admin), then in the admin tick "Staff status" and add it to the "Support staff" group. Logged in as it: licences, accounts, the funnel and the answered positions on a response are visible; the answers, Erase, delete and "Load the survey wording…" are not.
+- [ ] The funnel page shows the live sign-ups, verifications, licences and survey events.
+
+*D. Erase (Done when 5)*
+- [ ] Erase a test account with no submitted survey (it is deleted) and one with a submitted survey (it is stripped, results kept); read the confirmation page each time. Then sign up again with the same email.
+
+*E. Milestone 1 browser checks*
 - [ ] Live signup with an address SES has not verified: "check your inbox" plus a yellow warning, and the same warning on login. Use `admin@theaccelerare.com` for the live tests, in an incognito window.
 - [ ] Signup: submit empty, type in a box, its red error vanishes.
 - [ ] Admin: search an account by phone; make-primary and remove on a secondary email; removing a primary shows a red refusal. Then tick "Root admin can find an account by email or phone".
 - [ ] Profile page: stored `+number` picks the right flag; "Not now" banner. *(Phone box width and spacing at phone width were checked by headless screenshots in #27; the open flag dropdown was not.)*
 - [ ] Live add-email, signup to login, and the reset pages in a real browser.
 
-**Milestone 2 (survey)**
-- [ ] Decide for Milestone 5 what tier 0 (no licence) shows on the result page: sample insights from the paid tiers, a limited subset, or just the invitation to buy.
-- [ ] Decide before Milestone 3: do enterprise administrators see members' answers, or only results? The founder ruled on 2026-10-09 that the person never sees their own answers after submitting; FR-19 is overridden for that scope only. Root admin keeps the read-only Django admin.
-- [ ] The founder keeps the master copy of `survey_v1.json` outside the repository (password manager or private drive) and loads it through the admin page once PR 9 is built (the approach was confirmed on 2026-10-09).
+*F. A second email address (Milestone 1 boxes 2 and 3)*
+- [ ] Verify one or two of the new business addresses as SES email identities (AWS console). While SES is sandboxed they are the only way to receive mail on a second address.
+- [ ] Use them: password reset from a second verified email; make a second email primary, log in with it and remove the old one.
+
+*G. Setup*
+- [ ] Register `/health` with an uptime checker (`04-infrastructure.md`, step 8.4).
+
+**Waiting on SES production access** (a pending AWS support case; see `04-infrastructure.md`, "Email sending")
+- [ ] Live signup by a stranger, verify, log in and out on a phone (Milestone 1, first "Done when" box).
+- [ ] Re-test every email flow with a real outside address once approved.
+
+**Carried over: open decisions that do not block Milestone 2**
 - [ ] Name the tiers. Today they show as "Tier 1/2/3" and "Free" (placeholder words in `templates/responses/_tier.html`, one file to change).
-- [ ] Dates on history and result are UTC, day only. Revisit if people far from UTC are confused (a saved time zone per account, or local time in the browser).
-- [ ] Decide in Milestone 5 how the algorithm and the insights stay private: a second private repository installed as a package (then the ghcr.io image must be made private and the server needs `docker login`), or a file loaded at run time.
-
-**Open decisions and legal**
-- [ ] Privacy lawyer: is "strip email, phone and name, keep the results and demographics" anonymous enough in the US, UK and India; what the privacy text must say; backup retention after an erasure; enterprise data agreements.
-- [ ] A company asking for its members' data to be deleted: undecided; waits for Milestone 3 (see the note there on memberships).
-- [ ] A user-facing "delete my account" button: not built; staff erase from the admin for now. The wording is a product and legal decision.
-- [ ] Payment ledger without identity and the refund path: Phase 3.
-- [ ] Split "Support staff" into a debugging group and a business-insights group when the team needs it (the permission lists are already two named lists in `apps/responses/signals.py`).
-- [ ] Enterprise administrators seeing individual answers: still undecided (see above).
-
-**Founder's live checks owed for Milestone 2 so far**
-- [ ] Grant yourself a licence in the admin, then take the survey on a phone on the live site: close the browser mid-way, reopen, resume on the right page, submit, and see it in My surveys with its tier. (The pages were checked in headless Chrome at phone width, not on a real phone, Safari or Firefox.)
-- [ ] Revoke a licence after submitting and check the result shows "Free (licence withdrawn)".
-- [ ] Log in as a Support staff account on the live site: licences, accounts, the funnel and "answered positions" on a response are visible; the answers, Erase and delete are not.
-- [ ] Erase a test account both ways in the admin and sign up again with the same email.
-- [ ] Look at the funnel page and the confirmation page in a browser (they were tested only through the test client).
+- [ ] Before Milestone 3: do enterprise administrators see members' answers, or only results? (The founder ruled on 2026-10-09 that the person never sees their own answers after submitting; FR-19 is overridden for that scope only. Root admin keeps the read-only Django admin.) And what happens when a company asks for its members' data to be deleted (see the note in Milestone 3 on memberships).
+- [ ] For Milestone 5: what tier 0 (no licence) shows on the result page (sample insights from the paid tiers, a limited subset, or just the invitation to buy), and how the algorithm and the insights stay private (a second private repository installed as a package, which makes the ghcr.io image private and needs `docker login` on the server, or a file loaded at run time).
+- [ ] Privacy lawyer before launch: is "strip email, phone and name, keep the results and demographics" anonymous enough in the US, UK and India; what the privacy text must say; backup retention after an erasure; enterprise data agreements; and whether to offer a user-facing "delete my account" button and its wording (staff erase from the admin for now).
+- [ ] Later, when needed: split "Support staff" into a debugging group and a business-insights group (already two named lists in `apps/responses/signals.py`), and decide then whether they should read the statements (today they can, through the read-only Questions and Survey versions pages; the founder is fine with that for now); the payment ledger without identity and the refund path (Phase 3); and revisit the UTC, day-only dates on history and result if people far from UTC are confused.
 
 **Small code and docs follow-ups**
-- [ ] The licence grant form's account picker is a plain dropdown; make it a search box before accounts grow.
-- [ ] A test for the password-reset refused-mail path (it shares `AccountAdapter.send_mail` with signup but has none of its own).
-- [ ] Register `/health` with an uptime checker (`04-infrastructure.md`, step 8.4).
 - [ ] The README is being written by the founder separately.
 
 ## Decision log
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-10-10 | Milestone 2 ends with PR 11: the founder's live checks as one tasklist, then a docs-only PR that ticks the boxes | All the code is done; what remains needs the live site and a real phone |
+| 2026-10-10 | Caddy refuses request bodies over 5 MB, and `deploy.sh` reloads Caddy on every deploy | Without a limit Django streams a large upload to disk before any view can check it; the deploy never restarted Caddy, so a Caddyfile change would not have applied |
+| 2026-10-10 | The licence grant form searches for the account (the admin's autocomplete) instead of a dropdown of every account | Works as accounts grow; searches by email or phone like the Accounts page |
+| 2026-10-10 | Sentry receives no request bodies and no local variables, site-wide | sentry-sdk sends both even with `send_default_pii=False`, and they can hold answers, emails or the statements |
+| 2026-10-10 | Support staff keep read access to the questions for now | Founder's call; revisit when the group is split |
+| 2026-10-10 | The survey wording is loaded by a superuser on the survey version's admin page: Check shows counts only; Apply goes through `load_questions` under a lock and is refused if the wording changed since the preview; a submitted survey on the version needs an "I understand" tick; limits 200 KB a file and 1,000 characters a statement | No SSH; the wording never appears on the page, in messages, history or logs; two superusers cannot overwrite each other; people mid-survey keep their answers and see the new wording from their next page |
 | 2026-10-10 | Revoking a licence deletes an unfinished attempt on it; a submitted survey is kept but shows "Free (licence withdrawn)" with no results | The draft could never continue and would block a new start (one open draft per account); founder chose refund-like behaviour for the submitted case |
 | 2026-10-10 | Page 1 cannot lock until the self-report is answered; the draft is created by the start page's POST, never a GET | Opening the page must not cost a licence; the self-report is fixed once the statements begin |
 | 2026-10-10 | Survey funnel events (`survey_started`, `page_locked`, `survey_submitted`) carry tier and source | Conversion by tier and by purchase or manual grant, still with no link to the account |

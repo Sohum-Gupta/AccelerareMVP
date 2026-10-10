@@ -97,7 +97,7 @@ Each app exposes a small set of plain functions (for example `enterprises.servic
 
 **Enterprise admin.** Custom views and templates under `/enterprise/<slug>/`; the slug is resolved and then discarded in favour of the membership from `for_admin()`.
 
-**Survey definition.** A data migration creates survey v1 with 25 placeholder rows. The real statements are private: `survey.services.load_questions` fills them in from a JSON file that is never committed. On a laptop that is `manage.py load_questions private/survey_v1.json`; on the live site PR 9 adds a superuser-only admin page that takes the pasted or uploaded JSON, so no one needs SSH. Questions are read from the database at runtime.
+**Survey definition.** A data migration creates survey v1 with 25 placeholder rows. The real statements are private: `survey.services.load_questions` fills them in from a JSON file that is never committed. On a laptop that is `manage.py load_questions private/survey_v1.json`; on the live site a superuser pastes or uploads it on the survey version's admin page ("Load the survey wording…"), so no one needs SSH. Questions are read from the database at runtime.
 
 **Settings split.** `base.py` holds everything common; `local.py` turns on debug and the console email backend; `production.py` enforces HTTPS, secure cookies and real email. The environment selects which one loads.
 

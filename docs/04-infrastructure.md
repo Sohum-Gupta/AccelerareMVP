@@ -127,7 +127,7 @@ Record anything you change from these steps directly in this section. Sections 1
 
 **6. Compose on the server**
 The server files live in the repository under `deploy/` and the pipeline copies them to `/opt/survey` on every deploy.
-- `caddy`: official image, ports 80 and 443, mounts `Caddyfile` and volumes for certificates, proxies to `web:8000`.
+- `caddy`: official image, ports 80 and 443, mounts `Caddyfile` and volumes for certificates, proxies to `web:8000`, and refuses request bodies over 5 MB (413) before they reach Django.
 - `web`: `ghcr.io/sohum-gupta/acceleraremvp:latest` (override with `APP_IMAGE`), `env_file: .env`, the image's own command runs gunicorn on 8000.
 - Both `restart: unless-stopped`.
 - **No `worker` yet.** The earlier version of this runbook listed one, but `manage.py run_worker` is a Milestone 5 command and a container started now would crash-loop. Add a second service reusing the web image with that command in Milestone 5.
@@ -136,7 +136,7 @@ The server files live in the repository under `deploy/` and the pipeline copies 
 1. On every push and pull request: `uv sync`, `ruff check`, `ruff format --check`, `pytest` against a PostgreSQL service container (`ci.yml`).
 2. On push to `main`, after tests pass: build the ARM image, smoke-test it (boot it and run `manage.py check --deploy --fail-level WARNING`, so any new security or deprecation warning fails the run), push to ghcr.io tagged with the commit SHA and `latest`.
 3. The `deploy` job then connects over SSH with a **dedicated deploy key** (not the personal key), copies `deploy/` to `/opt/survey`, and runs `/opt/survey/deploy.sh`. Setup, done once: `ssh-keygen -t ed25519 -f ~/.ssh/survey-deploy-key -N ""`; append the `.pub` to the server's `~/.ssh/authorized_keys`; add three GitHub repository secrets: `DEPLOY_HOST` (the Elastic IP), `DEPLOY_SSH_KEY` (the private key file), `DEPLOY_KNOWN_HOSTS` (`<elastic-ip> ` followed by the server's `/etc/ssh/ssh_host_ed25519_key.pub` line). The job refuses any server whose host key differs. To revoke the pipeline's access, delete its line from `authorized_keys`.
-4. `deploy.sh`: render `.env` from Parameter Store (to a private temporary file, then moved into place), `docker compose pull`, `docker compose run --rm web python manage.py migrate`, `docker compose run --rm web python manage.py createcachetable` (the rate-limit cache table; a no-op once it exists), `docker compose up -d`, `docker compose exec web python manage.py check --deploy --fail-level WARNING`.
+4. `deploy.sh`: render `.env` from Parameter Store (to a private temporary file, then moved into place), `docker compose pull`, `docker compose run --rm web python manage.py migrate`, `docker compose run --rm web python manage.py createcachetable` (the rate-limit cache table; a no-op once it exists), `docker compose up -d`, `docker compose exec caddy caddy reload` (applies a changed Caddyfile; `up -d` does not restart an unchanged container, and a broken Caddyfile fails here while Caddy keeps its old configuration), `docker compose exec web python manage.py check --deploy --fail-level WARNING`.
 
 **8. First run**
 1. `docker compose run --rm web python manage.py createsuperuser` for the root admin (use an address that is not the AWS root email).
@@ -198,7 +198,7 @@ Future changes and open questions:
 | Resize | Stop instance → change type → start; Elastic IP keeps the address. RDS: Modify → instance class, apply in the maintenance window |
 | OS updates | Monthly: `sudo apt update && sudo apt upgrade`, reboot if `/var/run/reboot-required` exists; the containers restart on their own. Decline the Ubuntu release upgrade prompt |
 
-Admin tasks (grant and revoke licences, erase an account, read the funnel, set seat pools, review matches, merge, export, and from Milestone 2 PR 9 load the survey wording) are done in the Django admin, never here. The goal is that nontechnical staff handle about 99% of issues there.
+Admin tasks (grant and revoke licences, erase an account, read the funnel, set seat pools, review matches, merge, export, and load the survey wording) are done in the Django admin, never here. The goal is that nontechnical staff handle about 99% of issues there.
 
 **What still needs the AWS console, GitHub or SSH** (keep this list short; add a row only when there is no admin alternative):
 
@@ -244,7 +244,9 @@ Writing Terraform at this point is worthwhile; by then every setting is understo
 
 | Date | Decision | Reason |
 | --- | --- | --- |
-| 2026-10-09 | The survey wording is loaded through a superuser-only admin page (Milestone 2 PR 9; confirmed by the founder, not built yet), not by copying a file to `/opt/survey/private/` | Staff should not need SSH; the file would also need a compose mount and a deploy step |
+| 2026-10-10 | Caddy refuses request bodies over 5 MB; `deploy.sh` reloads Caddy after `up -d` | Django would stream a large upload to temporary disk before any view could check it; Caddy reads its config only at start or on reload |
+| 2026-10-10 | Sentry gets no request bodies and no local variables (`max_request_body_size="never"`, `include_local_variables=False`) | Both are sent even with `send_default_pii=False` and can hold answers, emails or the private statements |
+| 2026-10-09 | The survey wording is loaded through a superuser-only admin page (Milestone 2 PR 9, built 2026-10-10), not by copying a file to `/opt/survey/private/` | Staff should not need SSH; the file would also need a compose mount and a deploy step |
 | 2026-10-05 | Single EC2 with Docker Compose over ECS, App Runner or Elastic Beanstalk | Cheapest thing that runs a long-lived worker; no load balancer cost; fully understandable |
 | 2026-10-05 | RDS PostgreSQL rather than PostgreSQL on the same instance | Managed backups and restore; data is the asset |
 | 2026-10-05 | Caddy for TLS | Automatic certificates, three-line config |
