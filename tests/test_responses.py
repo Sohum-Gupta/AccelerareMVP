@@ -225,4 +225,5 @@ class TestSupportStaffGroup:
             "view_contactpoint",
             "view_surveyversion",
             "view_question",
+            "view_funnelevent",
         }
