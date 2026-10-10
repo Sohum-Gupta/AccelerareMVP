@@ -183,3 +183,107 @@ class TestRefusals:
         second = Account.objects.create_superuser("root2@example.com", PASSWORD)
         erasure.erase_account(only, by=second)
         assert Account.objects.filter(pk=second.pk).exists()
+
+
+# --- the admin ---------------------------------------------------------------------
+
+
+@pytest.fixture
+def root(client, db):
+    account = Account.objects.create_superuser("root@example.com", PASSWORD)
+    client.force_login(account)
+    return account
+
+
+def erase_url(account):
+    return f"/admin/accounts/account/{account.pk}/erase/"
+
+
+@pytest.mark.django_db
+class TestAdmin:
+    def test_the_button_is_on_the_account_page_for_superusers(self, client, root, bob):
+        page = client.get(f"/admin/accounts/account/{bob.pk}/change/").content.decode()
+        assert "Erase this account" in page and erase_url(bob) in page
+
+    def test_support_staff_get_no_button_and_no_page(self, client, bob):
+        from django.contrib.auth.models import Group
+
+        from apps.responses.signals import GROUP_NAME
+
+        support = Account.objects.create_user("support@example.com", PASSWORD)
+        support.is_staff = True
+        support.save()
+        support.groups.add(Group.objects.get(name=GROUP_NAME))
+        client.force_login(support)
+        page = client.get(f"/admin/accounts/account/{bob.pk}/change/").content.decode()
+        assert "Erase this account" not in page
+        assert client.get(erase_url(bob)).status_code == 403
+        posted = client.post(erase_url(bob), {"email": "bob@example.com", "reason": "testing"})
+        assert posted.status_code == 403
+        assert Account.objects.filter(pk=bob.pk).exists()
+
+    def test_the_stock_delete_is_off(self, client, root, bob):
+        assert client.get(f"/admin/accounts/account/{bob.pk}/delete/").status_code == 403
+        assert Account.objects.filter(pk=bob.pk).exists()
+
+    def test_the_page_says_which_outcome_will_happen(self, client, root, bob):
+        assert "permanently deleted" in client.get(erase_url(bob)).content.decode()
+        complete(bob)
+        page = client.get(erase_url(bob)).content.decode()
+        assert "will not be deleted" in page and "1 completed survey" in page
+
+    def test_a_wrong_email_or_missing_reason_changes_nothing(self, client, root, bob):
+        for data in (
+            {"email": "nope@example.com", "reason": "a good reason"},
+            {"email": "bob@example.com", "reason": ""},
+        ):
+            assert client.post(erase_url(bob), data).status_code == 200
+        assert Account.objects.filter(pk=bob.pk).exists()
+
+    def test_hard_delete_through_the_page_is_logged_without_the_email(self, client, root, bob):
+        pk = bob.pk
+        response = client.post(
+            erase_url(bob), {"email": "BOB@example.com ", "reason": "test account, ticket 7"}
+        )
+        assert response.status_code == 302
+        assert not Account.objects.filter(pk=pk).exists()
+        entry = LogEntry.objects.get(object_id=str(pk), user=root)
+        assert entry.object_repr == f"Account #{pk}"
+        assert "ticket 7" in entry.change_message and "bob@example.com" not in entry.change_message
+
+    def test_anonymise_through_the_page_shows_the_erased_mark(self, client, root, bob):
+        complete(bob)
+        client.post(erase_url(bob), {"email": "bob@example.com", "reason": "deletion request"})
+        bob.refresh_from_db()
+        assert bob.anonymised_at is not None
+        page = client.get(f"/admin/accounts/account/{bob.pk}/change/").content.decode()
+        assert "Erase this account" not in page  # already erased
+        listing = client.get("/admin/accounts/account/").content.decode()
+        assert "bob@example.com" not in listing
+        assert "bob@example.com" not in page
+        assert client.get(erase_url(bob)).status_code == 302  # refused, back to the account
+
+    def test_erasing_yourself_is_refused_in_plain_words(self, client, root, bob):
+        page = client.get(erase_url(root), follow=True).content.decode()
+        assert "cannot erase your own account" in page
+
+
+@pytest.mark.django_db
+def test_revoking_in_the_admin_is_recorded_with_who_did_it(client, root, bob):
+    lic = licences.grant_individual(bob.person, 1, "manual", root)
+    client.post(
+        "/admin/entitlements/entitlement/",
+        {"action": "revoke_selected", "_selected_action": [lic.pk]},
+    )
+    entry = LogEntry.objects.get(object_id=str(lic.pk))
+    assert entry.user == root and entry.change_message == "Revoked"
+
+
+@pytest.mark.django_db
+def test_granting_in_the_admin_is_recorded_with_who_did_it(client, root, bob):
+    client.post(
+        "/admin/entitlements/entitlement/add/",
+        {"account": bob.pk, "tier": 2, "source": "manual"},
+    )
+    lic = Entitlement.objects.get()
+    assert LogEntry.objects.filter(object_id=str(lic.pk), user=root).exists()
