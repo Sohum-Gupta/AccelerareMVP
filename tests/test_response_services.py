@@ -353,7 +353,7 @@ class TestCompletePage:
         assert services.complete_page(draft, 1).pages_completed == 1
 
     def test_saves_the_answers_shown_on_the_page_then_locks(self, draft):
-        first, *rest = on_page(1)
+        first = on_page(1)[0]
         draft = services.save_answer(draft, first.pk, 1)  # another tab, say
         shown = {str(q.pk): 4 for q in on_page(1)}
         response = services.complete_page(draft, 1, shown)
