@@ -2,10 +2,10 @@
 Every write to licences goes through here.
 
 A bad tier or source raises django.core.exceptions.ValidationError, whose
-message the admin can show. Until the Response model exists (next PRs), "unused"
-means "active": once responses link to licences, unused_licence also skips a
-licence a response already consumed, and has_survey_access also counts an open
-draft.
+message the admin can show. A licence is "unused" while it is active and no
+response has consumed it. Access means an unused licence, or an open draft whose
+licence has not been revoked. The queries reach responses through the reverse
+names ("response"), so this module never imports the responses app.
 """
 
 from django.core.exceptions import ValidationError
@@ -51,13 +51,18 @@ def change_tier(entitlement, tier):
 
 
 def unused_licence(account):
-    """The account person's oldest active licence, or None."""
+    """The account person's oldest active licence that no response has used, or None."""
     return (
-        Entitlement.objects.filter(person=account.person, revoked_at__isnull=True)
+        Entitlement.objects.filter(
+            person=account.person, revoked_at__isnull=True, response__isnull=True
+        )
         .order_by("granted_at", "id")
         .first()
     )
 
 
 def has_survey_access(account):
-    return unused_licence(account) is not None
+    open_draft = Entitlement.objects.filter(
+        response__account=account, response__status="draft", revoked_at__isnull=True
+    ).exists()
+    return open_draft or unused_licence(account) is not None

@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.survey",
     "apps.entitlements",
+    # Last on purpose: its post_migrate hook needs every other app's permissions.
+    "apps.responses",
 ]
 
 # Must be set before the first migration runs; changing it later means

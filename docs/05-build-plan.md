@@ -552,6 +552,8 @@ Things agreed but not done, so they are not forgotten. Move a line to the decisi
 - [ ] Decide in Milestone 5 how the algorithm and the insights stay private: a second private repository installed as a package (then the ghcr.io image must be made private and the server needs `docker login`), or a file loaded at run time.
 
 **Small code and docs follow-ups**
+- [ ] Soft delete for accounts (`deleted_at`, `soft_delete_account`; what happens to the login email) as PR 3b, and a written hard-delete/erasure procedure.
+- [ ] The licence grant form's account picker is a plain dropdown; make it a search box before accounts grow.
 - [ ] A test for the password-reset refused-mail path (it shares `AccountAdapter.send_mail` with signup but has none of its own).
 - [ ] Register `/health` with an uptime checker (`04-infrastructure.md`, step 8.4).
 - [ ] The README is being written by the founder separately.
@@ -569,6 +571,10 @@ Things agreed but not done, so they are not forgotten. Move a line to the decisi
 | 2026-10-09 | `Question.metadata` JSON instead of named columns for per-question attributes | Many per-question fields are expected later; keep them in the private file with no migration each time |
 | 2026-10-09 | Each submitted response is kept and listed in history; the membership key waits for Milestone 3 | `Membership` does not exist yet (superseded the same day: retakes need a licence, see above) |
 | 2026-10-09 | Milestone 2 split into ten PRs: survey models; entitlements; response model; services; disclosure; pages and autosave; review and submit; history; deploy the private file; docs | Same method as Milestone 1 |
+| 2026-10-09 | Accounts are soft-deleted by default (a `deleted_at` flag, nothing removed) so the data stays available for insights; hard delete only for duplicates and compliance, as a deliberate procedure that removes the responses first. `Response` uses PROTECT on account, version and licence | Founder's rule; PROTECT makes an accidental hard delete impossible. Soft delete is PR 3b; the erasure procedure is written down before the first real request |
+| 2026-10-09 | Django admin has two levels: superusers see everything including answers (read-only); other staff ("Support staff" group) see which questions a response has answered, by position, and never the values or the self-report. The AWS console and database credentials see everything by nature | Founder's rule: support is for debugging, not data visibility |
+| 2026-10-09 | Any staff may grant, upgrade and revoke licences; each grant records `granted_by`. Purchases will create licences through the same service in Phase 3. All staff may read questions | Founder's rule; licences are manual until payments exist |
+| 2026-10-09 | One open draft per account is a database rule (widened to account + membership in Milestone 3) | Two tabs starting at once cannot both create a draft |
 | 2026-10-09 | Verified email collisions are recovered, never auto-linked or auto-merged; Milestone 5 loses its verified-email rule | Recycled and shared inboxes would take over accounts silently; see `02-architecture.md`, "Recovery and recycled contacts" |
 | 2026-10-09 | Milestone 1 widened: login with any verified email, make primary, remove email, reset notices, post-verification personal-email prompt, phone country selector | Founder: one account per person across employers in India, US and UK; people rarely return to a profile page |
 | 2026-10-09 | allauth verification `mandatory`: no login until the address is verified | Simplest with allauth, and it makes "never log in with an unverified address" automatic; the survey-view guard stays as a second line |
