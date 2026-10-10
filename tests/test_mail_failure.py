@@ -12,6 +12,7 @@ from django.urls import reverse
 from apps.accounts import services
 from apps.accounts.models import Account
 
+from .test_password_reset import make_account, request_reset
 from .test_signup_login import signup_data
 from .test_verification import PASSWORD
 
@@ -44,6 +45,17 @@ def test_login_of_an_unverified_account_survives_a_refused_mail(client):
     assert response.status_code == 200
     assert "_auth_user_id" not in client.session
     assert "could not send the email" in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_a_refused_password_reset_mail_shows_the_warning_not_an_error(client):
+    make_account(client)
+    with REFUSED:
+        response = request_reset(client, "bob@example.com")
+    assert response.status_code == 200
+    page = response.content.decode()
+    assert "If an account exists" in page  # the same neutral page as always
+    assert "could not send the email" in page
 
 
 @pytest.mark.django_db

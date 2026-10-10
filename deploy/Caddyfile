@@ -4,7 +4,15 @@
 # settings rely on.
 #
 # The name below must match ALLOWED_HOSTS in Parameter Store and the A record
-# in DNS. Changing it is a one-line edit followed by a deploy.
+# in DNS. Changing it is a one-line edit followed by a deploy (deploy.sh reloads
+# Caddy, so a change here applies without a restart).
 app.theaccelerare.com {
+	# Refuse any request body over 5 MB with a 413 before it reaches Django,
+	# which would otherwise stream a large upload to temporary disk before any
+	# view could check it. The largest legitimate upload is the survey file
+	# (200 KB at most).
+	request_body {
+		max_size 5MB
+	}
 	reverse_proxy web:8000
 }

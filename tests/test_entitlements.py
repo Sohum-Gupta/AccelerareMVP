@@ -13,6 +13,7 @@ from apps.entitlements.models import Entitlement
 
 from .test_admin_and_guard import root  # noqa: F401  (fixture)
 from .test_profile import verified_account
+from .test_responses import support  # noqa: F401  (fixture)
 
 
 @pytest.fixture
@@ -107,6 +108,40 @@ class TestAdmin:
         assert licence.person == bob.person
         assert licence.tier == 2
         assert licence.granted_by == root
+
+    def test_add_form_searches_for_the_account_instead_of_listing_them_all(
+        self,
+        client,
+        root,  # noqa: F811
+        bob,
+    ):
+        page = client.get("/admin/entitlements/entitlement/add/").content.decode()
+        assert "admin-autocomplete" in page
+        assert "bob@example.com" not in page  # no dropdown of every account
+        for term in ("bob@ex", "9876543210"):
+            found = client.get(
+                "/admin/autocomplete/",
+                {
+                    "app_label": "entitlements",
+                    "model_name": "entitlement",
+                    "field_name": "granted_by",
+                    "term": term,
+                },
+            ).json()
+            assert [r["text"] for r in found["results"]] == ["bob@example.com"]
+
+    def test_support_staff_can_search_for_the_account_too(self, client, support, bob):  # noqa: F811
+        found = client.get(
+            "/admin/autocomplete/",
+            {
+                "app_label": "entitlements",
+                "model_name": "entitlement",
+                "field_name": "granted_by",
+                "term": "bob@",
+            },
+        )
+        assert found.status_code == 200
+        assert [r["text"] for r in found.json()["results"]] == ["bob@example.com"]
 
     def test_changing_the_tier_upgrades_but_nothing_else_is_editable(self, client, root, bob):  # noqa: F811
         licence = grant(bob, 1)
