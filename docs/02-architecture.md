@@ -42,11 +42,12 @@ One codebase, split by domain so each part can be reasoned about alone. Each mod
 
 | Module | Owns | Key rules |
 | --- | --- | --- |
-| `accounts` | Person, Account, ContactPoint, sessions, password reset | Only verified contact points take part in matching |
+| `accounts` | Person, Account, ContactPoint, sessions, password reset, erasure | Only verified contact points take part in matching. `erasure.erase_account` is the one place that deletes or strips an account |
 | `enterprises` | Enterprise, Membership, Invite, JoinCode, SeatPool | The only way into an enterprise is a valid invite or code |
 | `survey` | SurveyVersion, Question | Questions are data, not code; v1 has 25 statements scored 1–4; the wording is loaded from a private file, never committed |
-| `responses` | Response (draft/submitted), autosave, submission | Submitted responses are immutable |
-| `entitlements` | Entitlement (person- or membership-level tier) | Seat pool is enforced here |
+| `responses` | Response (draft/submitted), autosave, submission, the Support staff group | Submitted responses are immutable; every foreign key is PROTECT |
+| `entitlements` | Entitlement (person- or membership-level tier) | Seat pool is enforced here. Licences do not expire |
+| `funnel` | FunnelEvent | Events carry no link to an account or person; written inside the transaction of the thing that happened; imports nothing from the apps that call it |
 | `matching` | MatchCandidate, auto-link, merge, unmerge | All thresholds in one file |
 | `results` | Result storage, `compute_result` interface, tier filtering | UI reads stored results only |
 | `exports` | CSV generation per scope | Scope comes from the caller's role, never from the request |
@@ -77,7 +78,7 @@ erDiagram
 | Table | Columns that matter | Notes |
 | --- | --- | --- |
 | `person` | id, created_at, merged_into (nullable) | The human. One per linked set of accounts. Merges set `merged_into`; unmerge clears it |
-| `account` | id, person_id, password_hash, status, created_at | One login. Status: active, deactivated, deleted |
+| `account` | id, person_id, password_hash, is_active, anonymised_at (nullable), created_at | One login. `is_active` false means suspended or erased. `anonymised_at` is set when the identity was stripped but a completed survey was kept; the email is then a placeholder (`erased-<id>@erased.invalid`), so the real address can sign up again |
 | `contact_point` | id, account_id, kind (email/phone), value_normalised, value_display, verified_at, is_primary | Every account has at least one email and exactly one phone. Three rules: unique on (kind, value_normalised) once verified (one owner per proven address); unique on (account, kind, value_normalised); at most one primary per kind per account. The primary email is the login name (`account.email` always equals it). Unverified rows never take part in login, reset or matching |
 | `enterprise` | id, name, created_by_account_id, created_at | Self-registered. No domain list |
 | `membership` | id, account_id, enterprise_id, role (member/admin), status (active/deactivated), joined_at, joined_via (invite_id or join_code_id) | Never deleted. Unique on (account_id, enterprise_id) |
@@ -86,10 +87,11 @@ erDiagram
 | `seat_pool` | id, enterprise_id, tier (1–3), seats | Set by root admin until payments exist |
 | `survey_version` | id, number, published_at, question_count | v1 only in MVP |
 | `question` | id, survey_version_id, position, text, min_value, max_value, metadata (JSONB) | 25 rows for v1, all 1–4; `metadata` holds later per-question fields |
-| `response` | id, account_id, membership_id (nullable), survey_version_id, status (draft/submitted), answers (JSONB), took_before (self-report), took_before_where, entitlement_id (one-to-one), pages_completed, started_at, submitted_at, possible_repeat (bool) | `answers` is `{"1": 3, "2": 4, ...}` keyed by question id; `membership_id` null means individual context and is added in Milestone 3 |
+| `response` | id, account_id, membership_id (nullable), survey_version_id, status (draft/submitted), answers (JSONB), took_before (self-report), took_before_via (individual/company/other, only when took_before is yes), entitlement_id (one-to-one), pages_completed, started_at, submitted_at, possible_repeat (bool) | `answers` is `{"1": 3, "2": 4, ...}` keyed by question id; `membership_id` null means individual context and is added in Milestone 3 |
 | `entitlement` | id, person_id (nullable), membership_id (nullable), tier, source (seat/purchase/manual), granted_by_account_id, granted_at, revoked_at | Exactly one of person_id / membership_id is set. A licence: one survey attempt (the `response` that points at it) plus results at its tier; upgraded in place |
 | `result` | id, response_id, algorithm_version, payload (JSONB), computed_at | Empty table in MVP. Several rows per response are allowed (one per algorithm version) |
 | `match_candidate` | id, account_a_id, account_b_id, signals (JSONB), status (auto_linked/flagged/confirmed/rejected), resolved_by, resolved_at | Signals record which rules fired |
+| `funnel_event` | id, kind, occurred_at, country, channel (direct/invite/code), tier, source, page | No foreign keys, on purpose. Kinds: signed_up, email_verified, licence_granted, licence_upgraded, survey_started, page_locked, survey_submitted |
 | `audit_log` | id, actor_account_id, action, target_type, target_id, detail (JSONB), at | Append-only. Deletions leave a row here after the data is gone |
 | `job` | id, kind, payload (JSONB), status, attempts, run_after, locked_at, error | The whole queue |
 
@@ -104,7 +106,8 @@ Role checks run on the server on every request. The viewer's scope is derived fr
 | Account, individual context | Own responses with no membership | Highest tier of the person's own entitlements; none if unpaid | Take, resume, retake |
 | Member, enterprise context | Own responses under that membership | The membership's entitlement tier; none if no seat | Take, resume, retake |
 | Enterprise admin | All responses under memberships of that enterprise | Each response at its membership's tier | Invite, issue codes, assign seats, deactivate, export |
-| Root admin | Everything | Everything, all tiers | Everything, including merge/unmerge and deletion |
+| Root admin (superuser) | Everything, including answers | Everything, all tiers | Everything, including merge/unmerge and erasure |
+| Support staff (Django group) | Which questions a response has answered, by position, never the values or the self-report | n/a | Grant, upgrade and revoke licences; read accounts, questions and the funnel; no erasure |
 
 A deactivated member keeps access to their own responses through any account that still logs in (FR-10). The enterprise keeps its view (FR-9).
 
@@ -120,7 +123,7 @@ If the invite or code carries a tier, an entitlement is created on the membershi
 
 **Taking the survey.**
 1. Before Q1, the page states who will see the answers (FR-15) and asks the self-report question (FR-16).
-2. Each answer is saved to `response.answers` as it is given (one small request per answer). Leaving and returning resumes at the first unanswered question.
+2. Each answer is saved to `response.answers` as it is given (one small request per answer). Pages of five statements lock when the person presses Next; leaving and returning resumes on the first unlocked page with the saved answers selected.
 3. Submit sets `status = submitted` and `submitted_at`; the row is never updated again.
 4. Submission enqueues two jobs: `run_matching(response_id)` and `compute_result(response_id)`. Neither can block or fail the submission.
 
@@ -152,7 +155,14 @@ Residual risk, accepted for the MVP: an account whose only verified contact is a
 
 **Results (Phase 2).** The worker calls `compute_result(response)`; the plugin returns a structured payload tagged with its version; the row is stored. The results page loads the latest result for the response and filters its fields by the viewer's tier. Re-running a corrected algorithm inserts new rows; old ones stay.
 
-**Deletion (FR-24).** Root admin deletes an account: responses, contact points, memberships and results are hard-deleted; the person row is deleted if it has no other accounts; one `audit_log` row records what was deleted and when.
+**Erasure (FR-24).** A superuser presses "Erase this account" on the account page of the admin, types the account's email and gives a reason. The confirmation page says in plain words which outcome will happen, chosen by the data:
+
+| Account has | Outcome |
+| --- | --- |
+| No completed (submitted) survey and has never used the admin | Hard delete: responses (drafts), licences, contact points, allauth email rows, the account, and the person if no other account shares it |
+| A completed survey, or has acted in the admin | Strip: contact points and allauth email rows deleted, email replaced by a placeholder, password made unusable, sessions ended, staff rights removed, unfinished attempt deleted, unused licences revoked; responses, answers, dates, tiers, `took_before` and the person stay; `anonymised_at` set |
+
+Both run in one transaction, are irreversible, and refuse erasing yourself, the last active superuser, or an account twice. The admin history is scrubbed of the email (the erase reason is logged as "Account #id"). The strip list is one function. Demographics (age, gender, company) belong on Person, so the strip leaves them alone. Funnel counts are untouched because events have no link to the account. Milestone 3 decides what happens to memberships; Milestone 6 adds the `audit_log` row and the written procedure. A privacy lawyer confirms what counts as anonymous enough.
 
 ## Tenant isolation
 
@@ -170,10 +180,10 @@ Everything region-specific — database host, email provider endpoint, storage r
 
 | Later feature | What exists now to receive it |
 | --- | --- |
-| Payments | `entitlement.source = purchase`; a payment module writes entitlements and seat pools |
+| Payments | `entitlement.source = purchase`; a payment module writes entitlements and seat pools through the same services the admin uses, plus a payment ledger with no personal identity so an erasure never removes an accounting record |
 | SSO | A second login method on `account`; memberships unchanged |
 | Helper admin | A third value in `membership.role` or a platform-level role table; no schema change elsewhere |
-| Phone verification | `contact_point.verified_at` for phones; the matching phone rule turns on |
+| Phone verification | `contact_point.verified_at` for phones; the matching phone rule turns on (until then a phone match only flags a candidate for staff) |
 | Survey v2 | New `survey_version` and `question` rows; old responses keep `survey_version_id` |
 | Dashboards | Read-only queries over `response` and `result`; no writes |
 | Company email domain | Email provider swap in config only |
@@ -192,6 +202,7 @@ Applied in `01-requirements.md` v2:
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-10-09 | Erasure strips the identity and keeps completed surveys, or deletes outright when there is none; funnel events have no link to accounts; Support staff is a Django group with debugging and insight permissions | Founder's rules; see `05-build-plan.md`. Counting accounts would lose erased people from conversion numbers |
 | 2026-10-09 | A verified email or phone has one owner; collisions are recovered (log in or reset), never auto-linked or auto-merged; no self-service account merge | Recycled and shared inboxes would otherwise take over accounts silently; a merge of two logins with data is the riskiest code in the project. See "Recovery and recycled contacts" |
 | 2026-10-09 | `account.person` nullable at first, backfilled, tightened in a later migration | Production already had an account; "add, backfill, tighten" keeps every deploy safe |
 | 2026-10-05 | Monolith on PostgreSQL, server-rendered HTML, no separate frontend app | Solo Python developer; smallest surface to build and run |

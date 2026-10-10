@@ -60,15 +60,16 @@ survey-platform/
 ├── apps/
 │   ├── accounts/           # Person, Account, ContactPoint; allauth integration
 │   ├── enterprises/        # Enterprise, Membership, Invite, JoinCode, SeatPool
-│   ├── survey/             # SurveyVersion, Question; v1 fixture
-│   ├── responses/          # Response; autosave and submit views
+│   ├── survey/             # SurveyVersion, Question; placeholder v1 in a data migration; load_questions
+│   ├── responses/          # Response; autosave and submit views; Support staff group (signals.py)
 │   ├── entitlements/       # Entitlement; seat pool enforcement
+│   ├── funnel/             # FunnelEvent; admin funnel summary
 │   ├── matching/           # MatchCandidate; rules.py; merge and unmerge
 │   ├── results/            # Result; compute_result interface; tier filter
 │   ├── exports/            # CSV views per scope
 │   ├── audit/              # AuditLog and a helper to write entries
 │   └── jobs/               # Job model, enqueue(), worker command
-├── templates/              # base.html and one folder per app
+├── templates/              # base.html and one folder per app; templates/admin/ overrides for the Django admin
 ├── static/
 │   └── css/                # Tailwind input and built output
 └── tests/                  # mirrors apps/; tenant isolation tests live here
@@ -92,11 +93,11 @@ Each app exposes a small set of plain functions (for example `enterprises.servic
 
 **Algorithm interface.** `results/algorithm.py` defines `compute_result(response: Response) -> ResultPayload | None` and `ALGORITHM_VERSION`. The MVP implementation returns `None` and stores nothing. Phase 2 replaces the body; nothing else changes.
 
-**Root admin.** Django admin, registered for every model, with read-only fields on `Response` after submission. Merge/unmerge, match review and deletion are custom admin actions that write `audit_log` rows.
+**Root admin.** Django admin, registered for every model, and the operations hub: nontechnical staff do routine work there, so AWS and GitHub stay minimal. `Response` is read-only for everyone; superusers see the answers, the "Support staff" group (set in a `post_migrate` receiver in `apps/responses/signals.py`) sees which questions are answered and never the values. Custom admin actions (erase an account, revoke a licence, merge/unmerge, match review) call services and write a history entry (`log_change`, or by hand when the label must not hold an email). Merge/unmerge, match review and the erase audit row go to `audit_log` from Milestone 5. Admin pages are overridden under `templates/admin/<app>/<model>/` (the Erase button, the funnel summary).
 
 **Enterprise admin.** Custom views and templates under `/enterprise/<slug>/`; the slug is resolved and then discarded in favour of the membership from `for_admin()`.
 
-**Survey definition.** A data migration creates survey v1 with 25 placeholder rows. The real statements are private: `manage.py load_questions <file>` fills them in from a JSON file that is never committed (`private/` on a laptop, `/opt/survey/private/` on the server, run by `deploy.sh`). Questions are read from the database at runtime.
+**Survey definition.** A data migration creates survey v1 with 25 placeholder rows. The real statements are private: `survey.services.load_questions` fills them in from a JSON file that is never committed. On a laptop that is `manage.py load_questions private/survey_v1.json`; on the live site PR 9 adds a superuser-only admin page that takes the pasted or uploaded JSON, so no one needs SSH. Questions are read from the database at runtime.
 
 **Settings split.** `base.py` holds everything common; `local.py` turns on debug and the console email backend; `production.py` enforces HTTPS, secure cookies and real email. The environment selects which one loads.
 
@@ -106,7 +107,7 @@ Each app exposes a small set of plain functions (for example `enterprises.servic
 2. `git clone`, then `uv sync` to create the virtualenv and install dependencies.
 3. `cp .env.example .env` and fill in a database URL pointing at the Compose PostgreSQL.
 4. `docker compose up -d` starts PostgreSQL.
-5. `uv run python manage.py migrate` creates the schema and survey v1 with placeholder statements. Ask the founder for `survey_v1.json`, put it in `private/` (gitignored) and run `uv run python manage.py load_questions private/survey_v1.json` for the real wording.
+5. `uv run python manage.py migrate` creates the schema, survey v1 with placeholder statements and the "Support staff" group. Ask the founder for `survey_v1.json`, put it in `private/` (gitignored) and run `uv run python manage.py load_questions private/survey_v1.json` for the real wording.
 6. `uv run python manage.py createsuperuser` creates the root admin.
 7. `uv run python manage.py runserver` and, in a second terminal, `uv run python manage.py run_worker`.
 8. `tailwindcss -i assets/tailwind.css -o static/css/app.css --watch` rebuilds CSS on change. Install with `brew install tailwindcss` (v4). `app.css` is generated but committed, so rebuild with `--minify` before committing a template change.
@@ -126,6 +127,9 @@ Tests: `uv run pytest`. Lint: `uv run ruff check . && uv run ruff format --check
 ## Conventions
 
 - Services over fat views: every write goes through a function in `<app>/services.py`.
+- An app reaches the apps that depend on it through reverse relations (`account.responses`, `person.entitlements`, `entitlement.response`), never by importing them. `funnel` imports nothing from other apps; the apps call `funnel.record_event` inside the transaction of the thing that happened.
+- Anything staff do repeatedly must be possible from the Django admin (see the operating principle in `05-build-plan.md`). An admin action that goes through a service logs itself with `log_change`; never put a person's email in a history label.
+- `responses` stays last in `INSTALLED_APPS`: its `post_migrate` receiver builds the Support staff group from every other app's permissions.
 - Every admin action and every deletion writes an `audit_log` row in the same transaction.
 - Migrations are committed with the code that needs them and never edited after merge.
 - Settings are read once in `config/settings`; no `os.environ` calls elsewhere.
@@ -145,6 +149,8 @@ Tests: `uv run pytest`. Lint: `uv run ruff check . && uv run ruff format --check
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-10-09 | Support staff permissions are set in a `post_migrate` receiver, not a migration; the lists are two named lists (debugging, insights) | Permissions do not exist while migrations run on a fresh database; two lists make a later split into two groups a config change |
+| 2026-10-09 | `erasure.py` and the funnel reach other apps through reverse relations, not imports | `accounts` and `entitlements` are depended on by `responses`; importing back would be circular |
 | 2026-10-07 | Django 6.1 installed (current release, not 5.2 LTS); uses `MAILERS` setting instead of `EMAIL_BACKEND` | Already installed; 6.2 LTS lands April 2027 |
 | 2026-10-05 | Django over FastAPI or Flask | Built-in auth, ORM, migrations, admin and email save weeks for one developer |
 | 2026-10-05 | `django-allauth` for verification and later SSO; own views and templates on top | Mature edge-case handling and config-only SSO; revisit if it fights the join flows |

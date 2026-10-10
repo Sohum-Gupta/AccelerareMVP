@@ -1,6 +1,6 @@
 # Build Plan — Survey Platform
 
-As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs
+As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs · Milestone 2 and later revised 2026-10-09
 
 ## How to read this document
 
@@ -45,6 +45,8 @@ Most of what you've built so far has been judged by "does it work when I run it.
 **Run the worker locally always.** Keep `run_worker` running in a second terminal from milestone 5 on. If you forget, jobs silently queue up and features look broken.
 
 **Keep a `NOTES.md`.** Every time you learn something non-obvious (a Django gotcha, a Docker quirk), write it there. It becomes the onboarding doc for the next developer, who may be you after a long break.
+
+**The Django admin is the operations hub.** The end goal is that nontechnical staff handle about 99% of issues, so every operational task (granting or revoking a licence, looking up an account, erasing one, reading the funnel, and from PR 9 loading the survey wording) should be doable from the Django admin with plain-language labels, a confirmation page for anything destructive, and a history entry saying who did it. AWS console use should be minimal and GitHub use as little as possible. When a plan step needs SSH, the AWS console or a code change for something staff will do repeatedly, propose an admin alternative first. Two admin levels exist: superusers see everything; the "Support staff" group (debugging and business-insight staff, which for now are the same people) sees licences, accounts, which questions a response has answered (never the answers) and the funnel. Staff actions that go through a service bypass the admin's automatic history, so they call `log_change` themselves.
 
 **Deploy constantly.** After milestone 0 the deploy is automatic. Merge to `main` daily even when the change is small. A deploy that has not happened for two weeks is a deploy you are afraid of.
 
@@ -168,7 +170,9 @@ Accounts come before the survey because every later feature asks "who is this." 
 
 *Re-planned on 2026-10-09 from the founder's questionnaire and licence rules. This section replaces the original one-question-per-page, 1–5, no-paywall plan; the differences are in the decision log.*
 
-**Goal:** a verified individual who holds a licence can read the disclosure, answer the self-report question, answer the 25 statements five to a page with autosave, leave and resume, submit, and see their survey history. A licence is one attempt. Submitted responses are immutable, and the person never sees their answers again after submitting. The statements are private: they are never committed to the public repository and arrive on the server as a file.
+**Goal:** a verified individual who holds a licence can read the disclosure, answer the self-report question, answer the 25 statements five to a page with autosave, leave and resume, submit, and see their survey history. A licence is one attempt. Submitted responses are immutable, and the person never sees their answers again after submitting. The statements are private: they are never committed to the public repository and are loaded from a file the founder keeps (through an admin page from PR 9).
+
+**Status (2026-10-09).** Merged and deployed: PR 1 survey models and `load_questions` (#31), PR 2 licences (#32), PR 3 the `Response` model and the two-level admin (#33), PR 3b erasing an account (#34), PR 3c the funnel (#35). Main is `c4fd4e8` with 266 tests. Next is PR 4. The PR plan below is the revised one agreed with the founder; the original ten-PR list is superseded.
 
 **The product rules, as specified by the founder**
 
@@ -178,18 +182,22 @@ Accounts come before the survey because every later feature asks "who is this." 
 - **Licences.** Registering is free, but the statements sit behind a paywall. A licence (the `Entitlement` row from the architecture doc) is one survey attempt plus the results at its tier. Any tier (1–3) unlocks the survey. Upgrading a licence raises its tier in place, so the same response shows more results. A retake needs another licence. Until payments exist (Phase 3), root admin grants licences by hand in the Django admin after invoicing. Enterprises buying licences in assorted tiers for their members is Milestone 4.
 - **Tier 0.** An account with no active licence is at "tier 0", the free tier. That is a display state, not a licence row: the history and result pages show what a free account gets. The founder's suggestion for Milestone 5 is sample or limited insights from the purchasable tiers; the content is undecided.
 - **What a person sees.** With or without a licence: their account, their survey history (each response with date, status and tier) and, from Milestone 5, the results and insights their tier allows. Never, at any tier: the statements outside an attempt in progress, or their own answers once submitted. Root admin keeps the read-only Django admin view of answers. Whether enterprise administrators see answers is undecided; see "Open follow-ups".
+- **Erasing an account** (built, PR 3b). An account with no completed (submitted) survey is hard-deleted outright, with its contacts, licences, unfinished attempt and person. An account with a completed survey is stripped, not deleted: email, phone, name and login are removed and the results are kept, with `Account.anonymised_at` marking it so enterprise reports can show current members apart from the historical total. The same email can then sign up again as a fresh account. The strip list lives in one place (`apps/accounts/erasure.py`, `_anonymise`). Demographics (age, gender, company) belong on `Person`, never on the account, so erasing leaves them alone. Whether the kept data is anonymous enough is a question for a privacy lawyer before launch.
+- **Self-report.** The survey asks "Have you taken this survey before?" (Yes or No, required). If yes, "How did you take it?" is a required drop-down: Individual, Company or Other. An optional free-text box for information that would help match the old account arrives in Milestone 5 with the matching that uses it; it is cleared once matching has been attempted, unless it produced a link. No free text is collected in Milestone 2.
+- **Funnel** (built, PR 3c). Sign-up, first verified email, licence granted, licence upgraded, survey started, page finished and survey submitted are recorded as events with no link to any account, so erasing someone never changes the counts. The admin shows a summary with conversion percentages.
+- **Licences do not expire.** Staff get an "unused licences" filter (any, 7+ days, 30+ days) in the licence admin to decide who to nudge.
 - The intro text and the scale labels are public (they live in templates). The statements, the algorithm and the insights are private. The algorithm and insights are Milestone 5 and may end up in a second private repository; nothing in this milestone depends on that choice.
 
 **What you build**
 
 - `apps/survey/models.py`: `SurveyVersion` (number, published_at, question_count), `Question` (survey_version FK, position, text, min_value, max_value, `metadata` JSONField default dict for whatever per-question fields arrive later). A data migration creates version 1 with 25 rows whose text is the placeholder "Question *n*", 1–4. A management command `load_questions <path>` reads a JSON file of 25 entries (`position`, `text`, any extra keys go into `metadata`) and updates the rows by position; it refuses a file that does not have exactly 25 positions 1–25. A helper `survey.services.current_version()`.
-- The private file. On the server it lives at `/opt/survey/private/survey_v1.json`, mounted read-only into the container; `deploy.sh` runs `load_questions` after `migrate` on every deploy, so a re-copied file is applied by the next deploy. On a laptop it lives in the gitignored `private/` directory at the repository root and is loaded by hand with the same command. GitHub never sees it: CI and the image smoke test run on the placeholder rows, and the loader's tests use `tests/fixtures/questions_sample.json`, a committed file with made-up wording.
-- `apps/entitlements/models.py`: `Entitlement` (person FK, tier 1–3, source purchase/manual, granted_by FK nullable, granted_at, revoked_at nullable). This is the individual half of the Milestone 4 table; Milestone 4 adds the nullable membership FK, the seat source and seat pools to the same model. `apps/entitlements/services.py`: `grant_individual(person, tier, source, granted_by)`, `revoke(entitlement)`, `unused_licence(account) -> Entitlement | None` (active, not yet linked to a response, oldest first), `has_survey_access(account)` (an open draft or an unused licence). Root admin: `Entitlement` in the Django admin with account search, grant through a form that calls the service, a revoke action, and the tier editable in place for upgrades. A decorator `entitlements.decorators.survey_access_required`, stacked on `accounts.decorators.verified_email_required`.
-- `apps/responses/models.py`: `Response` (account FK, survey_version FK, `entitlement` OneToOneField to `Entitlement`, status draft/submitted, answers JSONField default dict, `pages_completed` small integer default 0, took_before bool nullable, took_before_where text, started_at, submitted_at nullable, possible_repeat bool default False). A `Meta` constraint: `submitted_at` is null if and only if status is draft. The one-to-one makes "one licence, one attempt" a database rule. The nullable membership FK from the architecture doc is added in Milestone 3 with its own migration, when `Membership` exists.
+- The private file. The real statements arrive as a JSON file the founder keeps outside the repository. **Revised plan (PR 9, founder to confirm):** a superuser-only admin page where the founder pastes or uploads the JSON, sees how many questions will change, and applies it through `survey.services.load_questions`; no SSH, no server mount, no `deploy.sh` step. On a laptop the file still lives in the gitignored `private/` directory and is loaded by hand with `manage.py load_questions`. GitHub never sees it: CI and the image smoke test run on the placeholder rows, and the loader's tests use `tests/fixtures/questions_sample.json`, a committed file with made-up wording. (The original plan mounted `/opt/survey/private/survey_v1.json` into the container and ran `load_questions` in `deploy.sh`; it is dropped if PR 9 is confirmed.)
+- *Built in PR 2, with `change_tier` and an unused-licences filter added.* `apps/entitlements/models.py`: `Entitlement` (person FK, tier 1–3, source purchase/manual, granted_by FK nullable, granted_at, revoked_at nullable). This is the individual half of the Milestone 4 table; Milestone 4 adds the nullable membership FK, the seat source and seat pools to the same model. `apps/entitlements/services.py`: `grant_individual(person, tier, source, granted_by)`, `revoke(entitlement)`, `unused_licence(account) -> Entitlement | None` (active, not yet linked to a response, oldest first), `has_survey_access(account)` (an open draft or an unused licence). Root admin: `Entitlement` in the Django admin with account search, grant through a form that calls the service, a revoke action, and the tier editable in place for upgrades. A decorator `entitlements.decorators.survey_access_required`, stacked on `accounts.decorators.verified_email_required`.
+- *Model built in PR 3; the self-report column is changed in PR 4.* `apps/responses/models.py`: `Response` (account FK, survey_version FK, `entitlement` OneToOneField to `Entitlement`, status draft/submitted, answers JSONField default dict, `pages_completed` small integer default 0, `took_before` bool nullable, `took_before_via` (individual, company, other; set only when `took_before` is yes; replaces the text column `took_before_where`), started_at, submitted_at nullable, possible_repeat bool default False). A `Meta` constraint: `submitted_at` is null if and only if status is draft. The one-to-one makes "one licence, one attempt" a database rule. The nullable membership FK from the architecture doc is added in Milestone 3 with its own migration, when `Membership` exists.
 - `apps/responses/services.py`: `start_response(account)` (returns the open draft if there is one; otherwise consumes the oldest unused licence and creates a draft on the current version; raises `NoLicence` if there is none), `save_answer(response, question_id, value)` (validates the id belongs to the version and the value is in range; refuses a locked page or a submitted response), `complete_page(response, page)` (refuses unless all five answers on that page exist and the page is the next unlocked one; bumps `pages_completed`), `submit(response)` (all pages locked and every question answered; sets status and timestamp in a transaction; enqueues jobs from Milestone 5 onward). A refused write raises a small exception the views turn into a 409.
-- Views: `responses:start` (disclosure page, FR-15, and self-report form, FR-16; creates or resumes the draft; without a licence it shows the same page with a "you need a licence" notice and no form), `responses:page` (renders page *n*; without a number redirects to the first unlocked page), `responses:save_answer` (HTMX POST, saves one answer, returns the saved state of that statement), `responses:next_page` (ordinary POST, locks the page), `responses:review` ("25 of 25 answered", submit button; no answers shown), `responses:submit`, `responses:history` (own responses: date, status, tier; a "Start" button when a licence is unused, "Continue" when a draft is open), `responses:result` (one response: date, status, tier, and a results placeholder until Milestone 5; never the answers).
+- Views: `responses:start` (disclosure page, FR-15, and the self-report form, FR-16: Yes or No, then a required Individual/Company/Other drop-down; creates or resumes the draft; without a licence it shows the same page with a "you need a licence" notice and no form), `responses:page` (renders page *n*; without a number redirects to the first unlocked page), `responses:save_answer` (HTMX POST, saves one answer, returns the saved state of that statement), `responses:next_page` (ordinary POST, locks the page), `responses:review` ("25 of 25 answered", submit button; no answers shown), `responses:submit`, `responses:history` (own responses: date, status, tier; a "Start" button when a licence is unused, "Continue" when a draft is open), `responses:result` (one response: date, status, tier, and a results placeholder until Milestone 5; never the answers).
 - Templates: `responses/disclosure.html`, `page.html` (five statements) and `_statement.html` (HTMX partial), `review.html`, `history.html`, `result.html`.
-- Root admin: `Response` registered with all fields read-only when `status == submitted`.
+- Root admin: *built in PR 3.* `Response` is read-only for everyone. Superusers see the answers and self-report; other staff see which questions are answered by position and never the values.
 
 **Technical detail**
 
@@ -217,25 +225,34 @@ Accounts come before the survey because every later feature asks "who is this." 
 - History shows only the user's own responses; `result` for another user's response returns 404; `result` and `history` never contain a statement or an answer value.
 - Page tests: disclosure, page, review, history and result render for a verified licensed user; all redirect for an unverified user.
 
-**PR plan** (agreed 2026-10-09; one branch and one pull request each, in this order)
+**PR plan** (revised 2026-10-09; one branch and one pull request each, in this order)
 
-1. `m2-survey-models` — survey app, models, placeholder migration, `load_questions`, `current_version()`, admin, sample fixture, tests.
-2. `m2-entitlements` — entitlements app, `Entitlement` (individual half), `grant_individual`, `revoke`, `unused_licence`, `has_survey_access`, admin grant form and revoke action, tests.
-3. `m2-response-model` — responses app, `Response` with the entitlement one-to-one, `pages_completed` and the constraint, read-only admin, tests.
-4. `m2-response-services` — `start_response` (consumes a licence), `save_answer`, `complete_page`, `submit` under `select_for_update`, the 409 exception, service tests.
-5. `m2-disclosure` — URLs, `responses:start`, disclosure and self-report templates, the no-licence notice, `survey_access_required`, guard, link from the profile page, page tests.
-6. `m2-pages-autosave` — `responses:page`, `save_answer`, `next_page`, templates, resume, phone-width screenshots, tests.
-7. `m2-review-submit` — review (count only) and submit views and templates, tests.
-8. `m2-history` — history and result pages, Start and Continue buttons, tests that no statement or answer leaks.
-9. `m2-deploy-private-file` — compose mount, `deploy.sh` runs `load_questions`, porting checklist. Touches the server: explain, wait for the founder's go; the founder copies the file up.
-10. `m2-docs` — tick boxes the founder confirmed, NOTES entries, follow-ups.
+*Merged:*
+
+1. `m2-survey-models` (#31): survey app, models, placeholder migration, `load_questions`, `current_version()`, admin, sample fixture.
+2. `m2-entitlements` (#32): `Entitlement` (individual half), `grant_individual`, `revoke`, `change_tier`, `unused_licence`, `has_survey_access`, admin grant form and revoke action.
+3. `m2-response-model` (#33): `Response` with the licence one-to-one, one open draft per account, the submitted-at rule, licence access now counting responses, the two-level response admin, the "Support staff" group.
+3b. `m2-erase-account` (#34): `Account.anonymised_at`, `erase_account` (hard delete or strip the identity), the Erase button and confirmation page, admin history scrubbed of the email, revoke recorded in the history.
+3c. `m2-funnel-events` (#35): `FunnelEvent`, events for sign-up, first verified email, licence granted and upgraded, the admin funnel summary, the unused-licences filter, Support staff can view the funnel.
+
+*Still to build:*
+
+4. `m2-response-services`. First commit: a migration replacing `Response.took_before_where` with `took_before_via` (individual, company, other; only set when `took_before` is yes, enforced by a database rule), removing the line in `erasure._anonymise` that clears the old column, and updating the response admin and the erase tests. Then `start_response` (consumes the oldest unused licence, never twice), `save_self_report` (`took_before` required; the via drop-down required when yes), `save_answer`, `complete_page` (refuses unless all five answers on the page exist and it is the next unlocked page), `submit` (refuses unless every page is locked and all 25 are answered), all under `select_for_update`, with a small exception the views turn into a 409. Emits the funnel events `survey_started`, `page_locked` (with the page) and `survey_submitted`.
+5. `m2-disclosure`: URLs, `responses:start`, the disclosure text, the self-report form, the no-licence notice, `survey_access_required` stacked on `verified_email_required` (refuses a draft whose licence was revoked), a link from the profile page, page tests.
+6. `m2-pages-autosave`: `responses:page`, `save_answer` and `next_page` views and templates, HTMX autosave per click, resume on the right page, Next disabled in the browser until all five are chosen (the service check is what enforces it), phone-width screenshots, tests.
+7. `m2-review-submit`: the review page ("25 of 25 answered", never the answers) and the submit view, tests.
+8. `m2-history`: the history and result pages (date, status, tier, results placeholder; tier 0 as a display state), Start and Continue buttons, tests that no statement or answer ever appears.
+9. `m2-survey-wording-in-admin` (**proposed, founder to confirm**; replaces "deploy the private file"): a superuser-only admin page to paste or upload the survey JSON, preview how many questions change, and apply it through `load_questions`, with plain-English errors and a history entry that records who did it but not the wording. Updates the porting checklist and `03-tech-stack.md` step 5. If the founder prefers the original server-file approach, this PR is the compose mount plus the `deploy.sh` step, and it touches the server (explain first and wait for a go).
+10. `m2-docs`: tick the boxes the founder confirmed, NOTES entries, follow-ups.
 
 **Done when**
 
 - [ ] On the live site, a verified account without a licence sees the notice and cannot reach a statement; after root admin grants a licence in the admin, the same account can take the survey on a phone, close the browser mid-way, reopen, resume on the right page, and submit.
 - [ ] The live site shows the real statements, not placeholders, and the public repository contains none of them.
 - [ ] After submitting, the response appears in history with its tier, no page shows the answers, and a second attempt needs a second licence.
-- [ ] Root admin sees the response in the admin, read-only.
+- [ ] Root admin sees the response in the admin, read-only; a Support staff account sees which questions are answered but not the values.
+- [ ] On the live site, a test account is erased from the admin both ways (one with no completed survey, one with a completed survey) and the same email can sign up again.
+- [ ] The funnel page in the admin shows the live sign-ups, verifications, licences and survey events.
 - [ ] All tests pass.
 
 **Why this order / what to understand**
@@ -271,8 +288,12 @@ This is the first milestone that delivers the product's core, and it does so bef
 - Join pages: `/join/invite/<token>/` and `/join/code/` (enter code; if not logged in, sign up first then redeem). After joining, the member's survey start page reads "visible to you, to <enterprise> administrators, and to <platform>."
 - `Response.membership` now set when the survey is started from the enterprise context; the member's own list shows context per response.
 - Email: the invite email, sent via a job in milestone 5; until then sent synchronously.
+- Django admin (the hub): `Enterprise`, `Membership`, `Invite` and `JoinCode` registered for staff, with a "deactivate membership" action that calls the service, so support never needs the shell.
 
 **Technical detail**
+
+- *Carried over from Milestone 2.* The database rule "one open draft per account" (`response_one_open_draft_per_account`) becomes one per account and membership, in a new migration. Sign-up events from invites and codes record the funnel channel `invite` or `code` (it is `direct` until then). Enterprise reports show two views: current members (active memberships) and the historical total (including deactivated members and accounts erased with `anonymised_at`).
+- *Erasure and memberships (open).* `erase_account` strips the identity and keeps the person, but a membership links a person to a workplace, which can identify them. Decide with the privacy lawyer whether erasing a person also cuts their membership link, and how an enterprise's own request to delete its members' data works. The strip list is one function (`erasure._anonymise`), so the answer is a small change.
 
 - Tokens and codes: generate with `secrets.token_urlsafe(32)` for invite tokens; for human-entered codes use a 10-character alphabet without ambiguous characters (no `0/O`, `1/I/l`), uppercase, grouped as `XXXXX-XXXXX`. Store uppercase; compare case-insensitively.
 - `accept_invite` and `redeem_code` run inside `transaction.atomic()` and lock the invite/code row with `select_for_update()` so a shared code cannot exceed `max_uses` under concurrent redemptions. Check: not revoked, not expired, uses < max_uses, account has no existing membership in that enterprise (if deactivated, reactivate rather than duplicate).
@@ -292,6 +313,7 @@ This is the first milestone that delivers the product's core, and it does so bef
 - Code: `max_uses = 2`, three concurrent redemptions (use threads in the test or sequential with the lock asserted) yield exactly two memberships; revoked and expired codes fail; a deactivated member redeeming reactivates rather than duplicates.
 - Deactivated member: still sees own responses; admin still sees them.
 - Enterprise create: creator becomes admin; a second create by the same account creates a second enterprise and a second admin membership.
+- Erasing an account that has a membership follows the rule decided above, and a former member's results still count in the historical total.
 
 **Done when**
 
@@ -317,6 +339,8 @@ This is where the project becomes multi-tenant, and multi-tenancy is where produ
 ## Milestone 4 — Seat pools and entitlements
 
 *Re-plan this section before starting it. On 2026-10-09 the founder decided that a licence is one survey attempt plus results at its tier, and Milestone 2 built the individual half of `Entitlement` with a one-to-one from `Response`. So a seat here is a licence an enterprise bought and assigned to a member, consumed by that member's one attempt, and upgradeable in place; the "joined without a seat" warning becomes "cannot take the survey until given a licence".*
+
+*State after Milestone 2.* `Entitlement` exists with a non-null `person`, source purchase or manual, and `grant_individual`, `revoke`, `change_tier`, `unused_licence` and `has_survey_access` are built, with an admin grant form (the account picker is a plain dropdown), a revoke action and an unused-licences filter. This milestone makes `person` nullable, adds the membership FK, the exactly-one check constraint and the source `seat`, and records the funnel event `licence_granted` with source `seat`. Licences do not expire. Staff manage `SeatPool` from the admin like everything else.
 
 **Goal:** root admin sets seat pools per tier for an enterprise; enterprise admins assign tiers to members within the pool; invites and codes that carry a tier consume a seat on join; an individual can hold an entitlement set manually by root admin.
 
@@ -372,6 +396,7 @@ Nothing in the MVP *shows* a tier-filtered result yet, so it's fair to ask why b
 - `apps/matching/rules.py`: each rule is a function `(account) -> list[Candidate]` returning the other account ids and the signals that fired. Rules: verified phone match (auto-link, inert until SMS verification), unverified phone match (flag), self-report-plus-prior-response (flag, also sets `possible_repeat`), name-plus-memberships (flag). There is no verified-email rule: a verified email has one owner by constraint, and a second claim is handled by the Milestone 1 recovery flow (optionally recording a `flagged` candidate). Thresholds and the list of enabled rules in one `RULES` constant.
 - `apps/matching/models.py`: `MatchCandidate` (account_a, account_b, signals JSON, status auto_linked/flagged/confirmed/rejected, resolved_by nullable, resolved_at nullable; unique on the unordered pair). `apps/matching/services.py`: `run_for_account`, `auto_link(a, b)` (moves `b.person` to `a.person`, marks the old person `merged_into`), `confirm(candidate, actor)`, `reject(candidate, actor)`, `unlink(candidate, actor)` (reverses: creates or restores a separate person for b).
 - `apps/audit/models.py`: `AuditLog` (actor FK nullable, action, target_type, target_id, detail JSON, at). `audit.record(actor, action, target, detail)` called from every admin-facing service in the same transaction.
+- The self-report match box. Milestone 2 asks only Yes or No and how the survey was taken (individual, company, other). This milestone adds the optional box "anything that would help us find your earlier results" (an email or phone number), shown after a Yes and skippable with no consequence. It is used by the matching attempt and then cleared, unless it led to a link; erasing a person clears it too; only superusers can see it. A Yes with nothing to match is simply left alone: matching stays automatic on verified data, and no one is hassled.
 - Root admin: a `MatchCandidate` admin list filtered to flagged by default, with actions confirm/reject/unlink, each writing audit rows. Enterprise admin responses table shows the `possible_repeat` flag.
 - `submit` now enqueues `run_matching` and `compute_result`; verification now enqueues `run_matching`; invite emails go through `send_email`.
 
@@ -380,6 +405,8 @@ Nothing in the MVP *shows* a tier-filtered result yet, so it's fair to ask why b
 - `skip_locked` is what lets two workers run safely later. One worker now; the code already supports more.
 - Idempotency: `run_matching` for an account that already has candidates recorded must not duplicate them (the unique pair constraint plus `get_or_create`). `send_email` is the one handler that is not naturally idempotent; accept that a retry after a crash *during* send may double-send, and keep retries conservative.
 - Name normalisation for the weak rule: lowercase, strip diacritics, collapse whitespace, compare full name only. Do not attempt fuzzy matching in the MVP.
+- Phone matching: phone numbers are unverified until SMS verification exists, so a phone match creates a flagged candidate for staff to review in the admin and never links accounts on its own; once phones are verified a verified phone matches automatically like email. The `took_before_via` answer is a hint for where to look (a company answer points at enterprise memberships).
+- Audit: until `AuditLog` exists, the Django admin's own history (`LogEntry`) records licence grants, revokes and account erasures (the erase action writes its entry by hand under the label "Account #id" so the history holds no email). `AuditLog` must cover those actions systematically, and `erase_account` writes an `AuditLog` row.
 - Auto-link must never run on an unverified contact point. The rule reads `verified_at IS NOT NULL` and the test asserts it.
 - `unlink` is the hardest function here. Define it as: candidate must be auto_linked or confirmed; give `account_b` a fresh Person (or its original one if `merged_into` points back cleanly); move any person-level entitlements granted *after* the link back only if they were granted explicitly to b (keep a `granted_to_account` hint on Entitlement for this). Write the decision in the audit detail. Keep it simple and documented rather than clever.
 - Worker in production is the `worker` container from the infrastructure doc. Locally, a second terminal. Add a `/health` detail that reports the age of the oldest queued job so a stuck worker is visible.
@@ -421,7 +448,7 @@ Nothing in the MVP *shows* a tier-filtered result yet, so it's fair to ask why b
 
 - Django admin polish: list displays, search fields and filters on every model; `Response` read-only after submit; inline `ContactPoint` under `Account`; inline `Membership` under `Enterprise`; links between related objects.
 - `apps/exports/views.py`: `enterprise_export(request, slug)` (via `for_admin`) and `root_export(request)` (staff only). Both stream a CSV with `StreamingHttpResponse` and a generator: one row per submitted response with columns `response_id, submitted_at, survey_version, enterprise, member_email, tier, took_before, possible_repeat, q1..q25`.
-- `apps/accounts/services.delete_account(account, actor, reason)`: in one transaction, collect a summary (counts, enterprise names, response ids), hard-delete responses, results, entitlements on the person if no other accounts, contact points, memberships, the account, and the person if orphaned; then write one `AuditLog` row with the summary. Exposed as an admin action with a confirmation page.
+- Erasure. *Built in Milestone 2, PR 3b* as `apps/accounts/erasure.erase_account` with an admin button and confirmation page: hard delete when there is no completed survey, otherwise strip the identity and keep the results. This milestone adds what remains: the `AuditLog` row with a summary of what was removed, the handling of memberships and enterprise-level requests (see Milestone 3), results rows once they exist, and a written compliance procedure (who may request, the response deadline, what is kept and why, and how long hard-deleted data stays in database backups).
 - A root dashboard page (or admin index customisation) with counts: accounts, enterprises, responses submitted this week, flagged candidates awaiting review, failed jobs.
 
 **Technical detail**
@@ -436,7 +463,7 @@ Nothing in the MVP *shows* a tier-filtered result yet, so it's fair to ask why b
 
 - Export for enterprise A contains exactly A's submitted responses with 25 question columns in position order; B's rows absent; drafts absent.
 - Root export contains both.
-- Delete: all expected rows gone, audit row present with the counts; a merged person survives when another account remains.
+- Erase: all expected rows gone (or stripped, for an account with a completed survey), audit row present with the counts; a merged person survives when another account remains; results rows follow the same two outcomes.
 - Non-staff cannot reach `/admin/` or `root_export`.
 
 **Done when**
@@ -468,7 +495,8 @@ Nothing in the MVP *shows* a tier-filtered result yet, so it's fair to ask why b
 - Backup restore test from the infrastructure runbook, with the date recorded.
 - Uptime monitor on `/health`; CloudWatch alarms; billing alert confirmed.
 - Load sanity check: use a simple script to create 500 accounts and 1,000 responses locally; verify the admin tables and exports stay responsive (sub-second). Add database indexes where the ORM queries show sequential scans (`EXPLAIN` in the Django shell).
-- Privacy text: the disclosure page and a short privacy page naming what is stored and how to request deletion (lawyers to review later; a placeholder is better than nothing).
+- Privacy text: the disclosure page and a short privacy page naming what is stored, what is kept after an erasure request (the survey results, with the identity removed) and how to request erasure. A privacy lawyer reviews it before the pilot: what counts as anonymous enough for what we keep (age, gender, company and exact dates can identify someone in a small company), the US, UK and India rules, and the enterprise data agreements.
+- Backups and erasure: confirm the RDS backup retention (30 days) and state in the procedure how long an erased account can remain in a backup.
 - `NOTES.md` and the infrastructure runbook updated with every deviation made during setup.
 - A pilot checklist with the first enterprise: create their enterprise, set pools, send invites, watch the first ten submissions in the admin table, check Sentry after the first day.
 
@@ -504,17 +532,23 @@ When the algorithm arrives, Phase 2 is: implement `compute_result`, fill the tie
 
 ---
 
+## Phase 3 stub — payments
+
+Not a milestone. Self-serve purchase for individuals and enterprises (likely Razorpay for India) writes licences through the same services the admin uses: `grant_individual` with source `purchase`, and the seat-pool services. Already decided: licences do not expire, a retake needs another licence, upgrades happen in place. Needed when payments arrive: a payment ledger (amount, currency, date, invoice number, provider reference, the licence id and tier) that carries no personal identity, so erasing a person never removes an accounting record; refunds revoke the licence through the service; the funnel records `licence_granted` with source `purchase`; and a reminder path for unused licences once the worker exists. Nothing in milestones 0–7 changes.
+
+---
+
 ## Milestone map
 
 | # | Milestone | Depends on | Deployable result |
 | --- | --- | --- | --- |
 | 0 | Foundations and first deploy | — | Empty site on HTTPS with CI/CD |
 | 1 | Accounts | 0 | Sign up, verify, log in, reset |
-| 2 | Survey and responses | 1 | Individuals take and view the survey |
+| 2 | Survey and responses | 1 | Individuals take and view the survey; licences, erasure and the funnel are built (PRs 1 to 3c merged) |
 | 3 | Enterprises, memberships, join | 2 | Enterprise admins onboard members and view responses |
 | 4 | Seat pools and entitlements | 3 | Tiers assigned and counted |
 | 5 | Jobs, matching, audit | 4 | Worker live; repeats flagged and linked; actions audited |
-| 6 | Root admin, export, deletion | 5 | Root console complete; CSV; DPDP deletion |
+| 6 | Root admin, export, erasure audit | 5 | Root console complete; CSV; erasure audited and documented |
 | 7 | Hardening and pilot | 6 | First customer |
 
 ## When to stop and ask
@@ -548,11 +582,23 @@ Things agreed but not done, so they are not forgotten. Move a line to the decisi
 **Milestone 2 (survey)**
 - [ ] Decide for Milestone 5 what tier 0 (no licence) shows on the result page: sample insights from the paid tiers, a limited subset, or just the invitation to buy.
 - [ ] Decide before Milestone 3: do enterprise administrators see members' answers, or only results? The founder ruled on 2026-10-09 that the person never sees their own answers after submitting; FR-19 is overridden for that scope only. Root admin keeps the read-only Django admin.
-- [ ] The founder keeps the master copy of `survey_v1.json` outside the repository (password manager or private drive) and copies it to the server in PR 8.
+- [ ] The founder keeps the master copy of `survey_v1.json` outside the repository (password manager or private drive) and loads it through the admin page in PR 9 (or copies it to the server if PR 9 is dropped). Confirm the PR 9 change.
 - [ ] Decide in Milestone 5 how the algorithm and the insights stay private: a second private repository installed as a package (then the ghcr.io image must be made private and the server needs `docker login`), or a file loaded at run time.
 
+**Open decisions and legal**
+- [ ] Privacy lawyer: is "strip email, phone and name, keep the results and demographics" anonymous enough in the US, UK and India; what the privacy text must say; backup retention after an erasure; enterprise data agreements.
+- [ ] A company asking for its members' data to be deleted: undecided; waits for Milestone 3 (see the note there on memberships).
+- [ ] A user-facing "delete my account" button: not built; staff erase from the admin for now. The wording is a product and legal decision.
+- [ ] Payment ledger without identity and the refund path: Phase 3.
+- [ ] Split "Support staff" into a debugging group and a business-insights group when the team needs it (the permission lists are already two named lists in `apps/responses/signals.py`).
+- [ ] Enterprise administrators seeing individual answers: still undecided (see above).
+
+**Founder's live checks owed for Milestone 2 so far**
+- [ ] Log in as a Support staff account on the live site: licences, accounts, the funnel and "answered positions" on a response are visible; the answers, Erase and delete are not.
+- [ ] Erase a test account both ways in the admin and sign up again with the same email.
+- [ ] Look at the funnel page and the confirmation page in a browser (they were tested only through the test client).
+
 **Small code and docs follow-ups**
-- [ ] Soft delete for accounts (`deleted_at`, `soft_delete_account`; what happens to the login email) as PR 3b, and a written hard-delete/erasure procedure.
 - [ ] The licence grant form's account picker is a plain dropdown; make it a search box before accounts grow.
 - [ ] A test for the password-reset refused-mail path (it shares `AccountAdapter.send_mail` with signup but has none of its own).
 - [ ] Register `/health` with an uptime checker (`04-infrastructure.md`, step 8.4).
@@ -570,11 +616,18 @@ Things agreed but not done, so they are not forgotten. Move a line to the decisi
 | 2026-10-09 | The statements are private: placeholder rows in the migration, real wording loaded from a file outside the repository and the image; intro text and labels stay public | Repository and ghcr.io image are public and the founder wants them to stay so; algorithm and insights handled in Milestone 5 |
 | 2026-10-09 | `Question.metadata` JSON instead of named columns for per-question attributes | Many per-question fields are expected later; keep them in the private file with no migration each time |
 | 2026-10-09 | Each submitted response is kept and listed in history; the membership key waits for Milestone 3 | `Membership` does not exist yet (superseded the same day: retakes need a licence, see above) |
-| 2026-10-09 | Milestone 2 split into ten PRs: survey models; entitlements; response model; services; disclosure; pages and autosave; review and submit; history; deploy the private file; docs | Same method as Milestone 1 |
-| 2026-10-09 | Accounts are soft-deleted by default (a `deleted_at` flag, nothing removed) so the data stays available for insights; hard delete only for duplicates and compliance, as a deliberate procedure that removes the responses first. `Response` uses PROTECT on account, version and licence | Founder's rule; PROTECT makes an accidental hard delete impossible. Soft delete is PR 3b; the erasure procedure is written down before the first real request |
-| 2026-10-09 | Django admin has two levels: superusers see everything including answers (read-only); other staff ("Support staff" group) see which questions a response has answered, by position, and never the values or the self-report. The AWS console and database credentials see everything by nature | Founder's rule: support is for debugging, not data visibility |
-| 2026-10-09 | Any staff may grant, upgrade and revoke licences; each grant records `granted_by`. Purchases will create licences through the same service in Phase 3. All staff may read questions | Founder's rule; licences are manual until payments exist |
-| 2026-10-09 | One open draft per account is a database rule (widened to account + membership in Milestone 3) | Two tabs starting at once cannot both create a draft |
+| 2026-10-09 | Milestone 2 split into ten PRs: survey models; entitlements; response model; services; disclosure; pages and autosave; review and submit; history; deploy the private file; docs (superseded the same day by the revised plan below) | Same method as Milestone 1 |
+| 2026-10-09 | Erasing an account: no completed survey means hard delete; a completed survey means strip the email, phone, name and login and keep the results, marked `anonymised_at`; irreversible; superuser-only admin button with the typed email and a reason; an account that has used the admin is stripped, not deleted | Founder: mistakes and test accounts leave no trace; survey data is kept for aggregate insights and only the identity goes; the email is free to sign up with again. Replaces the earlier soft-delete-with-reserved-email idea |
+| 2026-10-09 | Keep as much as is legally possible (age, gender, company, dates); remove only email, phone and name. Demographics live on `Person`, identity on `Account` and `ContactPoint`. A privacy lawyer decides what is anonymous enough | Founder's rule; keeps the erase code unchanged when demographics arrive |
+| 2026-10-09 | A paid licence nobody finished: the account and the licence stay, the data never enters aggregates (only submitted responses count); an erasure request hard-deletes it. No licence expiry; staff get an "unused licences" filter | Founder's rule; expiry brings refund and consumer-law questions for the Phase 3 terms |
+| 2026-10-09 | `Response` is PROTECT on account, survey version and licence | An accidental delete is impossible; erasure is the deliberate path |
+| 2026-10-09 | Django admin has two levels: superusers see everything including answers; the "Support staff" group sees which questions a response has answered, by position, never the values or the self-report, plus licences, accounts and the funnel. The AWS console and database credentials see everything by nature | Founder's rule: support is for debugging and insight, not for reading answers |
+| 2026-10-09 | Any staff may grant, upgrade and revoke licences; each grant records `granted_by`; revoke is logged. Purchases will use the same service in Phase 3. All staff may read questions | Founder's rule; licences are manual until payments exist |
+| 2026-10-09 | The Django admin is the operations hub: nontechnical staff handle about 99% of issues there; AWS console and GitHub use stay minimal | Founder's end goal; flag any plan step that needs SSH, AWS or GitHub for repeated work |
+| 2026-10-09 | One open draft per account is a database rule (widened to account plus membership in Milestone 3) | Two tabs starting at once cannot both create a draft |
+| 2026-10-09 | Self-report is Yes or No, then a required Individual/Company/Other drop-down; no "not sure"; no free text in Milestone 2. The optional match box arrives in Milestone 5 with matching, and is cleared after the attempt unless it linked. Phone matches only flag until phones are verified | Founder's rule: match whenever possible, never hassle users; avoids holding unused free text |
+| 2026-10-09 | Funnel events carry no link to an account or person; recorded inside the same transaction as the thing that happened; no backfill; only superusers can delete events (to clear test sign-ups) | Erasing someone must not change the conversion numbers; the live accounts so far are tests |
+| 2026-10-09 | Milestone 2's PR plan revised to: 1, 2, 3 merged, 3b erase, 3c funnel, then 4 services, 5 disclosure, 6 pages, 7 review, 8 history, 9 survey wording in the admin (proposed), 10 docs | Soft delete became erase; funnel added; the private file moves into the admin to avoid SSH |
 | 2026-10-09 | Verified email collisions are recovered, never auto-linked or auto-merged; Milestone 5 loses its verified-email rule | Recycled and shared inboxes would take over accounts silently; see `02-architecture.md`, "Recovery and recycled contacts" |
 | 2026-10-09 | Milestone 1 widened: login with any verified email, make primary, remove email, reset notices, post-verification personal-email prompt, phone country selector | Founder: one account per person across employers in India, US and UK; people rarely return to a profile page |
 | 2026-10-09 | allauth verification `mandatory`: no login until the address is verified | Simplest with allauth, and it makes "never log in with an unverified address" automatic; the survey-view guard stays as a second line |
