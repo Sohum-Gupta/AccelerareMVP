@@ -1,0 +1,36 @@
+{% comment %}
+One statement and its four fixed labels. Rendered on the page and returned by
+the autosave. A click posts this statement's choice; the browser takes back only
+the status line (hx-select), never the buttons, so a slow reply cannot undo a
+newer click. A second click while one is saving waits its turn (queue last).
+{% endcomment %}
+<fieldset id="statement-{{ question.pk }}" class="mb-5 rounded-md border border-slate-300 bg-white p-4"
+  hx-post="{% url 'responses:save_answer' response.pk %}"
+  hx-trigger="change"
+  hx-vals='{"question": "{{ question.pk }}"}'
+  hx-sync="this:queue last"
+  hx-target="#status-{{ question.pk }}"
+  hx-select="#status-{{ question.pk }} > *"
+  hx-swap="innerHTML"
+  data-statement>
+  <legend class="float-left mb-3 w-full text-base font-medium">{{ question.text }}</legend>
+  <div class="clear-left space-y-2">
+    <label class="mb-0 flex cursor-pointer items-center gap-3 rounded-md border border-slate-200 px-3 py-3 text-base font-normal has-checked:border-brand has-checked:bg-blue-50">
+      <input type="radio" name="answer-{{ question.pk }}" value="1"{% if saved == 1 %} checked{% endif %}>
+      This does not describe me
+    </label>
+    <label class="mb-0 flex cursor-pointer items-center gap-3 rounded-md border border-slate-200 px-3 py-3 text-base font-normal has-checked:border-brand has-checked:bg-blue-50">
+      <input type="radio" name="answer-{{ question.pk }}" value="2"{% if saved == 2 %} checked{% endif %}>
+      This slightly describes me
+    </label>
+    <label class="mb-0 flex cursor-pointer items-center gap-3 rounded-md border border-slate-200 px-3 py-3 text-base font-normal has-checked:border-brand has-checked:bg-blue-50">
+      <input type="radio" name="answer-{{ question.pk }}" value="3"{% if saved == 3 %} checked{% endif %}>
+      This mostly describes me
+    </label>
+    <label class="mb-0 flex cursor-pointer items-center gap-3 rounded-md border border-slate-200 px-3 py-3 text-base font-normal has-checked:border-brand has-checked:bg-blue-50">
+      <input type="radio" name="answer-{{ question.pk }}" value="4"{% if saved == 4 %} checked{% endif %}>
+      This describes me very accurately
+    </label>
+  </div>
+  <div id="status-{{ question.pk }}" class="mt-2 min-h-5 text-sm" aria-live="polite" data-status>{% if error %}<span class="text-red-700">{{ error }}</span>{% elif just_saved %}<span class="text-slate-600">Saved</span>{% endif %}</div>
+</fieldset>

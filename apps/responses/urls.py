@@ -6,4 +6,9 @@ app_name = "responses"
 
 urlpatterns = [
     path("start/", views.start, name="start"),
+    path("<int:pk>/", views.resume, name="resume"),
+    path("<int:pk>/page/<int:number>/", views.page, name="page"),
+    path("<int:pk>/save/", views.save_answer, name="save_answer"),
+    path("<int:pk>/next/", views.next_page, name="next_page"),
+    path("<int:pk>/review/", views.review, name="review"),
 ]
