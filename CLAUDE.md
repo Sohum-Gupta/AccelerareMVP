@@ -11,9 +11,10 @@ before doing any work:
 
 1. `docs/05-build-plan.md` — the milestone order and the "Done when" checklists.
    **Milestone 0 is done. Milestone 1 (Accounts) is code-complete and live; its remaining "Done when" boxes
-   are live checks listed under "Open follow-ups". Milestone 2 (Survey) is in progress: PRs 1, 2, 3, 3b and 3c
-   are merged and deployed (main `c4fd4e8`, 266 tests); the Milestone 2 section lists the revised PR plan and
-   the next is PR 4 (response services). Check which PRs are merged before starting the next.** Do not build anything from a later milestone than the
+   are live checks listed under "Open follow-ups". Milestone 2 (Survey) is in progress: PRs 1 to 8 are merged
+   and deployed (7 and 8 combined; main `6ee5144`, 400 tests); the Milestone 2 section lists the revised PR plan
+   and the next is PR 9 (survey wording in the admin), then PR 10 (docs and live checks). Check which PRs are
+   merged before starting the next.** Do not build anything from a later milestone than the
    one in progress.
 2. `docs/03-tech-stack.md` — repository layout, conventions, local dev steps.
 3. `docs/04-infrastructure.md` — the AWS runbook (what exists, and what is pending).
