@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Page {{ number }} of {{ page_count }} · Accelerare{% endblock %}
+{% block head %}
+  <script src="{% static 'js/survey-page.js' %}" defer></script>
+{% endblock %}
+{% block content %}
+  <p class="mb-1 text-sm text-slate-600">Page {{ number }} of {{ page_count }}</p>
+  <h1>How well does each statement describe you?</h1>
+  <p class="text-sm text-slate-700">Every click is saved. Pick the closest fit for each one.</p>
+
+  {# One form, so Next sends the choices on screen even without JavaScript; each #}
+  {# statement also saves itself on every click. autocomplete="off" stops a #}
+  {# browser putting back old ticks on reload. #}
+  <form method="post" action="{% url 'responses:next_page' response.pk %}" autocomplete="off" novalidate data-survey-page>
+    {% csrf_token %}
+    <input type="hidden" name="page" value="{{ number }}">
+    {% for item in statements %}
+      {% include "responses/_statement.html" with question=item.question saved=item.saved %}
+    {% endfor %}
+    <p class="text-sm text-slate-700"><strong>Next</strong> locks this page for good. You cannot come back to it.</p>
+    <button type="submit" class="w-full disabled:cursor-not-allowed disabled:opacity-50" data-next>Next</button>
+  </form>
+{% endblock %}

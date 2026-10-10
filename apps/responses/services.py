@@ -3,8 +3,9 @@ Every write to a response goes through here. Views stay thin and the rules live
 in one place, so the web pages, the tests and any later admin tool enforce the
 same thing.
 
-The rules: a licence is one attempt; five statements a page; Next locks a page
-for good and needs all five answered; submit needs every page locked and every
+The rules: a licence is one attempt; five statements a page; answers are taken
+only for the page being answered; Next locks a page for good and needs all five
+answered; submit needs every page locked and every
 statement answered; a submitted response never changes. The self-report
 ("taken before?") is answered before page 1 and cannot change after it locks.
 
@@ -145,31 +146,27 @@ def save_self_report(response, took_before, via=""):
 def save_answer(response, question_id, value):
     """
     Store one answer: the question must belong to the response's survey version
-    and sit on a page that is not locked; the value must be a whole number in the
+    and sit on the page being answered (the first unlocked one, so nobody answers
+    a statement they have not been shown); the value must be a whole number in the
     question's range.
     """
     with transaction.atomic():
         response = _lock(response)
-        question = _questions(response).filter(pk=_whole_number(question_id)).first()
-        if question is None:
-            raise Invalid("That statement is not part of this survey.")
-        if response.pages_completed >= page_of(question.position):
-            raise Locked("This page is locked; its answers can no longer be changed.")
-        if (
-            isinstance(value, bool)
-            or not isinstance(value, int)
-            or not question.min_value <= value <= question.max_value
-        ):
-            raise Invalid(f"Choose a number from {question.min_value} to {question.max_value}.")
-        response.answers[str(question.pk)] = value
+        _apply_answer(response, question_id, value)
         response.save(update_fields=["answers"])
         return response
 
 
-def complete_page(response, page):
+def complete_page(response, page, answers=None):
     """
     Lock a page (the Next button). It must be the next unlocked page and every
     statement on it must be answered; page 1 also needs the self-report.
+
+    `answers` ({question id: value}) is what the page showed when Next was
+    pressed. It is saved first, in the same transaction, so the page that gets
+    locked is the page the person saw, even if an autosave failed or another tab
+    saved something different. A page that is not complete yet keeps the valid
+    choices it was sent; any other refusal leaves everything as it was.
     """
     with transaction.atomic():
         response = _lock(response)
@@ -181,20 +178,27 @@ def complete_page(response, page):
             raise Locked("This page is already locked.")
         if page != response.pages_completed + 1:
             raise Invalid("Please finish the earlier pages first.")
-        if page == 1 and response.took_before is None:
-            raise Incomplete("Please say whether you have taken this survey before.")
+        for question_id, value in (answers or {}).items():
+            _apply_answer(response, question_id, value)
         on_page = [q for q in _questions(response) if page_of(q.position) == page]
-        if _unanswered(response, on_page):
-            raise Incomplete(f"Please answer all {len(on_page)} statements on this page first.")
-        response.pages_completed = page
-        response.save(update_fields=["pages_completed"])
-        funnel.record_event(
-            funnel.Kind.PAGE_LOCKED,
-            page=page,
-            tier=response.entitlement.tier,
-            source=response.entitlement.source,
-        )
-        return response
+        if page == 1 and response.took_before is None:
+            refusal = Incomplete("Please say whether you have taken this survey before.")
+        elif _unanswered(response, on_page):
+            refusal = Incomplete(f"Please answer all {len(on_page)} statements on this page first.")
+        else:
+            response.pages_completed = page
+            response.save(update_fields=["answers", "pages_completed"])
+            funnel.record_event(
+                funnel.Kind.PAGE_LOCKED,
+                page=page,
+                tier=response.entitlement.tier,
+                source=response.entitlement.source,
+            )
+            return response
+        # Not ready to lock, but keep the choices that were sent, so nobody has to
+        # tick them again (raising inside the transaction would undo them).
+        response.save(update_fields=["answers"])
+    raise refusal
 
 
 def submit(response):
@@ -228,6 +232,25 @@ def _lock(response):
     if locked.status != Response.Status.DRAFT:
         raise Locked("This survey has been submitted and cannot be changed.")
     return locked
+
+
+def _apply_answer(response, question_id, value):
+    """Check one answer and put it in response.answers; the caller holds the lock and saves."""
+    question = _questions(response).filter(pk=_whole_number(question_id)).first()
+    if question is None:
+        raise Invalid("That statement is not part of this survey.")
+    page = page_of(question.position)
+    if response.pages_completed >= page:
+        raise Locked("This page is locked; its answers can no longer be changed.")
+    if page != response.pages_completed + 1:
+        raise Invalid("Please finish the earlier pages first.")
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int)
+        or not question.min_value <= value <= question.max_value
+    ):
+        raise Invalid(f"Choose a number from {question.min_value} to {question.max_value}.")
+    response.answers[str(question.pk)] = value
 
 
 def _questions(response):
