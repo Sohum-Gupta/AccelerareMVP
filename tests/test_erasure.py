@@ -68,6 +68,18 @@ class TestHardDelete:
         again = services.register("bob@example.com", "+919876543210", None, PASSWORD)
         assert again.pk != bob.pk and again.person_id != person_id
 
+    def test_every_email_and_the_phone_go_not_just_the_login_one(self, bob):
+        from .test_profile import second_email
+
+        second_email(bob, "bob.personal@example.com")
+        second_email(bob, "bob.unverified@example.com", verified=False)
+        assert bob.contact_points.count() == 4  # three emails and a phone
+        erasure.erase_account(bob)
+        assert not ContactPoint.objects.exists()
+        assert not EmailAddress.objects.exists()
+        # all three addresses and the phone can be used by someone else now
+        services.register("bob.personal@example.com", "+919876543210", None, PASSWORD)
+
     def test_a_shared_person_and_its_licences_are_kept(self, bob):
         licence = licences.grant_individual(bob.person, 1, "manual", None)
         other = Account.objects.create_user("other@example.com", PASSWORD)
