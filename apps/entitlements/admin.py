@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django import forms
 from django.contrib import admin, messages
+from django.contrib.admin.widgets import AutocompleteSelect
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
@@ -67,7 +68,19 @@ class EntitlementAdmin(admin.ModelAdmin):
     def get_form(self, request, obj=None, **kwargs):
         if obj is None:
             kwargs["form"] = GrantForm
-        return super().get_form(request, obj, **kwargs)
+        form = super().get_form(request, obj, **kwargs)
+        if obj is None:
+            # A search box instead of a dropdown of every account. It searches the
+            # way the Accounts page does (email or phone); granted_by is only the
+            # Account relation the admin's search endpoint needs to find that page.
+            form.base_fields["account"] = forms.ModelChoiceField(
+                Account.objects.all(),
+                help_text=GrantForm.base_fields["account"].help_text,
+                widget=AutocompleteSelect(
+                    Entitlement._meta.get_field("granted_by"), self.admin_site
+                ),
+            )
+        return form
 
     def get_fields(self, request, obj=None):
         if obj is None:
