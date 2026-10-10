@@ -1,7 +1,12 @@
 {% extends "base.html" %}
-{% block title %}All pages done · Accelerare{% endblock %}
+{% block title %}Review and submit · Accelerare{% endblock %}
 {% block content %}
-  {# Placeholder until PR 7 builds the review and submit step. Never shows answers. #}
-  <h1>All {{ page_count }} pages are done</h1>
-  <p>Your answers are saved and locked. Submitting opens in the next update.</p>
+  {# A count only: the person never sees which answers or what they were. #}
+  <h1>Ready to submit</h1>
+  <p class="text-lg font-medium">{{ answered }} of {{ total }} answered</p>
+  <p>Every page is locked. Once you submit, you will see your results, not your answers, and the survey cannot be changed.</p>
+  <form method="post" action="{% url 'responses:submit' response_id %}">
+    {% csrf_token %}
+    <button type="submit" class="w-full">Submit</button>
+  </form>
 {% endblock %}
