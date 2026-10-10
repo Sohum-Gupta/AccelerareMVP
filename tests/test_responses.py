@@ -120,9 +120,10 @@ class TestLicenceAccess:
         licence(bob)
         assert licences.has_survey_access(bob)
 
-    def test_a_draft_on_a_revoked_licence_is_not_access(self, bob):
+    def test_revoking_the_licence_removes_the_draft_and_the_access(self, bob):
         response = start(bob)
         licences.revoke(response.entitlement)
+        assert not Response.objects.filter(pk=response.pk).exists()
         assert not licences.has_survey_access(bob)
 
 
