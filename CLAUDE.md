@@ -10,10 +10,10 @@ The planning docs in `docs/` are the source of truth. Read them in this order
 before doing any work:
 
 1. `docs/05-build-plan.md` — the milestone order and the "Done when" checklists.
-   **Milestone 0 is done. Milestone 1 (Accounts) is code-complete and live (main `2d5d60e`, 2026-10-09);
-   its remaining "Done when" boxes are live checks listed under "Open follow-ups". Milestone 2 (Survey)
-   is in progress: its section was re-planned on 2026-10-09 (statements private, 1–4 scale, licences) and lists the ten PRs in order; check
-   which are merged before starting the next.** Do not build anything from a later milestone than the
+   **Milestone 0 is done. Milestone 1 (Accounts) is code-complete and live; its remaining "Done when" boxes
+   are live checks listed under "Open follow-ups". Milestone 2 (Survey) is in progress: PRs 1, 2, 3, 3b and 3c
+   are merged and deployed (main `c4fd4e8`, 266 tests); the Milestone 2 section lists the revised PR plan and
+   the next is PR 4 (response services). Check which PRs are merged before starting the next.** Do not build anything from a later milestone than the
    one in progress.
 2. `docs/03-tech-stack.md` — repository layout, conventions, local dev steps.
 3. `docs/04-infrastructure.md` — the AWS runbook (what exists, and what is pending).
@@ -31,6 +31,11 @@ before doing any work:
 - Custom user model `accounts.Account` (email login) must exist and be set as
   `AUTH_USER_MODEL` **before the first migration runs**.
 - Apps live under `apps/`. Views are thin; all writes go through `<app>/services.py`.
+- The Django admin is the operations hub: nontechnical staff handle about 99% of issues there, so build admin
+  tools for anything staff will do repeatedly (plain labels, confirmation pages, a history entry saying who did
+  it) and keep AWS console, SSH and GitHub steps to a minimum. Flag any plan step that needs them.
+- Never put survey statements, answers or a person's email into a committed file, a test, or an admin history label.
+  The real statements are private; tests use `tests/fixtures/questions_sample.json`.
 - Tests live in `tests/`, run with `uv run pytest`.
 - Lint and format with `uv run ruff check .` and `uv run ruff format .`.
 

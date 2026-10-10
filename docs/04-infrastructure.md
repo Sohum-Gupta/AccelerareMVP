@@ -198,7 +198,16 @@ Future changes and open questions:
 | Resize | Stop instance → change type → start; Elastic IP keeps the address. RDS: Modify → instance class, apply in the maintenance window |
 | OS updates | Monthly: `sudo apt update && sudo apt upgrade`, reboot if `/var/run/reboot-required` exists; the containers restart on their own. Decline the Ubuntu release upgrade prompt |
 
-Admin tasks (set seat pools, review matches, merge, delete, export) are done in the web app, never here.
+Admin tasks (grant and revoke licences, erase an account, read the funnel, set seat pools, review matches, merge, export, and from Milestone 2 PR 9 load the survey wording) are done in the Django admin, never here. The goal is that nontechnical staff handle about 99% of issues there.
+
+**What still needs the AWS console, GitHub or SSH** (keep this list short; add a row only when there is no admin alternative):
+
+| Task | Where | How often |
+| --- | --- | --- |
+| Rotate a secret or change a server setting | Parameter Store, then `./deploy.sh` | Rare |
+| Approve SES production access, verify a sending address | AWS console (SES) | Once, then rarely |
+| Resize, OS updates, restore a backup | AWS console and SSH | Rare |
+| Merge a code change | GitHub (it deploys itself) | Whenever the developer ships |
 
 ## Moving to Mumbai (Phase 4)
 
@@ -222,6 +231,7 @@ Writing Terraform at this point is worthwhile; by then every setting is understo
 
 ## Pending and future
 
+- **Erasure and backups:** hard-deleted data stays in RDS backups until they expire (30 days). State this in the erasure procedure (Milestone 6) and the privacy text (Milestone 7).
 - **Privacy and legal, to take to lawyers first:** the UK GDPR and India's DPDP Act (substantive duties from 2027-05-13) apply to people in those countries wherever the server is. Topics: transfers to the US, a UK representative and ICO registration, consent and verifiable parental consent for under-18s in India, data agreements with enterprise customers, bulk-email consent and unsubscribe, and data minimisation (an age band rather than a birthdate, optional gender). Nothing here is built yet.
 - **Latency for UK and India users:** about 150 ms from the UK and 250 ms from India to Oregon. Revisit with a CDN or a regional move if it becomes a real problem. One database in one region is the plan; replicas, not separate databases, if it grows.
 - **PostgreSQL major version:** upgrade the local, CI and RDS databases together to a newer major version before the pilot, while the database is still empty. Check the end-of-standard-support date for 16.
@@ -234,6 +244,7 @@ Writing Terraform at this point is worthwhile; by then every setting is understo
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-10-09 | The survey wording is loaded through a superuser-only admin page (Milestone 2 PR 9, proposed), not by copying a file to `/opt/survey/private/` | Staff should not need SSH; the file would also need a compose mount and a deploy step. Pending the founder's confirmation |
 | 2026-10-05 | Single EC2 with Docker Compose over ECS, App Runner or Elastic Beanstalk | Cheapest thing that runs a long-lived worker; no load balancer cost; fully understandable |
 | 2026-10-05 | RDS PostgreSQL rather than PostgreSQL on the same instance | Managed backups and restore; data is the asset |
 | 2026-10-05 | Caddy for TLS | Automatic certificates, three-line config |

@@ -75,7 +75,7 @@ Numbered so later docs and code can cite them. "Must" items block the MVP; "shou
 13. FR-13 (must): A user can submit a response; a submitted response is immutable.
 14. FR-14 (must): A user can retake the survey, creating a new response. All prior responses remain.
 15. FR-15 (must): Before the first question, the survey shows who will see the answers (the enterprise, when applicable, and the platform).
-16. FR-16 (must): The survey asks whether the respondent has taken it before, and where, as a self-report field.
+16. FR-16 (must): The survey asks whether the respondent has taken it before (Yes or No) and, if yes, how (a required drop-down: individual, company or other). *Updated 2026-10-09: no free text in the MVP. An optional box for information that helps match the earlier account arrives with matching in Milestone 5; it is cleared after the matching attempt unless it produced a link.*
 17. FR-17 (must): Every response records survey version, context (membership or individual), and timestamps. Tier is not recorded on the response (see FR-34).
 
 **Viewing and export**
@@ -89,8 +89,13 @@ Numbered so later docs and code can cite them. "Must" items block the MVP; "shou
 
 22. FR-22 (must): Root admin can view and search all accounts, enterprises, memberships and responses.
 23. FR-23 (must): Root admin can merge two accounts it determines belong to one person, and undo the merge.
-24. FR-24 (must): Root admin can delete an account and its responses on request, leaving an audit record of the deletion.
-25. FR-25 (should): Every admin action is written to an audit log (who, what, when).
+24. FR-24 (must): Root admin can erase an account on request from the admin, with a typed confirmation and a reason. An account with no completed survey is deleted outright; an account with a completed survey has its identity (email, phone, name, login) removed and its results kept, marked as erased, so aggregate insights and enterprise historical totals survive. Either way the email can be used to sign up again, and an audit record is left. *Updated 2026-10-09.*
+25. FR-25 (should): Every admin action is written to an audit log (who, what, when). Until the audit log exists, licence grants and revokes and account erasures are recorded in the Django admin's own history.
+
+**Operations and insight**
+
+- FR-35 (must): The Django admin is the operations hub: nontechnical staff can do routine work there (licences, account lookup, erasure, the funnel, loading the survey wording) without the AWS console, SSH or a code change. Two staff levels: superusers see everything including answers; support staff see licences, accounts, which questions a response has answered (never the answers) and the funnel. *Added 2026-10-09.*
+- FR-36 (must): The platform records conversion funnel events (signed up, verified, got a licence, upgraded, started, finished a page, submitted) with no link to any account, and the admin shows a summary with conversion percentages. Erasing a person never changes the counts. *Added 2026-10-09.*
 
 **Tiers and entitlements**
 
@@ -105,7 +110,7 @@ Matching is best-effort: the system flags likely repeats, never acts on them aut
 | Second account tries to verify an email already verified elsewhere | Strong | Cannot exist as two verified rows (FR-2a). Handled by the recovery flow, not by linking; a candidate may be recorded for root admin |
 | Same verified phone number | Strong | Auto-links; inert until SMS verification exists (deferred) |
 | Same unverified phone number | Weak | Flag only, until verification exists |
-| Self-report "I have taken this before" (FR-16) | Strong intent, weak identity | Prompt for the email or company used before to help matching |
+| Self-report "I have taken this before" (FR-16) | Strong intent, weak identity | Optional box (Milestone 5) for the email or phone used before; skipping it is fine, matching stays automatic on verified data |
 | Same normalised name + overlapping enterprise history | Weak | Flag only; common names in India make this noisy |
 | Same normalised name only | Very weak | Do not flag on this alone |
 
@@ -142,8 +147,9 @@ Keep the MVP cheap and simple, but make the three things that are expensive to c
 
 | Area | Requirement | Rationale |
 | --- | --- | --- |
-| Data retention | All raw answers and submitted responses kept indefinitely; nothing hard-deleted except via FR-24 | Business requirement; enables algorithm re-runs |
-| Deletion | A root admin can delete one account's data on request within one working day; deletion leaves an audit stub | DPDP erasure rights; cheap now, costly to retrofit |
+| Data retention | Submitted responses are kept indefinitely, including after an erasure request, which removes the person's identity but not their results (FR-24). Accounts with no completed survey are deleted on request. Unfinished data is never used in aggregates | Business requirement; enables algorithm re-runs and aggregate insights. A privacy lawyer confirms what counts as anonymous enough |
+| Erasure | A superuser can erase one account on request within one working day, from the admin; the outcome is delete or strip the identity (FR-24); an audit record is left; hard-deleted data can remain in database backups until they expire (30 days) | DPDP and UK GDPR erasure rights; cheap now, costly to retrofit |
+| Operations | Routine operations run from the Django admin; AWS console and GitHub use minimal (FR-35) | Nontechnical staff handle about 99% of issues |
 | Region | US (us-east-1) for trial; all region-specific values held in config so a move to ap-south-1 is a redeploy plus data migration, not a code change | Stated plan to ship in India |
 | Hosting | AWS | Stated constraint |
 | Cost | Minimise fixed monthly cost; prefer services that scale to zero or near-zero at low traffic. Budget to be set in the Infrastructure doc | Startup, pre-revenue |
@@ -158,7 +164,7 @@ Keep the MVP cheap and simple, but make the three things that are expensive to c
 
 Deferred, but the MVP design must not block them:
 
-- Payments: self-serve purchase for individuals and enterprises, likely Razorpay for India. Until then, root admin sets tiers and seat pools by hand after manual invoicing.
+- Payments: self-serve purchase for individuals and enterprises, likely Razorpay for India. Until then, root admin sets tiers and seat pools by hand after manual invoicing. When payments arrive, a payment ledger without personal identity keeps accounting records after an erasure; licences do not expire.
 - SSO per enterprise (SAML or OIDC), optional alongside local accounts.
 - Helper admin role with a reduced permission set.
 - Dashboards, charts and aggregate views.
@@ -175,6 +181,9 @@ Open questions to resolve before or during the Architecture session:
 - [x] Survey shape: resolved, 25 statements, each rated 1–4 (changed from 1–5 on 2026-10-09), five a page, no branching.
 - [x] Languages: resolved, English only; strings externalised.
 - [ ] Phone verification by SMS: deferred; needs an Indian SMS provider and DLT registration.
+- [ ] Privacy lawyer review: what counts as anonymous enough for the results, age, gender, company and dates we keep after an erasure; backups; enterprise data agreements.
+- [ ] A company asking for its members' data to be deleted (undecided; Milestone 3).
+- [ ] A user-facing "delete my account" button (not built; staff erase from the admin).
 
 ## Decision log
 
@@ -182,6 +191,7 @@ Decisions made in Planning Session 1 (2026-10-05), newest first. Later sessions 
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-10-09 | Erasure: no completed survey means delete outright; a completed survey means strip email, phone, name and login and keep the results, marked erased (FR-24). The self-report is Yes or No plus a required how drop-down (FR-16). The admin is the operations hub with two staff levels (FR-35). Funnel events carry no account link (FR-36). Licences do not expire | Founder's rules of 2026-10-09; see `05-build-plan.md` decision log for the reasons |
 | 2026-10-09 | A verified email has one owner; a second claim is recovered (log in or reset the existing account), never auto-linked or auto-merged | Controlling an inbox proves ownership of the address today, not of an account verified earlier; recycled corporate and shared mailboxes would otherwise take over accounts silently. Recovery needs a deliberate reset that the owner is notified of and root admin can reverse |
 | 2026-10-09 | Login with any verified email, reset from any verified email, change the primary email, remove emails; second email prompted after first verification; phone with country (IN/US/UK first) | Founder: one account per person across employers; people rarely return to a profile page; three target markets |
 | 2026-10-05 | Tier is an entitlement on person or membership; the survey has no tier (Session 2) | Founder: same survey for all, pay before or after, show what is paid for. *"Pay before or after" overridden 2026-10-09: pay before, one licence per attempt* |
