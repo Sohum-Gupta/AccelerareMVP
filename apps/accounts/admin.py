@@ -1,8 +1,14 @@
+from django import forms
 from django.contrib import admin, messages
+from django.contrib.admin.models import CHANGE, DELETION, LogEntry
 from django.contrib.auth.admin import UserAdmin
-from django.core.exceptions import ValidationError
+from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.shortcuts import get_object_or_404, redirect
+from django.template.response import TemplateResponse
+from django.urls import path, reverse
 
-from . import services
+from . import erasure, services
 from .models import Account, ContactPoint, Person
 
 # Every email lives in two tables (ours and allauth's) and services.py keeps them
@@ -23,6 +29,33 @@ class ReadOnlyContactPoints(admin.TabularInline):
         return False
 
 
+class EraseForm(forms.Form):
+    """Typing the email is the "are you sure"; the reason goes in the admin history."""
+
+    email = forms.CharField(
+        label="Type the account's email to confirm",
+        widget=forms.TextInput(attrs={"size": 40, "autocomplete": "off"}),
+    )
+    reason = forms.CharField(
+        label="Reason",
+        min_length=5,
+        max_length=500,
+        widget=forms.Textarea(attrs={"rows": 3, "cols": 40}),
+        help_text="Why this is being erased (for example 'deletion request, ticket 123'). "
+        "Do not type the person's email or phone: this note is kept.",
+    )
+
+    def __init__(self, *args, account, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.account = account
+
+    def clean_email(self):
+        typed = self.cleaned_data["email"].strip().lower()
+        if typed != self.account.email.lower():
+            raise forms.ValidationError("That is not this account's email.")
+        return typed
+
+
 @admin.register(Account)
 class AccountAdmin(UserAdmin):
     """
@@ -33,26 +66,116 @@ class AccountAdmin(UserAdmin):
     own add form would not, so it is switched off.
     """
 
-    list_display = ("email", "is_active", "is_staff", "is_superuser", "created_at")
-    list_filter = ("is_active", "is_staff", "is_superuser")
+    list_display = ("email", "is_active", "is_staff", "is_superuser", "erased", "created_at")
+    list_filter = (
+        "is_active",
+        "is_staff",
+        "is_superuser",
+        ("anonymised_at", admin.EmptyFieldListFilter),
+    )
     search_fields = (
         "email",
         "contact_points__value_normalised",
         "contact_points__value_display",
     )
     ordering = ("email",)
-    readonly_fields = ("email", "person", "created_at", "last_login")
+    readonly_fields = ("email", "person", "created_at", "last_login", "anonymised_at")
     inlines = [ReadOnlyContactPoints]
 
     fieldsets = (
         (None, {"fields": ("email", "person", "password")}),
-        ("Status", {"fields": ("is_active", "is_staff", "is_superuser")}),
+        ("Status", {"fields": ("is_active", "is_staff", "is_superuser", "anonymised_at")}),
         ("Permissions", {"fields": ("groups", "user_permissions")}),
         ("Dates", {"fields": ("created_at", "last_login")}),
     )
 
     def has_add_permission(self, request):
         return False
+
+    # The stock delete would skip the erase rules (what is kept, what the history
+    # shows). Erasing goes through the button below instead.
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.display(boolean=True, description="Erased", ordering="anonymised_at")
+    def erased(self, account):
+        return account.anonymised_at is not None
+
+    def get_readonly_fields(self, request, obj=None):
+        fields = super().get_readonly_fields(request, obj)
+        if obj is not None and obj.anonymised_at is not None:
+            # Nothing on an erased account can be switched back on.
+            fields = (
+                *fields,
+                "is_active",
+                "is_staff",
+                "is_superuser",
+                "groups",
+                "user_permissions",
+            )
+        return fields
+
+    def get_urls(self):
+        custom = path(
+            "<path:object_id>/erase/",
+            self.admin_site.admin_view(self.erase_view),
+            name="accounts_account_erase",
+        )
+        return [custom, *super().get_urls()]
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        account = self.get_object(request, object_id)
+        if request.user.is_superuser and account is not None and account.anonymised_at is None:
+            extra_context["erase_url"] = reverse("admin:accounts_account_erase", args=[object_id])
+        return super().change_view(request, object_id, form_url, extra_context)
+
+    def erase_view(self, request, object_id):
+        if not request.user.is_superuser:
+            raise PermissionDenied
+        account = get_object_or_404(Account, pk=object_id)
+        back = reverse("admin:accounts_account_change", args=[account.pk])
+        try:
+            plan = erasure.plan_erasure(account, by=request.user)
+        except ValidationError as error:
+            self.message_user(request, " ".join(error.messages), messages.ERROR)
+            return redirect(back)
+
+        form = EraseForm(request.POST or None, account=account)
+        if request.method == "POST" and form.is_valid():
+            pk = account.pk
+            try:
+                done = erasure.erase_account(account, by=request.user)
+            except ValidationError as error:
+                self.message_user(request, " ".join(error.messages), messages.ERROR)
+                return redirect(back)
+            # Logged by hand with a label that has no email in it; the admin's
+            # own logging would write the email into the history.
+            LogEntry.objects.create(
+                user=request.user,
+                content_type=ContentType.objects.get_for_model(Account),
+                object_id=str(pk),
+                object_repr=f"Account #{pk}",
+                action_flag=DELETION if done.action == erasure.DELETE else CHANGE,
+                change_message=f"Erased. {form.cleaned_data['reason']}",
+            )
+            if done.action == erasure.DELETE:
+                self.message_user(request, f"Account #{pk} was permanently deleted.")
+                return redirect("admin:accounts_account_changelist")
+            self.message_user(
+                request, f"Account #{pk} was erased: the person is removed and the results kept."
+            )
+            return redirect(back)
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Erase account",
+            "opts": self.model._meta,
+            "account": account,
+            "plan": plan,
+            "form": form,
+        }
+        return TemplateResponse(request, "admin/accounts/account/erase.html", context)
 
 
 @admin.register(Person)

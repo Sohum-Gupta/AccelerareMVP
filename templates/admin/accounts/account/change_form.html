@@ -1,0 +1,11 @@
+{% extends "admin/change_form.html" %}
+{% comment %}
+Adds the "Erase this account" button next to History. It only appears for
+superusers, and not on an account that has already been erased.
+{% endcomment %}
+{% block object-tools-items %}
+  {% if erase_url %}
+    <li><a href="{{ erase_url }}" class="deletelink">Erase this account…</a></li>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}
