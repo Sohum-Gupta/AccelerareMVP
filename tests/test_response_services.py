@@ -282,12 +282,17 @@ class TestSaveAnswer:
         with pytest.raises(services.Invalid):
             services.save_answer(draft, foreign.pk, 3)
 
-    def test_rejects_a_locked_page_but_allows_a_later_one(self, draft):
+    def test_only_the_page_being_answered_takes_answers(self, draft):
+        with pytest.raises(services.Invalid, match="earlier pages"):
+            services.save_answer(draft, on_page(2)[0].pk, 2)
         draft = services.complete_page(answer_page(draft, 1), 1)
         with pytest.raises(services.Locked):
             services.save_answer(draft, on_page(1)[0].pk, 2)
-        response = services.save_answer(draft, on_page(3)[0].pk, 2)
-        assert str(on_page(3)[0].pk) in response.answers
+        with pytest.raises(services.Invalid, match="earlier pages"):
+            services.save_answer(draft, on_page(3)[0].pk, 2)
+        response = services.save_answer(draft, on_page(2)[0].pk, 2)
+        assert str(on_page(2)[0].pk) in response.answers
+        assert str(on_page(3)[0].pk) not in response.answers
 
     def test_rejects_a_submitted_response(self, draft):
         done = services.submit(finish_pages(draft, 5))
@@ -319,13 +324,13 @@ class TestCompletePage:
         assert response.pages_completed == 1
 
     def test_refuses_a_page_that_is_not_next(self, draft):
-        draft = answer_page(answer_page(draft, 1), 2)
+        draft = answer_page(draft, 1)
         with pytest.raises(services.Invalid):
             services.complete_page(draft, 2)
         draft = services.complete_page(draft, 1)
         with pytest.raises(services.Locked):  # a double click on Next
             services.complete_page(draft, 1)
-        assert services.complete_page(draft, 2).pages_completed == 2
+        assert services.complete_page(answer_page(draft, 2), 2).pages_completed == 2
 
     def test_refuses_pages_that_do_not_exist(self, draft):
         for page in (0, 6, -1, None, "x", True, 2.0):
@@ -343,10 +348,48 @@ class TestCompletePage:
         assert services.complete_page(response, 1).pages_completed == 1
 
     def test_answers_saved_out_of_order_still_count(self, draft):
-        draft = answer_page(draft, 2)
-        draft = answer_page(draft, 1)
-        draft = services.complete_page(draft, 1)
-        assert services.complete_page(draft, 2).pages_completed == 2
+        for question in reversed(on_page(1)):
+            draft = services.save_answer(draft, question.pk, 2)
+        assert services.complete_page(draft, 1).pages_completed == 1
+
+    def test_saves_the_answers_shown_on_the_page_then_locks(self, draft):
+        first, *rest = on_page(1)
+        draft = services.save_answer(draft, first.pk, 1)  # another tab, say
+        shown = {str(q.pk): 4 for q in on_page(1)}
+        response = services.complete_page(draft, 1, shown)
+        assert response.pages_completed == 1 and response.answers == shown
+        response.refresh_from_db()
+        assert response.answers == shown
+
+    def test_shown_answers_fill_in_a_failed_autosave(self, draft):
+        *saved, missed = on_page(1)
+        for question in saved:
+            draft = services.save_answer(draft, question.pk, 3)
+        response = services.complete_page(draft, 1, {str(missed.pk): 2})
+        assert response.answers[str(missed.pk)] == 2
+
+    def test_a_bad_shown_answer_changes_nothing(self, draft):
+        draft = answer_page(draft, 1, value=3)
+        bad_value = {str(on_page(1)[0].pk): 9}
+        later_page = {str(on_page(2)[0].pk): 3}
+        unknown = {"999999": 3}
+        for shown, refusal in (
+            (bad_value, services.Invalid),
+            (later_page, services.Invalid),
+            (unknown, services.Invalid),
+        ):
+            with pytest.raises(refusal):
+                services.complete_page(draft, 1, {str(on_page(1)[1].pk): 1, **shown})
+        draft.refresh_from_db()
+        assert draft.pages_completed == 0
+        assert set(draft.answers.values()) == {3}
+
+    def test_shown_answers_do_not_unlock_a_locked_page(self, draft):
+        draft = services.complete_page(answer_page(draft, 1, value=3), 1)
+        with pytest.raises(services.Locked):
+            services.complete_page(draft, 1, {str(on_page(1)[0].pk): 1})
+        draft.refresh_from_db()
+        assert draft.answers[str(on_page(1)[0].pk)] == 3
 
     def test_refuses_after_submit(self, draft):
         done = services.submit(finish_pages(draft, 5))
