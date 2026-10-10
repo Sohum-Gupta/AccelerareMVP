@@ -22,6 +22,11 @@ class Response(models.Model):
         DRAFT = "draft", "Draft"
         SUBMITTED = "submitted", "Submitted"
 
+    class TookBeforeVia(models.TextChoices):
+        INDIVIDUAL = "individual", "Individual"
+        COMPANY = "company", "Company"
+        OTHER = "other", "Other"
+
     account = models.ForeignKey(
         "accounts.Account", on_delete=models.PROTECT, related_name="responses"
     )
@@ -37,9 +42,10 @@ class Response(models.Model):
     answers = models.JSONField(default=dict, blank=True)
     # How many pages are locked (Next pressed). Page n is locked when this >= n.
     pages_completed = models.PositiveSmallIntegerField(default=0)
-    # The self-report question; null means not answered yet.
+    # The self-report question; null means not answered yet. If yes, how they
+    # took it; empty otherwise (a database rule, below).
     took_before = models.BooleanField(null=True, blank=True)
-    took_before_where = models.TextField(blank=True)
+    took_before_via = models.CharField(max_length=20, choices=TookBeforeVia, blank=True)
     started_at = models.DateTimeField(auto_now_add=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
     possible_repeat = models.BooleanField(default=False)
@@ -61,6 +67,16 @@ class Response(models.Model):
                 fields=["account"],
                 condition=models.Q(status="draft"),
                 name="response_one_open_draft_per_account",
+            ),
+            # "How did you take it" is only an answer when "taken before" is yes.
+            # (The null check matters: in SQL, NULL = true is NULL, and a check
+            # constraint lets NULL through.)
+            models.CheckConstraint(
+                condition=(
+                    models.Q(took_before_via="")
+                    | models.Q(took_before__isnull=False, took_before=True)
+                ),
+                name="response_took_before_via_only_when_took_before",
             ),
         ]
 

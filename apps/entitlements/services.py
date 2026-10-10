@@ -8,7 +8,8 @@ licence has not been revoked. The queries reach responses through the reverse
 names ("response"), so this module never imports the responses app.
 """
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.db import transaction
 from django.utils import timezone
 
 from apps.funnel import services as funnel
@@ -37,11 +38,33 @@ def grant_individual(person, tier, source, granted_by=None):
 
 
 def revoke(entitlement):
-    """End a licence. The row stays; revoking twice keeps the first date."""
-    if entitlement.revoked_at is None:
-        entitlement.revoked_at = timezone.now()
-        entitlement.save(update_fields=["revoked_at"])
-    return entitlement
+    """
+    End a licence. The row stays; revoking twice keeps the first date. An
+    unfinished attempt on it is deleted: it could never be continued, and while it
+    existed the account could not start on any other licence (one open draft per
+    account). A submitted response is kept. Returns (entitlement, draft_deleted).
+    """
+    with transaction.atomic():
+        # Held while responses.services.start_response is choosing a licence, so
+        # a start and a revoke of the same licence take turns.
+        locked = Entitlement.objects.select_for_update().get(pk=entitlement.pk)
+        if locked.revoked_at is None:
+            locked.revoked_at = timezone.now()
+            locked.save(update_fields=["revoked_at"])
+        entitlement.revoked_at = locked.revoked_at  # the caller's copy stays current
+        draft = open_draft(locked)
+        if draft is not None:
+            draft.delete()
+    return entitlement, draft is not None
+
+
+def open_draft(entitlement):
+    """The unfinished response on this licence, or None (through the reverse name)."""
+    try:
+        response = entitlement.response
+    except ObjectDoesNotExist:
+        return None
+    return response if response.status == "draft" else None
 
 
 def change_tier(entitlement, tier):

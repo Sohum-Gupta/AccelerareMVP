@@ -100,7 +100,7 @@ class TestHardDelete:
 @pytest.mark.django_db
 class TestAnonymise:
     def test_strips_the_identity_and_keeps_the_survey(self, bob):
-        done = complete(bob, answers={"1": 3}, took_before=True, took_before_where="old@acme.com")
+        done = complete(bob, answers={"1": 3}, took_before=True, took_before_via="company")
         draft_licence = licences.grant_individual(bob.person, 1, "manual", None)
         assert erasure.plan_erasure(bob).action == erasure.ANONYMISE
         erasure.erase_account(bob)
@@ -114,7 +114,7 @@ class TestAnonymise:
 
         done.refresh_from_db()
         assert done.status == "submitted" and done.answers == {"1": 3}
-        assert done.took_before is True and done.took_before_where == ""
+        assert done.took_before is True and done.took_before_via == "company"
         assert done.entitlement.tier == 2 and done.entitlement.revoked_at is None
         draft_licence.refresh_from_db()
         assert draft_licence.revoked_at is not None  # unused, so nobody can use it

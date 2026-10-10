@@ -146,8 +146,6 @@ def _anonymise(account: Account) -> None:
         account.person.entitlements.filter(revoked_at__isnull=True, response__isnull=True).update(
             revoked_at=now
         )
-    # PR 4 replaces this free-text column; remove this line when it goes.
-    account.responses.update(took_before_where="")
     account.contact_points.all().delete()
     EmailAddress.objects.filter(user=account).delete()
 

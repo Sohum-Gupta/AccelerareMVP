@@ -29,7 +29,7 @@ SUPERUSER_FIELDS = (
     "pages_completed",
     "answers",
     "took_before",
-    "took_before_where",
+    "took_before_via",
     "started_at",
     "submitted_at",
     "possible_repeat",

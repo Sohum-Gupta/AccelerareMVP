@@ -108,11 +108,18 @@ class EntitlementAdmin(admin.ModelAdmin):
 
     @admin.action(description="Revoke the selected licences", permissions=["change"])
     def revoke_selected(self, request, queryset):
-        revoked = 0
+        revoked = drafts = 0
         for entitlement in queryset:
             if entitlement.is_active:
-                services.revoke(entitlement)
+                _, draft_deleted = services.revoke(entitlement)
                 # The service bypasses the admin's own history, so record who did it.
-                self.log_change(request, entitlement, "Revoked")
+                message = "Revoked"
+                if draft_deleted:
+                    message = "Revoked; the unfinished attempt on it was deleted"
+                    drafts += 1
+                self.log_change(request, entitlement, message)
                 revoked += 1
-        self.message_user(request, f"Revoked {revoked} licence(s).", messages.SUCCESS)
+        text = f"Revoked {revoked} licence(s)."
+        if drafts:
+            text += f" Deleted {drafts} unfinished attempt(s) that could no longer continue."
+        self.message_user(request, text, messages.SUCCESS)
