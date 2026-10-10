@@ -62,8 +62,8 @@ class TestWhoGetsIn:
         response = client.get(START)
         assert response.status_code == 302 and response.url == reverse("account_profile")
 
-    def test_the_profile_links_to_the_survey(self, client, bob):
-        assert START in client.get("/accounts/profile/").content.decode()
+    def test_the_profile_links_to_the_survey_history(self, client, bob):
+        assert "/survey/history/" in client.get("/accounts/profile/").content.decode()
 
 
 @pytest.mark.django_db
