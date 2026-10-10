@@ -107,10 +107,13 @@ class TestWhoGetsIn:
         assert press_next(client, theirs, 1, [3] * 5).status_code == 404
         assert fresh(theirs).answers == {}
 
-    def test_a_submitted_response_is_not_found(self, client, draft):
+    def test_a_submitted_response_goes_to_its_result(self, client, draft):
         done = services.submit(lock(draft, 5))
-        licences.grant_individual(done.account.person, 1, "manual", None)
-        assert client.get(url("resume", done)).status_code == 404
+        for name, args in (("resume", ()), ("page", (5,)), ("review", ())):
+            assert client.get(url(name, done, *args)).url == url("result", done)
+        assert press_next(client, done, 5, [3] * 5).url == url("result", done)
+        response = save(client, done, on_page(done, 5)[0], 1, **HX)
+        assert response["HX-Redirect"] == url("result", done)
 
     def test_a_draft_on_a_revoked_licence_is_not_found(self, client, draft):
         # revoke() deletes the draft; this is the second lock if one ever survives.
@@ -171,7 +174,7 @@ class TestWhichPage:
         assert client.get(url("resume", draft)).url == url("review", draft)
         assert client.get(url("page", draft, 5)).url == url("review", draft)
         html = client.get(url("review", draft)).content.decode()
-        assert "All 5 pages are done" in html
+        assert "25 of 25 answered" in html and url("submit", draft) in html
         assert "Question" not in html and 'value="3"' not in html
 
     def test_pages_are_never_cached(self, client, draft):

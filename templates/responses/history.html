@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Your surveys · Accelerare{% endblock %}
+{% block content %}
+  {# Date, status and tier only. Never a statement or an answer. #}
+  <h1>Your surveys</h1>
+
+  <section class="mb-6 rounded-md border border-slate-300 bg-white p-4" aria-labelledby="next-title">
+    {% if draft_id %}
+      <h2 id="next-title" class="mb-1 text-base font-semibold">Your survey is in progress</h2>
+      <p class="text-sm text-slate-700">Your answers so far are saved. Carry on from the first unlocked page.</p>
+      <a href="{% url 'responses:resume' draft_id %}" class="inline-block rounded-md bg-brand px-4 py-2 font-medium text-white no-underline hover:bg-brand-dark">Continue</a>
+    {% elif unused %}
+      <h2 id="next-title" class="mb-1 text-base font-semibold">You have {{ unused }} unused licence{{ unused|pluralize }}</h2>
+      <p class="text-sm text-slate-700">Each licence is one attempt at the survey.</p>
+      <a href="{% url 'responses:start' %}" class="inline-block rounded-md bg-brand px-4 py-2 font-medium text-white no-underline hover:bg-brand-dark">Start</a>
+    {% else %}
+      <h2 id="next-title" class="mb-1 text-base font-semibold">{% if free %}Free account{% else %}No unused licence{% endif %}</h2>
+      <p class="mb-0 text-sm text-slate-700">Taking the survey needs a licence. Accelerare adds licences by hand for now.</p>
+    {% endif %}
+  </section>
+
+  <h2 class="mb-2 text-lg font-semibold">History</h2>
+  {% if rows %}
+    <ul class="divide-y divide-slate-200 rounded-md border border-slate-200 bg-white">
+      {% for row in rows %}
+        <li class="flex flex-wrap items-center justify-between gap-2 p-3">
+          <div>
+            <p class="mb-0 font-medium">{% if row.submitted %}{{ row.submitted_at|date:"j F Y" }}{% else %}{{ row.started_at|date:"j F Y" }}{% endif %}</p>
+            <p class="mb-0 text-sm text-slate-600">{% if row.submitted %}Submitted{% else %}In progress{% endif %} · {% include "responses/_tier.html" with tier=row.tier %}{% if row.withdrawn %} (licence withdrawn){% endif %}</p>
+          </div>
+          {% if row.submitted %}
+            <a href="{% url 'responses:result' row.id %}" class="text-sm">View result</a>
+          {% else %}
+            <a href="{% url 'responses:resume' row.id %}" class="text-sm">Continue</a>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-sm text-slate-700">You have not taken the survey yet.</p>
+  {% endif %}
+{% endblock %}
