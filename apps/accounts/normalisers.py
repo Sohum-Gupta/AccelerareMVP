@@ -40,6 +40,14 @@ def normalise_phone(value: str, country: str | None) -> str:
     return phonenumbers.format_number(number, phonenumbers.PhoneNumberFormat.E164)
 
 
+def phone_country(e164: str) -> str:
+    """Two-letter country of a normalised number ("IN", "US", "GB"), or "" if unknown."""
+    try:
+        return phonenumbers.region_code_for_number(phonenumbers.parse(e164)) or ""
+    except phonenumbers.NumberParseException:
+        return ""
+
+
 def display_phone(e164: str) -> str:
     """
     The form a person reads: `+91 98765 43210`, `+1 415-555-2671`. Always

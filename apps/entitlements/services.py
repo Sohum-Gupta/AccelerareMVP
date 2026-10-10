@@ -11,6 +11,8 @@ names ("response"), so this module never imports the responses app.
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from apps.funnel import services as funnel
+
 from .models import Entitlement
 
 TIERS = (1, 2, 3)
@@ -27,9 +29,11 @@ def grant_individual(person, tier, source, granted_by=None):
     _check_tier(tier)
     if source not in Entitlement.Source.values:
         raise ValidationError("The source must be purchase or manual.")
-    return Entitlement.objects.create(
+    entitlement = Entitlement.objects.create(
         person=person, tier=tier, source=source, granted_by=granted_by
     )
+    funnel.record_event(funnel.Kind.LICENCE_GRANTED, tier=tier, source=source)
+    return entitlement
 
 
 def revoke(entitlement):
@@ -45,8 +49,13 @@ def change_tier(entitlement, tier):
     _check_tier(tier)
     if entitlement.revoked_at is not None:
         raise ValidationError("A revoked licence cannot be changed.")
+    upgraded = tier > entitlement.tier
     entitlement.tier = tier
     entitlement.save(update_fields=["tier"])
+    # Only a real step up is a funnel event: the admin calls this on every save,
+    # and a correction downwards is not an upgrade.
+    if upgraded:
+        funnel.record_event(funnel.Kind.LICENCE_UPGRADED, tier=tier, source=entitlement.source)
     return entitlement
 
 
