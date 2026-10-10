@@ -107,7 +107,7 @@ Each app exposes a small set of plain functions (for example `enterprises.servic
 2. `git clone`, then `uv sync` to create the virtualenv and install dependencies.
 3. `cp .env.example .env` and fill in a database URL pointing at the Compose PostgreSQL.
 4. `docker compose up -d` starts PostgreSQL.
-5. `uv run python manage.py migrate` creates the schema, survey v1 with placeholder statements and the "Support staff" group. Ask the founder for `survey_v1.json`, put it in `private/` (gitignored) and run `uv run python manage.py load_questions private/survey_v1.json` for the real wording.
+5. `uv run python manage.py migrate` creates the schema, survey v1 with placeholder statements and the "Support staff" group. Ask the founder for `survey_v1.json`, put it in `private/` (gitignored) and run `uv run python manage.py load_questions private/survey_v1.json` for the real wording, or, as a superuser, use "Load the survey wording…" on the survey version's admin page (the same page loads it on the live site).
 6. `uv run python manage.py createsuperuser` creates the root admin.
 7. `uv run python manage.py runserver` and, in a second terminal, `uv run python manage.py run_worker`.
 8. `tailwindcss -i assets/tailwind.css -o static/css/app.css --watch` rebuilds CSS on change. Install with `brew install tailwindcss` (v4). `app.css` is generated but committed, so rebuild with `--minify` before committing a template change.

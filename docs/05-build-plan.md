@@ -244,7 +244,7 @@ Accounts come before the survey because every later feature asks "who is this." 
 
 *Still to build:*
 
-9. `m2-survey-wording-in-admin` (**confirmed by the founder on 2026-10-09**; replaces "deploy the private file"): a superuser-only admin page to paste or upload the survey JSON, preview how many questions change (counts only, never the wording), and apply it through `load_questions`, with plain-English errors and a history entry that records who did it but not the wording. Support staff cannot see it. Updates `03-tech-stack.md` step 5 if needed.
+9. `m2-survey-wording-in-admin` (**built**; confirmed by the founder on 2026-10-09; replaces "deploy the private file"): a superuser-only "Load the survey wording…" button on the current survey version's admin page. Paste or upload the JSON, Check shows how many statements change (counts only, never the wording) and how many unfinished and submitted attempts are on the version, and Apply goes through `load_questions` (version row locked; refused if someone changed the wording since the preview; a submitted survey on the version needs an "I understand" tick). Plain-English errors (not JSON, wrong count, duplicate or missing position, empty text, over 200 KB or 1,000 characters a statement, values the database cannot store); the history entry records who did it and the counts. Support staff cannot see or reach it. Sentry no longer receives request bodies or local variables.
 10. `m2-docs`: tick the "Done when" boxes once the founder has done the live checks, last NOTES entries and follow-ups. (The status, decisions and follow-ups from PRs 4 to 8 were synced on 2026-10-10.)
 
 **Done when**

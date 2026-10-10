@@ -2,11 +2,10 @@
 Load the real survey statements from a private JSON file.
 
 The statements are never committed. On a laptop the file lives in the gitignored
-private/ directory; on the server deploy.sh runs this on every deploy. Running it
-again with the same file changes nothing.
+private/ directory and this command loads it; on the live site a superuser
+pastes or uploads the same file on the survey version's admin page, which runs
+the same checks. Running it again with the same file changes nothing.
 """
-
-import json
 
 from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
@@ -25,14 +24,15 @@ class Command(BaseCommand):
         if version is None:
             raise CommandError("There is no survey version; run migrate first.")
         try:
-            with open(options["path"], encoding="utf-8") as f:
-                entries = json.load(f)
+            with open(options["path"], "rb") as f:
+                raw = f.read(services.MAX_FILE_BYTES + 1)
         except OSError as exc:
             raise CommandError(f"Cannot read {options['path']}: {exc.strerror}") from exc
-        except json.JSONDecodeError as exc:
-            raise CommandError(f"{options['path']} is not valid JSON: {exc}") from exc
         try:
-            count = services.load_questions(version, entries)
+            changes = services.load_questions(version, services.parse_questions(raw))
         except ValidationError as exc:
             raise CommandError("; ".join(exc.messages)) from exc
-        self.stdout.write(f"Loaded {count} questions into survey version {version.number}.")
+        self.stdout.write(
+            f"Loaded {changes.total} questions into survey version {version.number} "
+            f"({changes.changed} changed)."
+        )

@@ -29,10 +29,15 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
 # Error tracking. send_default_pii=False keeps user emails and IPs out of
-# Sentry; we only want tracebacks and request context.
+# Sentry; we only want tracebacks and request context. Even so, the SDK would
+# attach the request body (up to 10 KB) and every frame's local variables, which
+# can hold answers, emails or the private survey wording, so both are off: an
+# event carries the URL and the traceback, not the data.
 sentry_sdk.init(
     dsn=env("SENTRY_DSN", default=""),
     send_default_pii=False,
+    max_request_body_size="never",
+    include_local_variables=False,
 )
 
 # Email. Django 6.1 configures senders through MAILERS; the SMTP backend takes
