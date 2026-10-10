@@ -81,6 +81,11 @@ class EntitlementAdmin(admin.ModelAdmin):
 
     @admin.action(description="Revoke the selected licences", permissions=["change"])
     def revoke_selected(self, request, queryset):
+        revoked = 0
         for entitlement in queryset:
-            services.revoke(entitlement)
-        self.message_user(request, f"Revoked {queryset.count()} licence(s).", messages.SUCCESS)
+            if entitlement.is_active:
+                services.revoke(entitlement)
+                # The service bypasses the admin's own history, so record who did it.
+                self.log_change(request, entitlement, "Revoked")
+                revoked += 1
+        self.message_user(request, f"Revoked {revoked} licence(s).", messages.SUCCESS)
