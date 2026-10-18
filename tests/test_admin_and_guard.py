@@ -8,6 +8,7 @@ from django.http import HttpResponse
 from django.test import RequestFactory
 from django.urls import reverse
 
+from apps.accounts import services
 from apps.accounts.decorators import verified_email_required
 from apps.accounts.models import Account, ContactPoint, Person
 
@@ -170,3 +171,41 @@ def test_admin_index_has_one_accounts_section(client, root):
     }
     assert sections["Accounts"] == "accounts"
     assert sections["Login (allauth)"] == "account"
+
+
+# --- allauth's own email table ------------------------------------------------
+
+
+def test_allauth_email_table_is_read_only(client, root):
+    """
+    Every email lives in our table and allauth's; only the service functions
+    keep them in step. allauth's admin page is for looking, not editing.
+    """
+    row = EmailAddress.objects.get(user=verified_account())
+    assert client.get(reverse("admin:account_emailaddress_changelist")).status_code == 200
+    page = client.get(reverse("admin:account_emailaddress_change", args=[row.pk]))
+    assert page.status_code == 200
+    html = page.content.decode()
+    assert 'name="email"' not in html
+    assert 'name="verified"' not in html
+    assert client.get(reverse("admin:account_emailaddress_add")).status_code == 403
+    delete = client.post(
+        reverse("admin:account_emailaddress_delete", args=[row.pk]), {"post": "yes"}
+    )
+    assert delete.status_code == 403
+    assert EmailAddress.objects.filter(pk=row.pk).exists()
+
+
+def test_mark_verified_action_still_marks_our_contact_too(client, root):
+    """The one write kept: allauth's action fires its signal, which our receiver follows."""
+    account = services.register("bob@example.com", "+919876543210", None, PASSWORD)
+    row = EmailAddress.objects.get(user=account)
+    assert account.contact_points.get(kind=ContactPoint.Kind.EMAIL).verified_at is None
+    response = client.post(
+        reverse("admin:account_emailaddress_changelist"),
+        {"action": "make_verified", "_selected_action": [row.pk], "index": "0"},
+    )
+    assert response.status_code == 302
+    row.refresh_from_db()
+    assert row.verified
+    assert account.contact_points.get(kind=ContactPoint.Kind.EMAIL).verified_at is not None

@@ -1,3 +1,5 @@
+from allauth.account.admin import EmailAddressAdmin as AllauthEmailAddressAdmin
+from allauth.account.models import EmailAddress
 from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.models import CHANGE, DELETION, LogEntry
@@ -243,3 +245,28 @@ class ContactPointAdmin(admin.ModelAdmin):
     )
     def remove(self, request, queryset):
         self._run(request, queryset, services.remove_contact, "removed")
+
+
+# allauth keeps its own table of emails (login and verification links). It is
+# the other half of every contact point, so editing it here would leave our
+# table behind, exactly what the comment at the top of this file avoids. Its
+# page stays for superusers to look at, read-only. The one action kept is
+# allauth's "mark verified", because it fires allauth's email_confirmed signal
+# and our receiver marks the contact point verified at the same time; while SES
+# is sandboxed it is the only way to verify an address that cannot get mail.
+admin.site.unregister(EmailAddress)
+
+
+@admin.register(EmailAddress)
+class ReadOnlyEmailAddressAdmin(AllauthEmailAddressAdmin):
+    def get_readonly_fields(self, request, obj=None):
+        return [f.name for f in self.model._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

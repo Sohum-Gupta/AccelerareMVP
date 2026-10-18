@@ -622,6 +622,7 @@ Things agreed but not done, so they are not forgotten. Move a line to the decisi
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-10-18 | allauth's "Email addresses" admin page (now under "Login (allauth)") is read-only; only its "mark verified" action stays | Each email lives in our table and allauth's, and only the services keep them in step; the action fires allauth's signal so our contact point is verified too, and while SES is sandboxed it is the only way to verify an address that cannot get mail |
 | 2026-10-10 | Milestone 2 ends with PR 11: the founder's live checks as one tasklist, then a docs-only PR that ticks the boxes | All the code is done; what remains needs the live site and a real phone |
 | 2026-10-10 | Caddy refuses request bodies over 5 MB, and `deploy.sh` reloads Caddy on every deploy | Without a limit Django streams a large upload to disk before any view can check it; the deploy never restarted Caddy, so a Caddyfile change would not have applied |
 | 2026-10-10 | The licence grant form searches for the account (the admin's autocomplete) instead of a dropdown of every account | Works as accounts grow; searches by email or phone like the Accounts page |
