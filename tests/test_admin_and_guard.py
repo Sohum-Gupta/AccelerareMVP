@@ -154,3 +154,19 @@ def test_account_email_is_read_only_in_the_admin(client, root):
     account.refresh_from_db()
     assert account.email == "bob@example.com"
     assert Person.objects.filter(accounts=account).exists()
+
+
+# --- the sidebar ---------------------------------------------------------------
+
+
+def test_admin_index_has_one_accounts_section(client, root):
+    """
+    allauth's app is also called "Accounts"; it is relabelled so staff see one
+    Accounts section (ours) and allauth's email table under its own name.
+    """
+    sections = {
+        app["name"]: app["app_label"]
+        for app in client.get(reverse("admin:index")).context["app_list"]
+    }
+    assert sections["Accounts"] == "accounts"
+    assert sections["Login (allauth)"] == "account"

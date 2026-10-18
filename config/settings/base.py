@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     # allauth: verification links, the login flow and rate limits. Only the
     # core and the "account" (email + password) parts; no social login yet.
     "allauth",
-    "allauth.account",
+    "apps.accounts.apps.AllauthAccountConfig",  # allauth.account, relabelled in the admin
     "apps.accounts",
     "apps.survey",
     "apps.entitlements",
