@@ -26,4 +26,8 @@ urlpatterns = [
         name="member_reactivate",
     ),
     path("<slug:slug>/members/<int:pk>/role/", views.set_member_role, name="member_role"),
+    path("<slug:slug>/codes/", views.codes, name="codes"),
+    path("<slug:slug>/codes/<int:pk>/revoke/", views.revoke_code, name="code_revoke"),
+    path("<slug:slug>/invites/", views.invites, name="invites"),
+    path("<slug:slug>/invites/<int:pk>/revoke/", views.revoke_invite, name="invite_revoke"),
 ]

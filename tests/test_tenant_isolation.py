@@ -6,7 +6,8 @@ pages they protect.
 The world: two organizations, Acme and Globex, each with one admin and two
 members. Every member has submitted one survey for their organization (on a
 tier 1 licence) and one personally (on a tier 3 licence), so a page that leaks
-a personal survey has something to leak.
+a personal survey has something to leak. Each organization also has a join
+code and an invite that is still open.
 
 What must hold on every organization page:
 
@@ -48,7 +49,12 @@ PERSONAL_TIER = 3
 
 # Pages of one organization, as the part of the address after /organizations/<slug>/.
 MEMBER_PAGES = [""]  # any active member may open these
-ADMIN_PAGES = ["members/"]  # only an admin may open these
+ADMIN_PAGES = ["members/", "codes/", "invites/"]  # only an admin may open these
+# Forms on those pages that make something new (admin only), with what each is sent.
+ADMIN_FORMS = [
+    ("codes/", {"max_uses": "5", "days": "30"}),
+    ("invites/", {"email": "someone.new@example.com"}),
+]
 
 
 def member_actions(membership):
@@ -61,8 +67,30 @@ def member_actions(membership):
     ]
 
 
+def actions_on(org):
+    """Every address that changes one of an organization's own things, by its id."""
+    return [
+        *member_actions(org.members[0]),
+        (f"codes/{org.code.pk}/revoke/", {}),
+        (f"invites/{org.invite.pk}/revoke/", {}),
+    ]
+
+
+def untouched(org):
+    """True if nothing of the organization's has been changed or added to."""
+    member = fresh(org.members[0])
+    return (
+        member.is_active
+        and not member.is_admin
+        and fresh(org.code).revoked_at is None
+        and fresh(org.invite).revoked_at is None
+        and org.enterprise.join_codes.count() == 1
+        and org.enterprise.invites.count() == 1
+    )
+
+
 def build(name):
-    """One organization: an admin, two members, and each member's two surveys."""
+    """One organization: an admin, two members with two surveys each, a code and an invite."""
     enterprise, admin = org_with_admin(name)
     accounts.set_full_name(admin.account, f"{name} Admin")
     members, organization_responses, personal_responses = [], [], []
@@ -74,6 +102,7 @@ def build(name):
         organization_responses.append(finish(surveys.start_response(member.account, member)))
         personal_responses.append(finish(surveys.start_response(member.account)))
         members.append(member)
+    invite, _sent = orgs.invite_by_email(admin, f"invited@{enterprise.slug}.example.com")
     return SimpleNamespace(
         enterprise=enterprise,
         slug=enterprise.slug,
@@ -82,6 +111,8 @@ def build(name):
         everyone=[admin, *members],
         responses=organization_responses,
         personal=personal_responses,
+        code=orgs.create_code(admin, 5),
+        invite=invite,
     )
 
 
@@ -106,10 +137,11 @@ def settled(text):
 
 
 def everything_about(org):
-    """Every name and email of an organization's people, and its own name."""
+    """Its name, every name and email of its people, and its code and invite."""
     words = [org.enterprise.name]
     for membership in org.everyone:
         words += [membership.account.full_name, membership.account.email]
+    words += [org.code.code, orgs.display_code(org.code.code), org.invite.email, org.invite.token]
     return words
 
 
@@ -169,23 +201,37 @@ class TestAnAdminSeesOnlyTheirOwnOrganization:
         assert page.context["current_members"] == 3
         assert page.context["all_time_members"] == 3
 
-    def test_the_other_organizations_member_cannot_be_acted_on(self, client, world):
-        """Their own slug with someone else's membership id: not found, and nothing changes."""
+    def test_the_codes_and_invites_pages_list_exactly_its_own(self, client, world):
         client.force_login(world.acme.admin.account)
-        victim = world.globex.members[0]
-        for page, data in member_actions(victim):
+        assert orgs.display_code(world.acme.code.code) in html(
+            client, address(world.acme, "codes/")
+        )
+        text = html(client, address(world.acme, "invites/"))
+        assert world.acme.invite.email in text and world.acme.invite.token in text
+
+    def test_the_places_left_are_its_own(self, client, world):
+        """Globex bringing people in uses none of Acme's places."""
+        for number in range(3):
+            orgs.invite_by_email(world.globex.admin, f"more{number}@globex.example.com")
+        orgs.redeem_code(world.globex.code.code, verified_account("joiner@example.com"))
+        client.force_login(world.acme.admin.account)
+        for page in ("", "codes/", "invites/"):
+            places = client.get(address(world.acme, page)).context["places"]
+            assert places == {"left": 24, "limit": 25}, page  # Acme has sent one invite
+
+    def test_the_other_organizations_things_cannot_be_acted_on(self, client, world):
+        """Their own slug with someone else's id: not found, and nothing changes."""
+        client.force_login(world.acme.admin.account)
+        for page, data in actions_on(world.globex):
             assert client.post(address(world.acme, page), data).status_code == 404, page
             assert client.get(address(world.acme, page)).status_code in (404, 405), page
-        victim = fresh(victim)
-        assert victim.is_active and not victim.is_admin
+        assert untouched(world.globex)
 
-    def test_nor_can_it_be_acted_on_under_its_own_slug(self, client, world):
+    def test_nor_can_they_be_acted_on_under_their_own_slug(self, client, world):
         client.force_login(world.acme.admin.account)
-        victim = world.globex.members[0]
-        for page, data in member_actions(victim):
+        for page, data in actions_on(world.globex) + ADMIN_FORMS:
             assert client.post(address(world.globex, page), data).status_code == 404, page
-        victim = fresh(victim)
-        assert victim.is_active and not victim.is_admin
+        assert untouched(world.globex)
 
 
 # --- outsiders get "not found" ---------------------------------------------------
@@ -208,11 +254,9 @@ class TestOutsidersGetNotFound:
             assert client.get(address(world.acme, page)).status_code == 404, page
 
     def test_every_action_is_not_found_and_changes_nothing(self, client, world, outsider):
-        target = world.acme.members[0]
-        for page, data in member_actions(target):
+        for page, data in actions_on(world.acme) + ADMIN_FORMS:
             assert client.post(address(world.acme, page), data).status_code == 404, page
-        target = fresh(target)
-        assert target.is_active and not target.is_admin
+        assert untouched(world.acme)
 
     def test_it_looks_exactly_like_an_organization_that_does_not_exist(
         self, client, world, outsider
@@ -247,9 +291,12 @@ class TestFormerMembersAndStrangers:
         target = world.acme.members[1]
         for page in MEMBER_PAGES + ADMIN_PAGES:
             assert client.get(address(world.acme, page)).status_code == 404, page
-        for page, data in member_actions(target):
+        posts = member_actions(target) + actions_on(world.acme)[3:] + ADMIN_FORMS
+        for page, data in posts:
             assert client.post(address(world.acme, page), data).status_code == 404, page
         assert fresh(target).is_active
+        assert fresh(world.acme.code).revoked_at is None
+        assert world.acme.enterprise.invites.count() == 1
 
     def test_a_logged_out_visitor_is_sent_to_log_in(self, client, world):
         urls = ["/organizations/", "/organizations/new/"]
@@ -257,10 +304,10 @@ class TestFormerMembersAndStrangers:
         for url in urls:
             page = client.get(url)
             assert page.status_code == 302 and "/accounts/login/" in page.url, url
-        for page, data in member_actions(world.acme.members[0]):
+        for page, data in actions_on(world.acme) + ADMIN_FORMS:
             answer = client.post(address(world.acme, page), data)
             assert answer.status_code == 302 and "/accounts/login/" in answer.url, page
-        assert fresh(world.acme.members[0]).is_active
+        assert untouched(world.acme)
 
 
 # --- a member is not an admin ----------------------------------------------------
@@ -284,9 +331,11 @@ class TestAMemberIsNotAnAdmin:
         for target in (other, member, world.acme.admin):
             for page, data in member_actions(target):
                 assert client.post(address(world.acme, page), data).status_code == 404, page
+        for page, data in actions_on(world.acme) + ADMIN_FORMS:
+            assert client.post(address(world.acme, page), data).status_code == 404, page
         assert fresh(other).is_active and not fresh(other).is_admin
-        assert not fresh(member).is_admin
         assert fresh(world.acme.admin).is_active
+        assert untouched(world.acme)
 
     def test_the_member_pages_show_nobody_else(self, client, world, member):
         """A member sees the organization's name and their own things, never other members."""
@@ -298,8 +347,11 @@ class TestAMemberIsNotAnAdmin:
             for membership in others:
                 assert membership.account.full_name not in text, url
                 assert membership.account.email not in text, url
-            assert "current_members" not in page.context, url
-            assert "all_time_members" not in page.context, url
+            for admins_only in ("current_members", "all_time_members", "places"):
+                assert admins_only not in page.context, url
+            for secret in (world.acme.code.code, world.acme.invite.email, world.acme.invite.token):
+                assert secret not in text, url
+            assert orgs.display_code(world.acme.code.code) not in text, url
 
 
 # --- what no organization page ever shows ----------------------------------------

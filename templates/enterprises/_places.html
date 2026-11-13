@@ -1,0 +1,12 @@
+{% comment %}
+How many more people the organization may bring in ("18 of 25 places left").
+Every invite ever sent and every join by code uses a place. Admin pages only.
+{% endcomment %}
+<div class="mb-4 rounded-md border border-slate-300 bg-white px-4 py-3 text-sm" data-places>
+  <p class="mb-1 font-medium">{{ places.left }} of {{ places.limit }} place{{ places.limit|pluralize }} left</p>
+  {% if places.left %}
+    <p class="mb-0 text-slate-600">Each invite you send and each person who joins with a code uses one place. Withdrawing an invite does not give its place back.</p>
+  {% else %}
+    <p class="mb-0 text-slate-600">Nobody else can be invited or join with a code until {{ organization.name }} has more places. Contact Accelerare to add more.</p>
+  {% endif %}
+</div>
