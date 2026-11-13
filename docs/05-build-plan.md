@@ -1,6 +1,6 @@
 # Build Plan — Survey Platform
 
-As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs; open items live in `06-backlog.md` · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded and Milestone 2 closed 2026-11-12 · Milestone 3 re-planned 2026-11-12 · Milestone 3 built and status synced 2026-11-13 · Milestone 4 re-planned 2026-11-13 · The founder's answers on Milestone 4's choices and the payments basics recorded 2026-11-13 · Milestone 4b planned and built 2026-11-13 · Milestone 5 re-planned 2026-11-13
+As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs; open items live in `06-backlog.md` · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded and Milestone 2 closed 2026-11-12 · Milestone 3 re-planned 2026-11-12 · Milestone 3 built and status synced 2026-11-13 · Milestone 4 re-planned 2026-11-13 · The founder's answers on Milestone 4's choices and the payments basics recorded 2026-11-13 · Milestone 4b planned and built 2026-11-13 · Milestone 5 re-planned 2026-11-13 · Milestone 6 re-planned 2026-11-13
 
 ## How to read this document
 
@@ -1035,47 +1035,144 @@ Run this on the live site. You need window 1 (your superuser login, also for the
 
 ---
 
-## Milestone 6 — Root admin, CSV export, deletion
+## Milestone 6 — CSV downloads, the erasure record, the staff admin
 
-*Next, and not yet planned in detail. On 2026-11-13 the founder asked for this milestone to be planned and built like Milestone 5: a re-plan as its PR 0, then each PR merged once its check is green, without waiting for review, with pertinent decisions raised to them as they come up. The text below is the October outline. Much has been built since that it does not know about: erasure and its admin page (Milestone 2), the audit log and the row erasure writes to it (Milestone 5), linked logins that share a person (Milestone 5), the results table (Milestone 5), and the Support staff group. The re-plan must start from the code as it is.*
+*Re-planned on 2026-11-13. This section replaces the October outline, which predated much of the code: erasure and its admin page (Milestone 2), the audit log and the row erasure writes to it (Milestone 5), linked logins that share a person (Milestone 5), the results table (Milestone 5) and the Support staff group. What changed, and why, is under "What the re-plan corrects" and in the decision log.*
 
-**Goal:** root admin can see and search everything, export any scope as CSV, delete an account on request with an audit stub; enterprise admins can export their scope.
+**Goal:** an organization's admins can download the list of surveys taken for it as a spreadsheet file; staff can download every submitted survey from the Django admin; each download is recorded; erasing an account records what was removed, as counts; there is a written procedure for deletion requests; and staff can find anything in the Django admin and see the numbers that matter on its first page.
+
+**Status (2026-11-13).** Planned: this section is PR 0. Nothing is built yet. The next PR is PR 1, `m6-export-organization`. *Every PR updates this paragraph, so a session that has lost its memory finds its place here and in `gh pr list`.*
+
+**How this milestone is run** (founder, 2026-11-13). As Milestone 5 was: each PR is merged once its check is green, without waiting for review, with a short summary after each. Product decisions are the founder's and are asked first; the four asked before this plan are the first four product rules below. Merging on green covers Milestone 6 only. **Nothing merges after 7:00pm PST on 2026-11-13**, and nothing risky after about 6:30pm: the founder shows the application at 8pm, and every merge that is not docs-only deploys to the live site. The PRs are therefore in order of what matters most. Whatever is not merged by the stop waits, and the founder is asked how to go on.
+
+**What the re-plan corrects**
+
+- *Erasure is already built.* The outline planned it here. It has existed since Milestone 2, has refused to strand an organization since Milestone 3, and has written an audit row and kept a shared person since Milestone 5. What is left is small: the audit row says *that* an account was erased but not *what* was removed, and nothing is written down about how a deletion request is handled.
+- *The staff file names nobody.* The outline put `member_email` beside the 25 answers. The founder chose account numbers instead (below): a file saved on a laptop then holds no name, and stays that way after the person is erased.
+- *Two staff files, not one.* The outline said "staff only". Staff are two groups: superusers, who can read answers, and Support staff, who cannot. Each gets a file that holds only what they can already see.
+- *No `exports` app.* The outline and `03-tech-stack.md` planned `apps/exports/`. An export reads responses, and `responses` must stay the last app (its start-up step needs every other app's permissions to exist; `tests/test_app_dependencies.py`). So the export code lives in the responses app, beside the organization's responses pages, which are there for the same reason.
+- *No results columns.* The outline said the organization's file "gains result columns once results exist". There is no algorithm, so there are no results. "Results level" in the file is the licence's tier, as on the page.
+- *Already done, so not planned again:* a response is read-only in the Django admin; an account's contacts are listed on its page; a linked person survives the erasure of one of its two logins.
+- *Left parked, on purpose:* what happens when a company asks for all its members' data to be deleted (`06-backlog.md`, D-2) and a "delete my account" button for people themselves (D-8). Both wait for the privacy lawyer.
+- *The outline cited India's DPDP Act.* The site is built for the US first (2026-11-13). The written procedure is a draft for the privacy lawyer (D-7), not a statement of what any one law requires.
+
+**The product rules**
+
+- **An organization's file** (founder, 2026-11-13). One row for each *submitted* survey taken for the organization, with exactly what the responses page already shows its admins: name, email, the day it was started, the day it was submitted, results level, possible repeat. Never an answer, the "taken before" answer, or a survey someone took personally. Surveys still in progress are not in the file.
+- **The staff file with answers** (founder, 2026-11-13). Every submitted survey on the site, with its 25 answers. Each person is an account number: no name and no email address. Superusers only.
+- **The staff file without answers** (founder, 2026-11-13, over a superusers-only recommendation). Support staff may download a file that holds only what they can already see in the Django admin: the same rows, without the answers and without the "taken before" answer.
+- **Every download is recorded** (founder, 2026-11-13) in the audit log: who, which organization or the whole site, and how many rows. No names.
+- **Erasing an account records what was removed,** as counts and never as names: how many contacts, licences, memberships and unfinished surveys went, and how many submitted surveys were kept. The page that asks first shows the same counts before anything happens.
+- **Staff see the numbers that matter** on the Django admin's first page: accounts, organizations, surveys submitted in the last seven days, possible duplicates waiting for a decision, and background jobs that failed or are waiting. Each number opens the list behind it. A member of staff sees only the numbers for pages they may open.
+
+**Smaller rules, the builder's calls** (raised here so they can be overruled)
+
+*The organization's file*
+
+- It is always every submitted survey for the organization. It does not follow the filters chosen on the page. Newest first, as the page lists them.
+- An erased member is "Erased member" with no address, as on the page. Someone who has left the organization is still listed; the page's "(no longer a member)" note is not in the file, because the founder chose the six columns.
+- A date is the day only, in UTC, written `2026-11-13`, so a spreadsheet sorts it (`06-backlog.md`, D-10).
+- Results level is in the page's words: "Tier 2", and "Free (licence withdrawn)" when staff withdrew the licence. Possible repeat is "yes" or "no".
+- The button is on the responses page and reads "Download as a spreadsheet (CSV)". It is a button, not a link: only a deliberate press makes a file and its audit row. With no submitted survey there is no button.
+
+*The staff files*
+
+- Both are on the "Responses" page of the Django admin, each behind a page that says what the file holds and that the download will be recorded.
+- Columns: response number, account number, survey version, organization number and name (empty for a survey taken personally), tier (0 when the licence was withdrawn), the day started, the day submitted, possible repeat. The file with answers adds "taken before", how, and `q1` to `q25`.
+- `q1` to `q25` are the statements by position, never their text. If a second survey version ever has more statements, the header is as wide as the longest version and the survey version column says which is which.
+- The file without answers is for anyone who may open "Responses" in the Django admin (Support staff and superusers). It has no status column: every row is a submitted survey.
+- A staff download is recorded straight into the audit log with the member of staff as the actor (`responses.exported`, with the number of rows and whether answers were in it). An organization admin's download is `responses.exported` too, with the organization as its target.
+
+*All three files*
+
+- A cell that begins with `=`, `+`, `-` or `@` gets an apostrophe in front, so a spreadsheet shows it as text and never runs it as a formula. A name is typed by the person, and an organization's name by its admin.
+- The file starts with the mark that tells Excel it is UTF-8, so a name with an accent reads correctly.
+- The file is made inside the web request and sent as it is read from the database, so a large one does not sit in memory. The row count in the audit log is taken as the download starts. This is right for tens of thousands of rows; a file that takes longer than 30 seconds to make would be cut off by the web server, and then belongs in the background worker. Milestone 7's load check measures it.
+
+*Erasure*
+
+- The counts come from the erasure itself, and from the three apps that already clean up their own copies when an account is erased (possible duplicates, the match box, an invite's address): each now reports how many it removed.
+- The page that asks first also says, when the account is one of two linked logins, that the other login keeps working and keeps its own licences.
+- A result (once there is an algorithm) follows its survey: kept with a submitted survey, gone with an unfinished one. Nothing to build; a test holds it.
+
+*The Django admin*
+
+- The first page gets a panel above the list of pages. Nothing else about that page changes.
+- In lists, an account, an organization or a survey shown in a column becomes a link to its own page. On the page of an account, an organization and a membership, a "Related" line links to its memberships, licences, surveys and payments. A link is shown only to someone who may open what it points at.
+- Search and filters are added where a page has none or too little (the list is under "What you build").
+- Nothing in this milestone gives Support staff a permission they do not have, except the one download above.
+
+*The written procedure* (a draft, for the privacy lawyer to confirm; `06-backlog.md`, D-7)
+
+- Who may ask: the person, writing from an address that is verified on their account. A request from anyone else, an employer included, is not acted on (D-2).
+- The request is answered within 30 days.
+- What is removed and what is kept is what `erase_account` does today: the email, phone, name and login go; a submitted survey is kept with no link to a person; the audit log and the payment record are kept, and neither holds a name or an address.
+- Erased data stays in the database's backups until they expire, 30 days later.
 
 **What you build**
 
-- Django admin polish: list displays, search fields and filters on every model; `Response` read-only after submit; inline `ContactPoint` under `Account`; inline `Membership` under `Enterprise`; links between related objects.
-- `apps/exports/views.py`: `enterprise_export(request, slug)` (via `for_admin`) and `root_export(request)` (staff only). Both stream a CSV with `StreamingHttpResponse` and a generator: one row per submitted response. The root export has columns `response_id, submitted_at, survey_version, enterprise, member_email, tier, took_before, possible_repeat, q1..q25`. The enterprise export leaves out `took_before` and `q1..q25` (enterprise admins never see answers, decided 2026-11-12) and gains result columns once results exist.
-- Erasure. *Built in Milestone 2, PR 3b* as `apps/accounts/erasure.erase_account` with an admin button and confirmation page: hard delete when there is no completed survey, otherwise strip the identity and keep the results. This milestone adds what remains: the `AuditLog` row with a summary of what was removed, the handling of memberships and enterprise-level requests (see Milestone 3), results rows once they exist, and a written compliance procedure (who may request, the response deadline, what is kept and why, and how long hard-deleted data stays in database backups).
-- A root dashboard page (or admin index customisation) with counts: accounts, enterprises, responses submitted this week, flagged candidates awaiting review, failed jobs.
+- `apps/responses/exports.py`: the rows of each file (plain values, built from the same facts the pages use), the guard against formulas, the streamed response, and the audit row. `organization_views.export` at `/organizations/<slug>/responses/export/` (POST; `scoping.for_admin`; the same `_taken_for` as the table, so the answers are not read from the database). `ResponseAdmin` gets two pages, `export/answers/` (superusers) and `export/` (anyone who may view responses), and its list page two buttons.
+- `apps/accounts/erasure.py`: `Plan` gains the counts; `erase_account` writes them into the `account.erased` audit row; the receivers of `account_erasing` in `matching`, `responses` and `enterprises` return how many they removed. The erase page lists the counts.
+- `templates/admin/index.html` and a template tag in the responses app for the counts (it is the one app that may import all the others).
+- Admin polish, from an inventory of every admin page taken on 2026-11-13:
+  - *Search:* Responses by the account's name, an account number and the organization's name (today: email only). Payments by the buyer's email, with the buyer as a column. Memberships by phone. Background jobs by kind.
+  - *Filters:* Organizations by when they were made. People by whether they are linked. Invites and join codes by date. Responses by survey version and by personal or organization.
+  - *Links in lists:* the account and the organization columns of Memberships, Invites, Join codes, Contact points, Entitlements, Responses, Payments, Possible duplicates and Results.
+  - *"Related" links:* on an Account (memberships, licences, surveys, payments), an Organization (members, invites, join codes, payments) and a Membership (licences, surveys).
+  - *Shown at last:* a licence's `granted_to` on its page.
+- `docs/08-deletion-requests.md`: the procedure above, with the steps staff take in the Django admin.
 
 **Technical detail**
 
-- CSV rows come from a queryset iterated with `.iterator()` inside the generator so a 50,000-row export does not load into memory. Column order for q1..q25 comes from the survey version's questions by position, so the header is stable.
-- Export scope for enterprise admins is the scoped queryset from milestone 3; the view adds nothing.
-- Tier in the export is the computed current tier at export time (entitlements), consistent with the UI.
-- Deletion must handle a merged person: if the deleted account's person has other accounts, the person survives and only the account's own rows go. Document this in the confirmation page.
-- Django admin is staff-only; `is_staff` is set only by `createsuperuser` or by another superuser. There is no self-serve path to it.
+- *Streaming.* `StreamingHttpResponse` over a generator that reads the query with `.iterator()` and writes one line at a time with Python's `csv` module. Memory stays flat however many rows there are.
+- *The organization's file cannot leak.* It is built from `_taken_for(enterprise)`, the query behind the table: it keeps to the one organization and leaves the answers out of the SQL. The isolation tests are written first and the new address joins the lists in `tests/test_tenant_isolation.py`.
+- *The audit row first.* It is written before the first line is sent. If the download then fails halfway, the log says a download of N rows was started, which is the safe way round: there is never a file without a record.
+- *One guard, used by all three files.* Every cell goes through one function; a test feeds it a name beginning with each of the four characters.
+- *Tier* is the licence's tier at the moment of the download, 0 if withdrawn, as the pages show it.
+- *Erasure counts are counted before anything is removed,* inside the same transaction and under the same locks, so the page's "what will happen" and the audit row's "what happened" are the same numbers unless something changed in between, in which case the audit row is the true one.
+- *Links by permission.* A list link is made by one helper that asks `has_view_permission` for the target's admin page; without it the plain text is shown. Support staff therefore never see a link that answers "forbidden".
+- *The counts on the first page* are a handful of `COUNT` queries. Each is asked only if the member of staff may open that page.
 
 **Tests**
 
-- Export for enterprise A contains exactly A's submitted responses with 25 question columns in position order; B's rows absent; drafts absent.
-- Root export contains both.
-- Erase: all expected rows gone (or stripped, for an account with a completed survey), audit row present with the counts; a merged person survives when another account remains; results rows follow the same two outcomes.
-- Non-staff cannot reach `/admin/` or `root_export`.
+- The organization's file: exactly the organization's submitted surveys, the six columns, an erased member with no name or address, a withdrawn licence; another organization's surveys, a personal survey and an unfinished one are absent; the answers are not read from the database; a member who is not an admin, an outsider and a logged-out visitor get the same answers as for the page; a GET makes no file; an audit row with the right actor, target and count, and no name in it.
+- The staff files: a superuser gets the answers by position, in the right columns; no name and no email address anywhere in either file; Support staff get the file without answers and are refused the one with; an ordinary account is refused both; each download writes an audit row.
+- The guard: a name starting with `=`, `+`, `-` or `@` is written with an apostrophe, in all three files.
+- Erasure: the counts for an account that is deleted and for one whose survey is kept; the audit row holds them and no name; a linked login; a result is kept with its survey.
+- The admin: each new search finds what it should; each link points at the right page and is absent for Support staff where they may not follow it; the first page shows the right numbers to a superuser and fewer to Support staff.
+- Every code PR is checked by breaking the new code on purpose and confirming a test fails, and each new page is opened in a real browser (phone width for the organization's page, desktop width for the Django admin).
+
+**PR plan** (one branch and one pull request each, in this order; most important first, because of the 7:00pm stop)
+
+0. `m6-replan`: this section. Docs only.
+1. `m6-export-organization`: the organization admins' file. Isolation tests first.
+2. `m6-export-staff`: the two staff files in the Django admin.
+3. `m6-erasure-summary`: what was removed, as counts, in the audit row and on the page.
+4. `m6-dashboard`: the numbers on the Django admin's first page.
+5. `m6-admin-polish`: search, filters and links across the Django admin.
+6. `m6-docs-live-checks`: the deletion procedure, docs synced with what was built, the founder's live checklist and a backlog task for it, and the handoff file removed (the founder is asked first).
 
 **Done when**
 
-- [ ] Export downloads from both admin surfaces on the live site and opens cleanly in a spreadsheet.
-- [ ] A test account is deleted via the admin action and its audit stub is visible.
-- [ ] All tests pass.
+*The first four boxes are the founder's live checks.*
+
+- [ ] An organization's admin downloads the file on the live site and it opens cleanly in a spreadsheet.
+- [ ] A superuser downloads the staff file with answers, and it names nobody; a Support staff login can download only the file without answers.
+- [ ] A test account is erased from the Django admin and the audit log shows what was removed, as counts.
+- [ ] The Django admin's first page shows the numbers, and each opens its list.
+- [ ] All tests pass, including every tenant isolation test.
 
 **Why this order / what to understand**
 
-*Django admin is your root console.* It is not pretty, and customers never see it, so that's fine. It saves you building a dozen CRUD screens. Spend time on search fields and list filters; those are what make it usable at a thousand accounts.
+*A download is the one place data leaves the site.* A page can be changed tomorrow; a file on somebody's laptop cannot. So the files hold as little as does the job (the organization's file holds what its admins already see; the staff file holds numbers, not names), and each download leaves a record of who took it.
 
-*Streaming versus building the file.* Building the full CSV in memory and then returning it works until the first big enterprise. A generator writes rows as they are read; memory stays flat and the download starts immediately. It's a two-line difference now and a rewrite later.
+*Streaming versus building the file.* Building the whole file in memory and then sending it works until the first big organization. A generator writes each row as it is read: memory stays flat and the download starts at once.
 
-*Deletion is scary on purpose.* It is the one irreversible action, so it has a confirmation page, a reason field, a transaction, and an audit stub. The DPDP obligation is to delete on request; the operational obligation is to be able to say exactly what was deleted and when.
+*Why a spreadsheet needs guarding.* A CSV file is plain text, but a spreadsheet treats a cell that begins with `=` as a formula and runs it. Someone could sign up with a name that is a formula, and it would run on the computer of whoever opens the file. An apostrophe in front makes it text again.
+
+*The Django admin is your root console.* It is not pretty, and customers never see it. It saves building a dozen screens. Search, filters and links between related things are what make it usable at a thousand accounts.
+
+*Erasure is scary on purpose.* It is the one action that cannot be undone, so it has a page that asks first, a reason, one transaction, and now a record of exactly what went. The duty is to delete when asked; the practical need is to be able to say what was deleted and when.
 
 ---
 
@@ -1152,7 +1249,7 @@ Not a milestone. Self-serve purchase for individuals and enterprises (likely Raz
 | 4, part 2 | Licences set aside for invites and codes | 4 | A licence promised by an invite or a code is really there; an invite can be sent again or moved (built 2026-11-13; the founder's live checks remain) |
 | 4b | Payments | 4 | A purchase adds licences without staff typing (built 2026-11-13; Stripe's test keys reached the server the same day; the founder's live checks remain) |
 | 5 | Jobs, possible duplicates, audit | 4b | Worker live; a member is emailed their licence; possible duplicates reviewed and linked by a superuser; actions audited (built 2026-11-13; the founder's live checks remain) |
-| 6 | Root admin, export, erasure audit | 5 | Root console complete; CSV; erasure audited and documented |
+| 6 | CSV downloads, the erasure record, the staff admin | 5 | An organization's admins and staff download surveys as CSV, each download recorded; an erasure records what it removed; a written deletion procedure; search, links and counts in the Django admin (planned 2026-11-13) |
 | 7 | Hardening and pilot | 6 | First customer |
 
 ## When to stop and ask
@@ -1172,6 +1269,8 @@ Moved on 2026-11-12 to `06-backlog.md`, the one list of open tasks and parked de
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-13 | Milestone 6 re-planned into seven PRs (0 to 6), most important first because nothing merges after 7:00pm that day: the organization's file, the staff files, the erasure record, the numbers on the Django admin's first page, admin polish, closing docs. The export code lives in the responses app, not a new `exports` app. The builder's calls are under "Smaller rules" in the Milestone 6 section, among them a draft deletion procedure (requests from the person only, answered within 30 days) for the privacy lawyer | The October outline planned erasure that already exists, put an email address beside the answers, and planned an app that cannot sit after `responses` in the dependency order |
+| 2026-11-13 | The founder's four answers for Milestone 6. An organization's CSV file has the columns its responses page shows (name, email, started, submitted, results level, possible repeat), for submitted surveys only. The staff file has the 25 answers and names nobody: people are account numbers. Support staff may download a file without answers (the recommendation was superusers only). Every download is written to the audit log | Asked together before the plan, with `AskUserQuestion`; three were "as recommended" |
 | 2026-11-13 | Milestone 5 re-planned into eight PRs (0 to 7). Nothing links two accounts automatically: possible duplicates go to a superuser, who links, rejects or unlinks. The "Done when" box about a shared verified email is replaced, because the decision of 2026-10-09 already ruled that out. The invite email stays in the request; the worker's first email is "you have been given a licence". Staff actions reach the audit log by copying the Django admin's history lines; organization admins' actions are recorded by the services. The results seam of the Phase 2 stub is built here | The October plan contradicted itself on verified email, relied on phone verification that does not exist, and predated the invite page's "sent or copy the link" answer and its count of emails |
 | 2026-11-13 | Milestone 5 built (PRs 1 to 7, #85 to #91). Builder's calls made on the way, all listed in its "Smaller rules" for the founder: two linked logins at most per person; undoing a link returns each licence by who used it and who it was granted to (`Entitlement.granted_to`); a link that was undone can be made again; the match box is always emptied after use; the audit log names people by account number only and never copies an admin history line's label; the look for duplicates also runs on a change of phone or name and on joining an organization | Each keeps a promise the plan made (undo is exact; no name or email in the log; what a person typed is kept as briefly as possible) in a simpler way than the plan's own wording allowed |
 | 2026-11-13 | The founder's setup day, as they reported it: the uptime checker is set up on Better Stack's free plan (T-2 closed; four small follow-ups are T-26); Sentry is on its free plan with no payment method; Stripe's test keys and webhook secret are in Parameter Store and reached the server the same afternoon, and receipts are switched on in the sandbox (T-21 closed; T-22 can be run); SES production access turned out to have been refused on 2026-10-10 and was asked for again (T-4). Stripe's "Managed Payments" was skipped at sign-up and joins D-20. The reply inbox (T-14) was left undecided | Claude could not see any of the consoles; only the arrival of the webhook secret on the server was checked from outside |
