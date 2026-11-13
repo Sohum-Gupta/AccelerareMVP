@@ -6,10 +6,17 @@ Optional live hints, shown by js/live-hints.js while the person types:
   hints="password"  length and not-only-digits (keep 10 in step with MinimumLengthValidator; a test checks)
   hints="match"     matches another field; also pass match_with=form.password1
 Server validation is unchanged and still the authority.
+
+A password box also gets a "Show password" button (js/live-hints.js). It is in
+the page hidden and the script reveals it, so without JavaScript there is no
+button that does nothing.
 {% endcomment %}
 <div class="mb-4">
   <label for="{{ field.id_for_label }}">{{ field.label }}</label>
   {{ field }}
+  {% if field.field.widget.input_type == "password" %}
+    <button type="button" class="link-button mt-1 text-sm" data-show-password="{{ field.id_for_label }}" aria-pressed="false" hidden>Show password</button>
+  {% endif %}
   {% if hints %}
     <ul class="hint-list" hidden aria-live="polite" data-hints="{{ hints }}" data-for="{{ field.id_for_label }}"{% if match_with %} data-match="{{ match_with.id_for_label }}"{% endif %} data-min="10">
       {% if hints == "email" %}
