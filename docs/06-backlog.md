@@ -44,6 +44,7 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | D-11 | Keep `app.theaccelerare.com` or rename it? | Before the pilot, ideally before T-4 and T-10 | `app.` is a placeholder |
 | D-15 | Hide whether an email has an account (sign-up timing, reset warning) | If it becomes a concern | Accepted for now (2026-11-12) |
 | D-16 | How buying licences raises an organization's 25-person limit | Planning Milestone 4 | 25 until staff raise it by hand |
+| D-17 | Review the wording that tells a member what an organization's admins can see | With D-7, before the pilot | The wording as built; "fine for now" (2026-11-13) |
 
 ## Tasks still open
 
@@ -63,7 +64,6 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | T-12 | Re-plan Milestone 4 before starting it | Before Milestone 4 |
 | T-13 | Silence a harmless VS Code warning in `deploy.yml` | Whenever |
 | T-14 | Reply-To on site emails: pick the inbox, then a small PR | When the address is chosen |
-| T-15 | The site has no page at `/`; logging out lands on "Not Found" | Before the walkthrough, your call |
 
 ## Later, not yet planned
 
@@ -164,11 +164,6 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Build (small PR, once the address exists):** an optional `REPLY_TO_EMAIL` environment variable in `config/settings/production.py` (empty means no header, so local and tests are unchanged); `AccountAdapter.send_mail` in `apps/accounts/` adds `reply_to=[...]` to the message, and the other sends (`services.send_reset_notice` and friends) do the same, ideally through one helper. A test that a sent mail carries the header when the setting is set. Add the variable to `.env.example`, to Parameter Store **[console]** under `/survey/prod/`, and to NOTES.md's porting checklist.
 - **Not part of this:** bulk email (consent, unsubscribe, `List-Unsubscribe`, batching through the Milestone 5 queue) stays with the lawyer, D-7.
 
-### T-15 No page at `/`
-- **Status:** found 2026-11-12 during the Milestone 3 PR 10 browser check. Nothing answers at `/`: the "Accelerare" link in the header goes there, and so does logging out (`LOGOUT_REDIRECT_URL = "/"`), so both show Django's "Not Found". It has been so since Milestone 1.
-- **Smallest fix (one small PR):** `/` sends a logged-in person to their profile and anyone else to the login page. A real landing page is a separate, later question.
-- **Needs the founder:** whether to do the redirect now or wait for a landing page.
-
 ## Decisions
 
 ### D-2 Enterprise-wide deletion requests
@@ -191,7 +186,7 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 
 ### D-7 The privacy lawyer's list
 - **Status:** reviewed 2026-11-12, left for later. not yet asked. Needed before the pilot (Milestone 7).
-- **Questions collected so far:** is "strip email, phone and name, keep results and demographics" anonymous enough in the US, UK and India (age, gender, company and exact dates can identify someone in a small company); what the privacy text and disclosure page must say; how long erased data may stay in RDS backups (30 days today); enterprise data agreements; D-2 and the founder's "keep the membership link on erasure" choice; consent and verifiable parental consent for under-18s in India (minors do not take the survey); transfers to the US, a UK representative and ICO registration; India's DPDP Act (substantive duties from 2027-05-13); consent, an unsubscribe link and `List-Unsubscribe` for bulk email (for example a feedback request to everyone who took the survey), which would be sent in batches through the Milestone 5 queue; data minimisation (an age band, optional gender) before demographics are collected.
+- **Questions collected so far:** is "strip email, phone and name, keep results and demographics" anonymous enough in the US, UK and India (age, gender, company and exact dates can identify someone in a small company); what the privacy text and disclosure page must say (the wording now on the site is listed under D-17); how long erased data may stay in RDS backups (30 days today); enterprise data agreements; D-2 and the founder's "keep the membership link on erasure" choice; consent and verifiable parental consent for under-18s in India (minors do not take the survey); transfers to the US, a UK representative and ICO registration; India's DPDP Act (substantive duties from 2027-05-13); consent, an unsubscribe link and `List-Unsubscribe` for bulk email (for example a feedback request to everyone who took the survey), which would be sent in batches through the Milestone 5 queue; data minimisation (an age band, optional gender) before demographics are collected.
 - **Source:** `05-build-plan.md` open follow-ups and Milestone 7; `04-infrastructure.md` "Pending and future".
 
 ### D-8 A user-facing "delete my account" button
@@ -215,6 +210,18 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Background:** the founder decided on 2026-11-12 that anyone may create an organization but it is very limited until it pays: at most 25 people in total by invite or join code (`Enterprise.people_limit`, default 25; every invite ever sent counts, plus every join by code). The founder's words: an unpaid organization gets a small number of invites, "and based on that [a purchase] you can send out more".
 - **To decide:** the rule that turns seats bought into places (for example places equal to seats, or seats plus a margin), whether the limit is removed entirely for a paying organization, and whether `people_limit` is then computed from `SeatPool` or still stored.
 - **Until then:** staff raise `people_limit` by hand in the Django admin.
+
+### D-17 The wording that tells a member what an organization can see
+- **Status:** the founder read both texts on 2026-11-13 and accepted them as they are ("fine for now"), asking for a later review. Nothing is waiting on this. Review it with the privacy lawyer's list (D-7), before the pilot.
+- **Where the words are:** the join confirmation page, shown before someone joins an organization (`templates/enterprises/join_confirm.html`, Milestone 3 PR 10), and the organization version of the survey's "Before you begin" page (`templates/responses/disclosure.html`, PR 7). Both list what the organization's admins can see and what they never see. The code keeps those promises: `tests/test_tenant_isolation.py` holds the admin pages to them.
+- **The five lines that were a judgment call:**
+  1. "your results for that survey, once results are available": this promises members that their organization's admins will see their results in Phase 2. It is the largest promise on the page.
+  2. "a mark if it looks as though you have taken the survey before": this tells members the repeat check exists. The alternative is to tell admins only.
+  3. "Accelerare keeps your answers to produce your results and to improve the diagnostic" (disclosure page only): a statement of how Accelerare uses the data; the line a lawyer most needs to read.
+  4. "results level" and "its level" stand in for the tier names, which are still placeholders (D-4).
+  5. The join page says nothing about Accelerare itself seeing the answers; only the survey's page does.
+- **When the wording changes:** the four "admins can also see" survey lines must stay the same on both pages (the join page says "that survey" where the other says "this survey"); `tests/test_join_pages.py` compares the two files and fails if they drift. `tests/test_survey_context_pages.py` and `tests/test_join_pages.py` also quote the wording.
+- **Source:** raised with the founder on 2026-11-13 after Milestone 3 PRs 7 and 10.
 
 ### Small things to revisit only if they come up
 - **Spelling:** the site says "licence" (British) and "organization" (US, the founder's choice on 2026-11-12). Pick one spelling for the whole site if anyone notices.
