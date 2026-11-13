@@ -1,0 +1,62 @@
+{% extends "admin/base_site.html" %}
+{% load admin_urls %}
+{% comment %}
+The "Refund" page of one payment: what will be taken back and how much money
+goes back, and one button that does both through Stripe. Superusers only.
+Nothing on this page names the person who paid.
+{% endcomment %}
+{% block breadcrumbs %}
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">Home</a></li>
+  <li><a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a></li>
+  <li><a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a></li>
+  <li><a href="{% url opts|admin_urlname:'change' purchase.pk %}">{{ purchase }}</a></li>
+  <li aria-current="page">Refund</li>
+</ol>
+{% endblock %}
+{% block content %}
+<div id="content-main" style="max-width: 50rem;">
+  <p style="font-size: 1.1em;"><strong>{{ purchase }}: {{ what }}{% if purchase.enterprise %} for {{ purchase.enterprise.name }}{% endif %}, {{ paid }} paid{% if purchase.refunded_cents %}, {{ refunded }} already refunded{% endif %}.</strong></p>
+
+  {% if not preview.can %}
+    <p class="errornote">This payment cannot be refunded here. {{ preview.why_not }}</p>
+    <p>
+      A licence can be refunded only while it has not been used, and within {{ days }} days of the
+      payment. For an organization, only licences still in its stock can be refunded.
+    </p>
+    <div class="submit-row">
+      <a href="{% url opts|admin_urlname:'change' purchase.pk %}" class="closelink">Back to the payment</a>
+    </div>
+  {% else %}
+    <p><strong>What will happen.</strong> {{ preview.gives_back }}</p>
+    <p>
+      {% if is_stock %}
+        {{ unit }} goes back to the card for each licence refunded, through Stripe.
+      {% else %}
+        {{ whole }} goes back to the card, through Stripe.
+      {% endif %}
+      Both happen together: if Stripe does not make the refund, nothing is taken back.
+      This cannot be undone.
+    </p>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      {% if is_stock %}
+        <fieldset class="module aligned">
+          <div class="form-row" style="padding: .75rem 0;">
+            {{ form.quantity.errors }}
+            {{ form.quantity.label_tag }} {{ form.quantity }}
+            <div class="help">{{ form.quantity.help_text }}</div>
+          </div>
+        </fieldset>
+      {% else %}
+        <input type="hidden" name="quantity" value="1">
+      {% endif %}
+      <div class="submit-row">
+        <input type="submit" value="Yes, refund through Stripe" class="default">
+        <a href="{% url opts|admin_urlname:'change' purchase.pk %}" class="closelink">Cancel</a>
+      </div>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

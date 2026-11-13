@@ -21,14 +21,24 @@ erased while paying, the licence changed under an upgrade), nothing is given,
 the row is marked "needs attention" with the reason in plain words, and staff
 refund it from the admin.
 
-Lock order: the Purchase row first, then whatever it gives (the organization,
-or the licence). Nothing else locks a Purchase.
+Refunding (the founder's rules of 2026-11-13) is one step for staff: `refund`
+takes back what was sold and sends the money back through Stripe, together or
+not at all. Only for a licence that has not been used, within 30 days of the
+payment; for an organization, only licences still in its stock. A refund made
+in Stripe's own dashboard instead is noticed when Stripe tells us
+(`record_outside_refund`): what was sold is taken back if those rules allow,
+and otherwise the payment is marked "needs attention" and nothing is taken
+from anyone.
+
+Lock order: the Purchase row first, then whatever it gives or takes back (the
+organization, or the licence). Nothing else locks a Purchase.
 
 A refused action raises Refused (the organization pages' own), whose message is
 plain words for the page; NotFound when the licence is not the person's own.
 """
 
 import logging
+from datetime import timedelta
 
 from django.db import transaction
 from django.urls import reverse
@@ -40,7 +50,7 @@ from apps.entitlements import services as licences
 from apps.entitlements.models import Entitlement
 
 from . import stripe_api
-from .models import MIN_PRICE_CENTS, Price, Purchase
+from .models import MIN_PRICE_CENTS, Price, Purchase, Refund
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +58,8 @@ TIERS = (1, 2, 3)
 CURRENCY = "usd"
 # The most licences an organization can buy in one purchase.
 MAX_STOCK_PER_PURCHASE = 1000
+# How long after the payment staff can refund from the admin.
+REFUND_DAYS = 30
 
 # The plain-words refusal the pages already catch and show.
 Refused = orgs.Refused
@@ -284,6 +296,7 @@ def fulfil(checkout):
                 # undone and the row still records that the money came in.
                 with transaction.atomic():
                     _give(purchase)
+                purchase.given_at = purchase.paid_at
             except Refused as error:
                 _needs_attention(purchase, f"Paid, but nothing was given: {error} Refund it.")
         purchase.save()
@@ -319,3 +332,235 @@ def _needs_attention(purchase, note):
     purchase.needs_attention = True
     purchase.note = note
     logger.error("Payment %s needs attention: %s", purchase.pk, note)
+
+
+# --- refunds ----------------------------------------------------------------------------
+
+STARTED = "The survey on this licence has been started, so it cannot be refunded."
+UPGRADE_ON_TOP = "This licence has a paid upgrade on it. Refund the upgrade first."
+STRIPE_REFUSED = (
+    "Stripe did not make the refund, so nothing was changed. Try again in a moment; "
+    "if it keeps failing, look at the payment in Stripe's dashboard."
+)
+
+
+def refund_preview(purchase):
+    """
+    What the Refund button would do to this payment, for the page that asks
+    first: {"can": bool, "why_not": words, "most": how many licences could go
+    back (1 unless it is a stock purchase), "unit": cents each, "gives_back":
+    what will be taken back, in words}. Nothing is locked or changed; `refund`
+    checks everything again.
+    """
+    try:
+        most = _refundable_quantity(purchase, None)
+    except Refused as error:
+        return {"can": False, "why_not": str(error), "most": 0, "unit": 0, "gives_back": ""}
+    reason, gives_back = "", _what_goes_back(purchase)
+    if purchase.given_at is not None:
+        try:
+            # A dry run inside a transaction that is always undone.
+            with transaction.atomic():
+                _take_back(purchase, 1 if purchase.kind == Purchase.Kind.STOCK else most)
+                transaction.set_rollback(True)
+        except Refused as error:
+            reason = str(error)
+    if purchase.kind == Purchase.Kind.STOCK and purchase.given_at is not None and not reason:
+        left = next(
+            line["left"]
+            for line in orgs.seat_summary(purchase.enterprise)
+            if line["tier"] == purchase.tier
+        )
+        most = min(most, left)
+    return {
+        "can": not reason,
+        "why_not": reason,
+        "most": most,
+        "unit": purchase.unit_amount_cents,
+        "gives_back": gives_back,
+    }
+
+
+def refund(purchase, by, quantity=None):
+    """
+    Staff refund a payment: take back what was sold and send the money back
+    through Stripe, together or not at all. Returns the Refund.
+
+    `quantity` is for a stock purchase: how many of its licences to refund (all
+    that have not been refunded yet, if not given). A personal licence or an
+    upgrade is refunded whole.
+
+    Refused when the payment was never completed or is already refunded, when
+    it is more than 30 days old, when the licence has been used or has a paid
+    upgrade on top, when an organization no longer has that many in its stock,
+    and when Stripe will not make the refund. A refusal changes nothing.
+    """
+    with transaction.atomic():
+        purchase = Purchase.objects.select_for_update().get(pk=purchase.pk)
+        quantity = _refundable_quantity(purchase, quantity)
+        amount = purchase.unit_amount_cents * quantity
+        if purchase.given_at is not None:
+            _take_back(purchase, quantity)
+        try:
+            stripe_refund = stripe_api.refund_payment(
+                purchase.stripe_payment_intent_id,
+                amount,
+                # The same request sent twice is one refund at Stripe, not two.
+                key=f"refund-{purchase.pk}-after-{purchase.refunded_cents}",
+                reference=purchase.pk,
+            )
+        except (stripe_api.StripeFailed, stripe_api.NotConfigured) as error:
+            logger.error("Stripe refused the refund of payment %s (%s)", purchase.pk, error)
+            # Raising inside the transaction undoes what was just taken back.
+            raise Refused(STRIPE_REFUSED) from None
+        made = Refund.objects.create(
+            purchase=purchase,
+            amount_cents=amount,
+            quantity=quantity if purchase.given_at is not None else 0,
+            stripe_refund_id=stripe_refund,
+            made_by=by,
+        )
+        _record_refunded(purchase, amount, quantity)
+        if purchase.status == Purchase.Status.REFUNDED:
+            purchase.needs_attention = False  # the money has gone back: dealt with
+        purchase.save()
+        return made
+
+
+def record_outside_refund(charge):
+    """
+    Stripe says money has gone back for a charge (`charge`: the plain values
+    from stripe_api.charge_in). If it is more than this site has refunded, the
+    refund was made in Stripe's own dashboard: record it, and take back what
+    was sold if the rules allow. If they do not (the survey was started, the
+    licences have been given out), the payment is marked for staff and nothing
+    is taken from anyone. Returns the Purchase, or None if the charge is not
+    one of ours. Safe to run twice: the second time there is nothing new.
+    """
+    if not charge["payment_intent"]:
+        return None
+    with transaction.atomic():
+        purchase = (
+            Purchase.objects.select_for_update()
+            .filter(stripe_payment_intent_id=charge["payment_intent"])
+            .first()
+        )
+        if purchase is None:
+            return None
+        extra = min(charge["refunded_cents"], purchase.amount_cents) - purchase.refunded_cents
+        if extra <= 0:
+            return purchase  # our own Refund button already recorded it
+        whole, remainder = divmod(extra, purchase.unit_amount_cents)
+        took, problem = 0, ""
+        if purchase.given_at is None:
+            pass  # nothing was ever given, so there is nothing to take back
+        elif remainder or whole > purchase.quantity - purchase.refunded_quantity:
+            problem = "the amount is not a whole number of licences, so nothing was taken back."
+        else:
+            try:
+                with transaction.atomic():
+                    _take_back(purchase, whole)
+                took = whole
+            except Refused as error:
+                problem = f"nothing was taken back: {error}"
+        Refund.objects.create(purchase=purchase, amount_cents=extra, quantity=took)
+        _record_refunded(purchase, extra, took)
+        if problem:
+            _needs_attention(
+                purchase,
+                f"{dollars(extra)} was refunded in Stripe's dashboard, but {problem} "
+                "Decide by hand what should happen to what was sold.",
+            )
+        elif purchase.status == Purchase.Status.REFUNDED:
+            purchase.needs_attention = False
+        purchase.save()
+        return purchase
+
+
+def _refundable_quantity(purchase, quantity):
+    """How many licences of this payment a refund would cover, or Refused."""
+    if purchase.status in (Purchase.Status.PENDING, Purchase.Status.FAILED):
+        raise Refused("This payment was never completed, so there is nothing to refund.")
+    if purchase.status == Purchase.Status.REFUNDED:
+        raise Refused("This payment has already been refunded in full.")
+    if not purchase.stripe_payment_intent_id:
+        raise Refused("This payment has no reference at Stripe, so it cannot be refunded here.")
+    # Money that came in for nothing can always go back; the 30 days are for
+    # changing one's mind about something that was given.
+    age = timezone.now() - (purchase.paid_at or timezone.now())
+    if purchase.given_at is not None and age > timedelta(days=REFUND_DAYS):
+        raise Refused(
+            f"This payment is more than {REFUND_DAYS} days old, so it can no longer be refunded."
+        )
+    remaining = purchase.quantity - purchase.refunded_quantity
+    if purchase.given_at is None:
+        # Nothing was given: all the money that has not gone back yet, in one go.
+        remaining = purchase.refundable_cents // purchase.unit_amount_cents
+    if remaining < 1:
+        raise Refused("There is nothing left of this payment to refund.")
+    if quantity is None:
+        return remaining
+    if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity < 1:
+        raise Refused("Enter how many licences to refund, as a whole number.")
+    if quantity > remaining:
+        raise Refused(f"Only {remaining:,} of this payment's licences can still be refunded.")
+    if purchase.given_at is None and quantity != remaining:
+        raise Refused("Nothing was given for this payment, so it is refunded whole.")
+    return quantity
+
+
+def _what_goes_back(purchase):
+    """In words, what a refund takes back, for the page that asks first."""
+    if purchase.given_at is None:
+        return "Nothing was given for this payment, so nothing is taken back."
+    if purchase.kind == Purchase.Kind.STOCK:
+        return (
+            f"The Tier {purchase.tier} licences refunded are taken out of the stock of "
+            f"{purchase.enterprise.name}. Only licences still in the stock can be refunded."
+        )
+    if purchase.kind == Purchase.Kind.UPGRADE:
+        return f"The licence goes back from Tier {purchase.tier} to Tier {purchase.from_tier}."
+    return "The licence is withdrawn. It has not been used, so nothing else is lost."
+
+
+def _take_back(purchase, quantity):
+    """
+    Take back what the purchase gave. The caller holds the row's lock and is
+    inside a transaction. Refused if the founder's rules do not allow it.
+    """
+    if purchase.kind == Purchase.Kind.STOCK:
+        orgs.remove_seats(purchase.enterprise, purchase.tier, quantity)
+        return
+    licence = Entitlement.objects.select_for_update().filter(pk=purchase.entitlement_id).first()
+    if licence is None or not licence.is_active:
+        return  # deleted with its account, or already withdrawn by staff: nothing to take
+    # Asked after the lock: starting the survey locks the licence too.
+    if Entitlement.objects.filter(pk=licence.pk, response__isnull=False).exists():
+        raise Refused(STARTED)
+    if purchase.kind == Purchase.Kind.UPGRADE:
+        if licence.tier != purchase.tier:
+            raise Refused(
+                f"The licence is Tier {licence.tier} now, not the Tier {purchase.tier} this "
+                "upgrade made it, so the upgrade cannot be undone here."
+            )
+        licences.change_tier(licence, purchase.from_tier)
+        return
+    paid_upgrades = licence.purchases.filter(
+        kind=Purchase.Kind.UPGRADE,
+        given_at__isnull=False,
+        status__in=(Purchase.Status.PAID, Purchase.Status.PART_REFUNDED),
+    )
+    if paid_upgrades.exists():
+        raise Refused(UPGRADE_ON_TOP)
+    licences.revoke(licence)
+
+
+def _record_refunded(purchase, amount, quantity):
+    """Add a refund to the purchase's totals and set its status. The caller saves."""
+    purchase.refunded_cents += amount
+    purchase.refunded_quantity = min(purchase.quantity, purchase.refunded_quantity + quantity)
+    purchase.status = (
+        Purchase.Status.REFUNDED
+        if purchase.refunded_cents >= purchase.amount_cents
+        else Purchase.Status.PART_REFUNDED
+    )

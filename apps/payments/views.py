@@ -242,7 +242,7 @@ def cancelled(request):
 @csrf_exempt
 @require_POST
 def stripe_webhook(request):
-    """Stripe telling the site that a payment went through (or, later, was refunded)."""
+    """Stripe telling the site that a payment went through, or that money went back."""
     try:
         event = stripe_api.read_event(request.body, request.headers.get("Stripe-Signature"))
     except stripe_api.NotConfigured:
@@ -252,5 +252,7 @@ def stripe_webhook(request):
         return HttpResponse("Bad signature.", status=400, content_type="text/plain")
     if event["type"] == "checkout.session.completed":
         services.fulfil(stripe_api.checkout_in(event))
+    elif event["type"] == "charge.refunded":
+        services.record_outside_refund(stripe_api.charge_in(event))
     # Any other kind of message is one the site does not use: say "fine".
     return HttpResponse("ok", content_type="text/plain")

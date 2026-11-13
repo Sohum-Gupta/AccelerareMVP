@@ -126,6 +126,10 @@ class Purchase(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     paid_at = models.DateTimeField(null=True, blank=True)
+    # When what was paid for was given. Empty on a paid row means the money
+    # came in and nothing was given (see needs_attention): a refund of it has
+    # nothing to take back.
+    given_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at", "-id"]
