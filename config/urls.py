@@ -11,6 +11,7 @@ urlpatterns = [
     # Ours, before the include, so reverse("account_signup") finds this one.
     path("accounts/signup/", account_views.signup, name="account_signup"),
     path("accounts/profile/", account_views.profile, name="account_profile"),
+    path("accounts/profile/name/", account_views.change_name, name="profile_change_name"),
     path("accounts/profile/email/add/", account_views.add_email, name="profile_add_email"),
     path(
         "accounts/profile/email/<int:pk>/resend/",

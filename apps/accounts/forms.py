@@ -5,6 +5,7 @@ from allauth.account.forms import LoginForm, ResetPasswordForm, ResetPasswordKey
 from django import forms
 
 from . import services
+from .normalisers import FULL_NAME_MAX_LENGTH
 
 # Shown first, in this order, then everyone else alphabetically.
 FIRST_COUNTRIES = ["US", "IN", "GB"]
@@ -21,7 +22,19 @@ def country_choices() -> list[tuple[str, str]]:
     return [*first, *rest]
 
 
+def full_name_field() -> forms.CharField:
+    """One box for the whole name; services.clean_full_name is the authority on its value."""
+    return forms.CharField(
+        label="Full name",
+        max_length=FULL_NAME_MAX_LENGTH,
+        widget=forms.TextInput(attrs={"autocomplete": "name"}),
+        help_text="As you would like it shown, for example to an organization you join.",
+        error_messages={"required": "Enter your name."},
+    )
+
+
 class SignupForm(forms.Form):
+    full_name = full_name_field()
     email = forms.EmailField(widget=forms.EmailInput(attrs={"autocomplete": "email"}))
     phone = forms.CharField(
         label="Phone",
@@ -61,6 +74,12 @@ class AddEmailForm(forms.Form):
     email = forms.EmailField(
         label="Add an email", widget=forms.EmailInput(attrs={"autocomplete": "email"})
     )
+
+
+class FullNameForm(forms.Form):
+    """The profile's name form."""
+
+    full_name = full_name_field()
 
 
 class PhoneForm(forms.Form):

@@ -18,6 +18,29 @@ def normalise_email(value: str) -> str:
     return value.strip().lower()
 
 
+FULL_NAME_MAX_LENGTH = 150  # the same number as Account.full_name
+
+
+def clean_full_name(value: str) -> str:
+    """
+    A person's name as we store it: trimmed, with runs of spaces collapsed to
+    one. Nothing else is changed (no capitalising, no splitting into first and
+    last), because names differ too much to guess at. Raises ValidationError
+    for an empty or over-long name.
+    """
+    name = " ".join((value or "").split())
+    if not name:
+        raise ValidationError("Enter your name.", code="required")
+    if "\x00" in name:
+        # PostgreSQL refuses a NUL character in text.
+        raise ValidationError("Enter your name.", code="invalid")
+    if len(name) > FULL_NAME_MAX_LENGTH:
+        raise ValidationError(
+            f"Enter a name of at most {FULL_NAME_MAX_LENGTH} characters.", code="max_length"
+        )
+    return name
+
+
 def normalise_phone(value: str, country: str | None) -> str:
     """
     Return the number in international form (E.164, e.g. `+919876543210`) so
