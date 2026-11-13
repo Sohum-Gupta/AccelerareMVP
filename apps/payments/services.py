@@ -45,6 +45,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts import services as accounts
+from apps.audit import services as audit
 from apps.enterprises import services as orgs
 from apps.entitlements import services as licences
 from apps.entitlements.models import Entitlement
@@ -198,6 +199,14 @@ def start_stock(admin_membership, tier, quantity, *, request):
             amount_cents=cents * quantity,
             currency=CURRENCY,
         )
+        audit.record(
+            account,
+            "stock_purchase.started",
+            purchase,
+            organization=enterprise.pk,
+            tier=tier,
+            quantity=quantity,
+        )
     description = f"Tier {tier} licence for {enterprise.name}"
     return _open_payment_page(purchase, description, account, request, invoice=True)
 
@@ -300,6 +309,17 @@ def fulfil(checkout):
             except Refused as error:
                 _needs_attention(purchase, f"Paid, but nothing was given: {error} Refund it.")
         purchase.save()
+        if purchase.kind == Purchase.Kind.STOCK:
+            # The buying admin's doing, though Stripe's word is what set it off.
+            audit.record(
+                purchase.buyer_id,
+                "stock_purchase.paid",
+                purchase,
+                organization=purchase.enterprise_id,
+                tier=purchase.tier,
+                quantity=purchase.quantity,
+                added_to_stock=purchase.given_at is not None,
+            )
         return purchase
 
 

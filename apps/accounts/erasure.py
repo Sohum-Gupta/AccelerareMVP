@@ -43,6 +43,8 @@ from django.db import transaction
 from django.dispatch import Signal
 from django.utils import timezone
 
+from apps.audit import services as audit
+
 from .models import Account, ContactPoint
 
 # Sent inside the erasure's transaction, before anything is removed, with
@@ -151,6 +153,9 @@ def erase_account(account: Account, by: Account | None = None) -> Plan:
         account_erasing.send(sender=Account, account=account, emails=emails)
         _scrub_history(account)
         _end_sessions(account)
+        # Who erased which account, by number. The row outlives the account:
+        # it holds nothing that says who the person was.
+        audit.record(by, "account.erased", account, results_kept=plan.action == ANONYMISE)
         if plan.action == ANONYMISE:
             _anonymise(account)
         else:

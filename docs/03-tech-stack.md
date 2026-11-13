@@ -68,7 +68,7 @@ survey-platform/
 │   ├── matching/           # MatchCandidate; rules.py; merge and unmerge
 │   ├── results/            # Result; compute_result interface; tier filter
 │   ├── exports/            # CSV views per scope
-│   ├── audit/              # AuditLog and a helper to write entries
+│   ├── audit/              # AuditLog, record() to write a row, and a copy of every Django admin history line; imports no other app
 │   └── jobs/               # Job (the queue), enqueue(), the run_worker command; each app's job_handlers.py registers what it can do
 ├── templates/              # base.html and one folder per app; templates/admin/ overrides for the Django admin
 ├── static/
