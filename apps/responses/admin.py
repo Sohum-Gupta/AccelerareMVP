@@ -65,7 +65,8 @@ class ResponseAdmin(admin.ModelAdmin):
         "submitted_at",
         "possible_repeat",
     )
-    list_filter = ("status", "possible_repeat")
+    # The date filter's "Past 7 days" is what the number on the admin's first page links to.
+    list_filter = ("status", "possible_repeat", ("submitted_at", admin.DateFieldListFilter))
     search_fields = ("account__email",)
     list_select_related = ("account", "survey_version", "entitlement", "membership__enterprise")
 
