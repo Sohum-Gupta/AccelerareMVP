@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from . import services
+from . import arrival, services
 from .forms import AddEmailForm, FullNameForm, PhoneForm, SignupForm
 from .models import ContactPoint
 
@@ -25,6 +25,8 @@ def signup(request):
                 data["password1"],
                 request,
                 full_name=data["full_name"],
+                # "invite" or "code" if they came here from a join page.
+                channel=arrival.channel(request),
             )
         except services.EmailInUse:
             # Same page as success: this form must never reveal who has an account.

@@ -382,11 +382,12 @@ def test_one_invite_opened_twice_at_once_makes_one_membership():
 
 
 @pytest.mark.django_db
-def test_the_invite_link_has_an_address_but_no_page_until_the_join_pages_exist(client, acme):
+def test_the_invite_link_is_the_address_of_the_join_page(client, acme):
+    """The page itself is tested in tests/test_join_pages.py."""
     made = invite(acme[1])
     address = reverse("join_invite", args=[made.token])
     assert address == f"/join/invite/{made.token}/"
-    assert client.get(address).status_code == 404
+    assert client.get(address).status_code == 200
 
 
 # --- erasure -------------------------------------------------------------------

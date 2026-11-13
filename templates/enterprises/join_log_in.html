@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Log in to join · Accelerare{% endblock %}
+{% block content %}
+  {# Shown to someone who is logged out. It says nothing about the code or the link, not even whether it is real. #}
+  {% if by_invite %}
+    <h1>You have been invited to join an organization</h1>
+    <p>To accept, log in, or sign up if you do not have an Accelerare account yet.</p>
+    <p>Use the email address the invite was sent to. The invite only works for an account that has verified that address.</p>
+  {% else %}
+    <h1>Log in to use your join code</h1>
+    <p>We have kept your code. Log in, or sign up if you do not have an Accelerare account yet, and you can finish joining.</p>
+  {% endif %}
+  <p class="mb-5 flex flex-wrap gap-3">
+    <a href="{% url 'account_signup' %}" class="inline-block rounded-md bg-brand px-4 py-2 font-medium text-white no-underline hover:bg-brand-dark">Sign up</a>
+    <a href="{% url 'account_login' %}" class="inline-block rounded-md border border-slate-300 bg-white px-4 py-2 font-medium text-slate-800 no-underline hover:bg-slate-100">Log in</a>
+  </p>
+  <p class="text-sm text-slate-700">Once you are logged in you come straight back here, and a page tells you what the organization's admins will be able to see before you join.</p>
+  <p class="text-sm text-slate-700">If you sign up, we first email you a link to verify your address. Open it on this device, then log in. If you are not brought back, {% if by_invite %}open the link in your invite again{% else %}enter your code again{% endif %}.</p>
+{% endblock %}

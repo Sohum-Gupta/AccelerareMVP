@@ -86,7 +86,14 @@ class Refused(Exception):
 
 
 class AlreadyMember(Refused):
-    """The account already belongs to the organization (the page can simply take them there)."""
+    """
+    The account already belongs to the organization. `enterprise` is that
+    organization, so the page can simply take them there.
+    """
+
+    def __init__(self, enterprise):
+        super().__init__(f"You are already a member of {enterprise.name}.")
+        self.enterprise = enterprise
 
 
 class WrongAddress(Refused):
@@ -240,38 +247,64 @@ def redeem_code(code, account):
     belongs (AlreadyMember) or was deactivated there; the code is revoked,
     expired or used up; or the organization has no places left.
     """
-    typed = normalise_code(code)
-    found = JoinCode.objects.filter(code=typed).first() if typed else None
-    if found is None:
-        raise Refused("That code is not valid. Check it and try again.")
+    found = _find_code(code)
     with transaction.atomic():
         _check_can_join(account)
         # The organization first (so the people limit cannot be passed by two
         # joins at once), then the code (so it cannot pass its cap).
         enterprise = Enterprise.objects.select_for_update().get(pk=found.enterprise_id)
         join_code = JoinCode.objects.select_for_update().get(pk=found.pk)
-        existing = Membership.objects.filter(account=account, enterprise=enterprise).first()
-        if existing is not None and existing.is_active:
-            raise AlreadyMember(f"You are already a member of {enterprise.name}.")
-        if existing is not None:
-            raise Refused(
-                f"Your membership of {enterprise.name} was deactivated, so a join code "
-                "cannot be used. Ask one of its admins to reactivate you or send you an invite."
-            )
-        if join_code.revoked_at is not None:
-            raise Refused("That code has been switched off. Ask the organization for a new one.")
-        if join_code.expires_at <= timezone.now():
-            raise Refused("That code has expired. Ask the organization for a new one.")
-        if join_code.uses >= join_code.max_uses:
-            raise Refused("That code has been used as many times as it allows.")
-        if places_left(enterprise) < 1:
-            raise Refused(
-                f"{enterprise.name} cannot take more people at the moment. Ask one of its admins."
-            )
+        _check_code_lets_in(join_code, enterprise, account)
         join_code.uses += 1
         join_code.save(update_fields=["uses"])
         return Membership.objects.create(
             account=account, enterprise=enterprise, joined_via_code=join_code
+        )
+
+
+def check_code(code, account):
+    """
+    What redeem_code would answer, without joining: the join code (its
+    `enterprise` is the organization) if it would let this account in, or the
+    same refusal. The join page calls this first, so the person reads what
+    joining means before anything is written.
+
+    Nothing is locked or changed here. redeem_code makes every check again,
+    under its locks, when the person confirms: things may have changed since.
+    """
+    found = _find_code(code)
+    _check_can_join(account)
+    _check_code_lets_in(found, found.enterprise, account)
+    return found
+
+
+def _find_code(code):
+    typed = normalise_code(code)
+    found = JoinCode.objects.select_related("enterprise").filter(code=typed).first()
+    if not typed or found is None:
+        raise Refused("That code is not valid. Check it and try again.")
+    return found
+
+
+def _check_code_lets_in(join_code, enterprise, account):
+    """The rules of joining by code, in the order the person is told about them."""
+    existing = Membership.objects.filter(account=account, enterprise=enterprise).first()
+    if existing is not None and existing.is_active:
+        raise AlreadyMember(enterprise)
+    if existing is not None:
+        raise Refused(
+            f"Your membership of {enterprise.name} was deactivated, so a join code "
+            "cannot be used. Ask one of its admins to reactivate you or send you an invite."
+        )
+    if join_code.revoked_at is not None:
+        raise Refused("That code has been switched off. Ask the organization for a new one.")
+    if join_code.expires_at <= timezone.now():
+        raise Refused("That code has expired. Ask the organization for a new one.")
+    if join_code.uses >= join_code.max_uses:
+        raise Refused("That code has been used as many times as it allows.")
+    if places_left(enterprise) < 1:
+        raise Refused(
+            f"{enterprise.name} cannot take more people at the moment. Ask one of its admins."
         )
 
 
@@ -382,30 +415,12 @@ def accept_invite(token, account):
     (WrongAddress). A deactivated member is brought back, as an ordinary member.
     Accepting needs no free place: the invite took its place when it was sent.
     """
-    found = Invite.objects.filter(token=str(token or "")).first()
-    if found is None:
-        raise Refused("That invite link is not valid.")
+    found = _find_invite(token)
     with transaction.atomic():
         _check_can_join(account)
         enterprise = Enterprise.objects.select_for_update().get(pk=found.enterprise_id)
         invite = Invite.objects.select_for_update().get(pk=found.pk)
-        existing = Membership.objects.filter(account=account, enterprise=enterprise).first()
-        if existing is not None and existing.is_active:
-            raise AlreadyMember(f"You are already a member of {enterprise.name}.")
-        if invite.revoked_at is not None:
-            raise Refused("That invite has been withdrawn. Ask the organization to send a new one.")
-        if invite.accepted_at is not None:
-            raise Refused("That invite has already been used.")
-        if invite.expires_at <= timezone.now():
-            raise Refused("That invite has expired. Ask the organization to send a new one.")
-        if not invite.email:
-            # The person it was sent to has been erased, and the address with them.
-            raise Refused("That invite link is not valid.")
-        if not _has_verified(account, invite.email):
-            raise WrongAddress(
-                f"This invite was sent to {invite.email}. Log in with that address, "
-                "or add and verify it on your profile, then open the link again."
-            )
+        existing = _check_invite_lets_in(invite, enterprise, account)
         invite.accepted_at = timezone.now()
         invite.save(update_fields=["accepted_at"])
         if existing is None:
@@ -421,6 +436,52 @@ def accept_invite(token, account):
             update_fields=["status", "deactivated_at", "joined_via_invite", "joined_via_code"]
         )
         return existing
+
+
+def check_invite(token, account):
+    """
+    What accept_invite would answer, without joining: the invite (its
+    `enterprise` is the organization) if this account could accept it, or the
+    same refusal. For the join page, like check_code: nothing is locked or
+    changed, and accept_invite checks again when the person confirms.
+    """
+    found = _find_invite(token)
+    _check_can_join(account)
+    _check_invite_lets_in(found, found.enterprise, account)
+    return found
+
+
+def _find_invite(token):
+    found = Invite.objects.select_related("enterprise").filter(token=str(token or "")).first()
+    if found is None:
+        raise Refused("That invite link is not valid.")
+    return found
+
+
+def _check_invite_lets_in(invite, enterprise, account):
+    """
+    The rules of accepting an invite, in the order the person is told about
+    them. Returns the account's deactivated membership if it has one (the
+    invite brings it back), else None.
+    """
+    existing = Membership.objects.filter(account=account, enterprise=enterprise).first()
+    if existing is not None and existing.is_active:
+        raise AlreadyMember(enterprise)
+    if invite.revoked_at is not None:
+        raise Refused("That invite has been withdrawn. Ask the organization to send a new one.")
+    if invite.accepted_at is not None:
+        raise Refused("That invite has already been used.")
+    if invite.expires_at <= timezone.now():
+        raise Refused("That invite has expired. Ask the organization to send a new one.")
+    if not invite.email:
+        # The person it was sent to has been erased, and the address with them.
+        raise Refused("That invite link is not valid.")
+    if not _has_verified(account, invite.email):
+        raise WrongAddress(
+            f"This invite was sent to {invite.email}. Log in with that address, "
+            "or add and verify it on your profile, then open the link again."
+        )
+    return existing
 
 
 # --- members -------------------------------------------------------------------

@@ -77,6 +77,7 @@ def register(
     request=None,
     *,
     full_name: str = "",
+    channel: str = "direct",
 ) -> Account:
     """
     Create a person, an account and its two contact points in one transaction.
@@ -89,6 +90,10 @@ def register(
     `full_name` is what the sign-up form collects, and the form is what makes it
     required. Here it may be left out (the account then has no name until the
     profile page asks for it); a name that is given is cleaned like any other.
+
+    `channel` is how the person arrived, for the funnel's "signed up" event:
+    "direct", or "invite" or "code" when they were on their way to join an
+    organization (see arrival.py).
     """
     typed, email_n = _clean_email(email)
     phone_n = normalise_phone(phone, country)
@@ -115,7 +120,7 @@ def register(
             # Same transaction: a sign-up that rolls back leaves no event. The
             # event holds the phone's country, never the account.
             funnel.record_event(
-                funnel.Kind.SIGNED_UP, country=phone_country(phone_n), channel="direct"
+                funnel.Kind.SIGNED_UP, country=phone_country(phone_n), channel=channel
             )
     except IntegrityError:
         # Someone registered the same address between our check and our insert.

@@ -41,5 +41,7 @@ urlpatterns = [
     path("accounts/", include("allauth.account.urls")),
     path("survey/", include("apps.responses.urls")),
     path("organizations/", include("apps.enterprises.urls")),
+    # Joining an organization. Not under /organizations/: the person is not a member yet.
+    path("join/code/", enterprise_views.join_code, name="join_code"),
     path("join/invite/<str:token>/", enterprise_views.join_invite, name="join_invite"),
 ]

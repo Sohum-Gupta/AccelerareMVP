@@ -4,6 +4,7 @@
   <p class="mb-1 text-sm"><a href="{% url 'enterprises:dashboard' organization.slug %}">{{ organization.name }}</a></p>
   <h1>Join codes</h1>
   <p class="text-sm text-slate-700">A join code lets anyone who has it become a member of {{ organization.name }}. Put it on a slide or in a message to your team. Joining does not give anyone a licence to take the survey.</p>
+  <p class="text-sm text-slate-700">People enter the code at <strong class="break-all" data-join-address>{{ join_address }}</strong>. They log in or sign up first, and see what you will be able to see before they join.</p>
 
   {% include "enterprises/_places.html" %}
 
