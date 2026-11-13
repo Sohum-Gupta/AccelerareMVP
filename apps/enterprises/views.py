@@ -257,14 +257,7 @@ def set_member_role(request, slug, pk):
 
 def _code_row(code, now):
     """What an admin sees of one join code. "active" means it would still let someone in."""
-    if code.revoked_at is not None:
-        state = "revoked"
-    elif code.expires_at <= now:
-        state = "expired"
-    elif code.uses >= code.max_uses:
-        state = "used_up"
-    else:
-        state = "active"
+    state = services.code_state(code, now)
     return {
         "id": code.pk,
         "code": services.display_code(code.code),
@@ -332,16 +325,7 @@ def _invite_row(invite, now, request):
     ("pending") carries its link, for the admin to copy. An invite whose address
     is gone was sent to someone who has since been erased.
     """
-    if invite.accepted_at is not None:
-        state = "accepted"
-    elif invite.revoked_at is not None:
-        state = "revoked"
-    elif invite.expires_at <= now:
-        state = "expired"
-    elif not invite.email:
-        state = "erased"
-    else:
-        state = "pending"
+    state = services.invite_state(invite, now)
     return {
         "id": invite.pk,
         "email": invite.email,

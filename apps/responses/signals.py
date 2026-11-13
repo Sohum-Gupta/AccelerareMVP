@@ -2,8 +2,9 @@
 Creates the "Support staff" group and gives it its permissions.
 
 Support staff are Django staff accounts that are not superusers: they can grant
-and revoke licences, look things up for debugging, and read the funnel, and they
-see which questions a response has answered but never the answers. A superuser makes
+and revoke licences, look things up for debugging, read the funnel, look at
+organizations and deactivate a membership, and they see which questions a
+response has answered but never the answers. A superuser makes
 someone support staff by ticking "staff" and adding them to this group.
 
 Done after migrate rather than in a migration because permissions are created
@@ -26,9 +27,14 @@ DEBUGGING = [
     ("accounts", "account", ("view",)),
     ("accounts", "person", ("view",)),
     ("accounts", "contactpoint", ("view",)),
-    # Needed to grant a licence to a membership: the grant form finds one
-    # through the Memberships page's search.
-    ("enterprises", "membership", ("view",)),
+    # Organizations: support can look at all four pages and deactivate a
+    # membership (someone has left and the organization's admin cannot be
+    # reached). Viewing memberships is also what the licence grant form's
+    # search needs. Everything else there is for superusers.
+    ("enterprises", "enterprise", ("view",)),
+    ("enterprises", "membership", ("view", "deactivate")),
+    ("enterprises", "invite", ("view",)),
+    ("enterprises", "joincode", ("view",)),
     ("survey", "surveyversion", ("view",)),
     ("survey", "question", ("view",)),
 ]

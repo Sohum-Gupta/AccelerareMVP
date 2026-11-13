@@ -124,6 +124,38 @@ def display_code(code):
     return f"{code[:5]}-{code[5:]}"
 
 
+def code_state(code, now=None):
+    """
+    Where a join code stands: "revoked", "expired", "used_up" or "active"
+    (it would still let someone in). The organization's pages and the staff
+    admin both ask here, so they cannot disagree.
+    """
+    if code.revoked_at is not None:
+        return "revoked"
+    if code.expires_at <= (now or timezone.now()):
+        return "expired"
+    if code.uses >= code.max_uses:
+        return "used_up"
+    return "active"
+
+
+def invite_state(invite, now=None):
+    """
+    Where an invite stands: "accepted", "revoked", "expired", "erased" (the
+    person it was sent to has been erased, and the address with them) or
+    "pending" (it can still be accepted).
+    """
+    if invite.accepted_at is not None:
+        return "accepted"
+    if invite.revoked_at is not None:
+        return "revoked"
+    if invite.expires_at <= (now or timezone.now()):
+        return "expired"
+    if not invite.email:
+        return "erased"
+    return "pending"
+
+
 # --- creating an organization --------------------------------------------------
 
 
@@ -136,7 +168,7 @@ def create_enterprise(account, name, *, staff=None):
     recorded as the creator), neither the verified email nor the cap is asked
     of the customer: staff have vouched for them.
     """
-    name = _clean_name(name)
+    name = clean_name(name)
     with transaction.atomic():
         # Locking the account makes two "create" clicks take turns, so the cap holds.
         account = Account.objects.select_for_update().get(pk=account.pk)
@@ -158,7 +190,8 @@ def create_enterprise(account, name, *, staff=None):
         return enterprise
 
 
-def _clean_name(name):
+def clean_name(name):
+    """An organization's name as stored (spaces tidied), or Refused if it will not do."""
     name = " ".join(str(name or "").split())
     if len(name) < 2 or "\x00" in name:
         raise Refused("Enter the organization's name.")
