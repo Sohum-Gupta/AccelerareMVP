@@ -6,11 +6,22 @@
 # smoke-tested but never pushed, so a broken Dockerfile is caught before merge.
 # After a push to main publishes the image, the deploy job copies deploy/ to the
 # server over SSH and runs deploy.sh there. Pull requests never reach the server.
+#
+# A push that changes only the documents listed under paths-ignore deploys
+# nothing: .dockerignore keeps them out of the image, so the image would be
+# byte for byte the one already running, and the site would restart for no
+# reason. A push that touches anything else as well deploys as usual.
+# tests/test_deploy_workflow.py holds this list to .dockerignore.
 name: Deploy
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - NOTES.md
+      - README.md
+      - CLAUDE.md
   pull_request:
     paths:
       - Dockerfile

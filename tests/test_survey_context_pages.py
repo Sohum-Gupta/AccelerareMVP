@@ -265,12 +265,12 @@ class TestTheAttemptsPages:
 
 
 def finish_pages(response):
-    """Answer and lock every page, without submitting."""
-    questions = Question.objects.filter(survey_version=response.survey_version)
-    for question in questions.order_by("position"):
-        response = services.save_answer(response, question.pk, 3)
-        if question.position % 5 == 0:
-            response = services.complete_page(response, question.position // 5)
+    """Answer and lock every page, a page at a time as the Next button does, without submitting."""
+    pages = {}
+    for question in Question.objects.filter(survey_version=response.survey_version):
+        pages.setdefault(services.page_of(question.position), {})[question.pk] = 3
+    for page in sorted(pages):
+        response = services.complete_page(response, page, pages[page])
     return response
 
 

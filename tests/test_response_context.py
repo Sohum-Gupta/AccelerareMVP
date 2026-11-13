@@ -63,18 +63,65 @@ def row(account, licence, **extra):
 
 
 def finish(response):
-    """Answer every statement, lock every page and submit."""
+    """
+    Answer every statement, lock every page and submit, the way the Next button
+    does: each page is handed to `complete_page` with its answers, which saves
+    and locks them in one step. Nothing is written past the services. Many
+    tests need a finished survey, so this is called thousands of times in a
+    run; answering one statement per call (`save_answer`) made it about three
+    times as slow, and that path has its own tests in test_response_services.py.
+    """
     response = services.save_self_report(response, False)
-    questions = Question.objects.filter(survey_version=response.survey_version)
-    for question in questions.order_by("position"):
-        response = services.save_answer(response, question.pk, 3)
-        if question.position % 5 == 0:
-            response = services.complete_page(response, question.position // 5)
+    pages = {}
+    for question in Question.objects.filter(survey_version=response.survey_version):
+        pages.setdefault(services.page_of(question.position), {})[question.pk] = 3
+    for page in sorted(pages):
+        response = services.complete_page(response, page, pages[page])
     return services.submit(response)
 
 
 def fresh(obj):
     return type(obj).objects.get(pk=obj.pk)
+
+
+def survey_events():
+    """How many page-locked and survey-submitted events the funnel holds."""
+    kinds = ("page_locked", "survey_submitted")
+    return [FunnelEvent.objects.filter(kind=kind).count() for kind in kinds]
+
+
+@pytest.mark.django_db
+def test_finish_leaves_exactly_what_answering_one_statement_at_a_time_leaves(acme):
+    """
+    `finish` answers a page per call. Hundreds of tests stand on it, so it must
+    end in the same place as the slow way a person could also take: one
+    statement per call, then Next, then Submit.
+    """
+    enterprise, _ = acme
+    quick, slow = (new_member(enterprise, f"{name}@example.com") for name in ("quick", "slow"))
+    grant(quick)
+    grant(slow)
+
+    by_page = finish(services.start_response(quick.account, quick))
+    after_one = survey_events()
+
+    response = services.save_self_report(services.start_response(slow.account, slow), False)
+    questions = Question.objects.filter(survey_version=response.survey_version)
+    for question in questions.order_by("position"):
+        response = services.save_answer(response, question.pk, 3)
+        if question.position % 5 == 0:
+            response = services.complete_page(response, question.position // 5)
+    one_by_one = services.submit(response)
+
+    assert by_page.answers == one_by_one.answers and len(by_page.answers) == questions.count()
+    for field in ("status", "pages_completed", "took_before", "took_before_via"):
+        assert getattr(by_page, field) == getattr(one_by_one, field), field
+    assert by_page.status == "submitted" and by_page.submitted_at is not None
+    assert by_page.pages_completed == services.page_count(by_page)
+    assert by_page.possible_repeat == one_by_one.possible_repeat
+    # The same events, too: one per page locked and one for the submission.
+    assert survey_events() == [count * 2 for count in after_one]
+    assert after_one == [services.page_count(by_page), 1]
 
 
 # --- the database rules --------------------------------------------------------

@@ -16,6 +16,7 @@ tests
 docs
 NOTES.md
 README.md
+CLAUDE.md
 docker-compose.yml
 Dockerfile
 .dockerignore
