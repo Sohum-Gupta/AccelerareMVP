@@ -32,7 +32,7 @@ before doing any work:
    code-complete and deployed: PRs 0 to 7 (1,786 tests). The server runs a third container, the worker.
    Nobody has tried Milestone 5 by hand on the live site; its remaining "Done when" boxes are the
    founder's live checks (T-24). The interface points the founder raised on the live site (T-19) and
-   the "look for duplicates" action (T-25) were built the same day (1,831 tests): a login now lands on
+   the "look for duplicates" action (T-25) were built the same day (1,836 tests): a login now lands on
    "My surveys", and the profile is a tidy "Your account" page. **The work in progress is Milestone 6**
    (root admin, CSV export, erasure). The founder asked on 2026-11-13 for it to be planned, as its PR 0,
    and built like Milestone 5: merging on green without waiting for a review applies to Milestone 6
