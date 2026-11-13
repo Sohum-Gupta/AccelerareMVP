@@ -24,7 +24,7 @@ The guiding rule: choose the boring, well-documented option, and use Django's bu
 | Background jobs | Custom `job` table and a worker management command | Matching, outbound email, algorithm runs, large exports. No Celery, no Redis |
 | Email | Django SMTP backend (personal mailbox) now; `django-ses` later | Verification, password reset, invites. Swapped by settings only |
 | Configuration | `django-environ` reading environment variables | `.env` file locally; environment or secrets manager on AWS. Region, hosts, credentials all live here |
-| Testing | `pytest`, `pytest-django`, `factory_boy` | Unit tests per module; tenant-isolation tests are mandatory before launch |
+| Testing | `pytest`, `pytest-django`, `pytest-xdist`, `factory_boy` | Unit tests per module; tenant-isolation tests are mandatory before launch |
 | Lint and format | `ruff` | One tool for both; run in pre-commit and CI |
 | Dependencies | `uv` with `pyproject.toml` and `uv.lock` | Fast, reproducible installs on Mac and Linux |
 | Containers | Docker Compose for local PostgreSQL; a Dockerfile for the app | Same database engine locally and in production; the Dockerfile is the deploy unit (see Infrastructure doc) |
@@ -112,7 +112,7 @@ Each app exposes a small set of plain functions (for example `enterprises.servic
 7. `uv run python manage.py runserver` and, in a second terminal, `uv run python manage.py run_worker`.
 8. `tailwindcss -i assets/tailwind.css -o static/css/app.css --watch` rebuilds CSS on change. Install with `brew install tailwindcss` (v4). `app.css` is generated but committed, so rebuild with `--minify` before committing a template change.
 
-Tests: `uv run pytest`. Lint: `uv run ruff check . && uv run ruff format --check .`.
+Tests: `uv run pytest`. They run in parallel, one worker per processor core, each with its own test database (`pytest-xdist`, switched on in `pyproject.toml`), and with a fast password hasher (`config/settings/test.py`); add `-n 0` to run them one at a time, for a debugger or a single failing test. Lint: `uv run ruff check . && uv run ruff format --check .`.
 
 ## Testing priorities
 

@@ -42,7 +42,7 @@ before doing any work:
   it) and keep AWS console, SSH and GitHub steps to a minimum. Flag any plan step that needs them.
 - Never put survey statements, answers or a person's email into a committed file, a test, or an admin history label.
   The real statements are private; tests use `tests/fixtures/questions_sample.json`.
-- Tests live in `tests/`, run with `uv run pytest`.
+- Tests live in `tests/`, run with `uv run pytest` (parallel by default; add `-n 0` to run one at a time).
 - Lint and format with `uv run ruff check .` and `uv run ruff format .`.
 
 ## Commands

@@ -21,12 +21,18 @@ dependencies = [
 dev = [
     "pytest>=9.1.1",
     "pytest-django>=4.14.0",
+    "pytest-xdist>=3.8.0",
     "ruff>=0.16.10",
 ]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "config.settings.local"
+# The local settings with a fast password hasher (see the file for why).
+DJANGO_SETTINGS_MODULE = "config.settings.test"
 testpaths = ["tests"]
+# Run the tests on every processor core at once (pytest-xdist). Each worker has
+# its own test database. Add "-n 0" to run them one at a time, in one process:
+# needed with a debugger, and easier to read when a single test fails.
+addopts = "-n auto"
 
 [tool.ruff]
 target-version = "py312"

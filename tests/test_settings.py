@@ -28,6 +28,9 @@ def test_production_settings_import(monkeypatch):
     assert production.SECURE_PROXY_SSL_HEADER == ("HTTP_X_FORWARDED_PROTO", "https")
     assert production.USE_X_FORWARDED_HOST is True
     assert production.ALLOWED_HOSTS == ["example.com"]
+    # The fast hasher the tests use must never reach the live site.
+    assert production.PASSWORD_HASHERS[0].endswith("Argon2PasswordHasher")
+    assert not any("MD5" in hasher for hasher in production.PASSWORD_HASHERS)
 
     mailer = production.MAILERS["default"]
     assert mailer["BACKEND"] == "django.core.mail.backends.smtp.EmailBackend"
@@ -56,8 +59,26 @@ def test_production_requires_email_settings(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgres://u:p@localhost:5432/db")
     monkeypatch.delenv("EMAIL_HOST", raising=False)
 
-    from config.settings import base, production
+    from config.settings import base
 
     importlib.reload(base)
     with pytest.raises(ImproperlyConfigured):
+        # Inside the block on purpose. If no earlier test in this process has
+        # imported the production settings, the import itself is what refuses;
+        # otherwise the reload is. (The tests run in parallel, so which test
+        # comes first in a process is not fixed.)
+        production = importlib.import_module("config.settings.production")
         importlib.reload(production)
+
+
+def test_only_the_test_settings_use_the_fast_password_hasher():
+    """Tests hash passwords quickly; the site, locally and live, uses Argon2."""
+    from django.conf import settings
+
+    from config.settings import base, local
+
+    assert settings.SETTINGS_MODULE == "config.settings.test"
+    assert settings.PASSWORD_HASHERS == ["django.contrib.auth.hashers.MD5PasswordHasher"]
+    for real in (base, local):
+        assert real.PASSWORD_HASHERS[0].endswith("Argon2PasswordHasher")
+        assert not any("MD5" in hasher for hasher in real.PASSWORD_HASHERS)
