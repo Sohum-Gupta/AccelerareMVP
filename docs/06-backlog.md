@@ -1,6 +1,6 @@
 # Backlog — Survey Platform
 
-As of 2026-11-12 · The one list of open tasks and parked decisions · Depends on `05-build-plan.md`
+As of 2026-11-13 · The one list of open tasks and parked decisions · Depends on `05-build-plan.md`
 
 ## How to use this document
 
@@ -15,15 +15,16 @@ Every item has an ID (`T-` for tasks, `D-` for decisions, `L-` for later feature
 
 # Part 1 — The short version
 
-## Where things stand (2026-11-12)
+## Where things stand (2026-11-13)
 
-Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-12. Milestone 3 (organizations) was re-planned on 2026-11-12 into fourteen PRs and is in progress; the plan is in `05-build-plan.md`. Every decision below was reviewed with the founder on 2026-11-12; the ones still listed were left here on purpose.
+Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-12. Milestone 3 (organizations) was built on 2026-11-12 and 2026-11-13 and is live; what is left of it is your checklist on the live site (T-16). Milestone 4 must be re-planned with you before any of it is built (T-12). Every decision below was reviewed with the founder on 2026-11-12; the ones still listed were left here on purpose.
 
 ## Waiting on you now
 
 | ID | What | Why it matters |
 | --- | --- | --- |
-| T-1 | Merge PR #47 (the Milestone 2 checks and doc fixes) | Until it is merged, `main` still says Milestone 2 is unfinished |
+| T-16 | Run the Milestone 3 live checklist (parts A to F in the build plan) | Six of Milestone 3's seven boxes can only be ticked on the live site |
+| T-12 | Re-plan Milestone 4, including D-16 | Nothing of Milestone 4 is built until its plan is agreed |
 | T-2 | Set up the uptime checker (Better Stack) once Outlook is back | Nobody is told if the site goes down |
 | T-3 | Confirm you did the second-email checks (part F) | Two Milestone 1 boxes can then be ticked |
 | T-4 | Check the AWS support case for SES production access | Until it is approved, strangers cannot get a sign-up email |
@@ -33,7 +34,7 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 
 | ID | Question | Needed by | Today's default |
 | --- | --- | --- | --- |
-| D-2 | If a company asks us to delete all its members' data, what happens? | Milestone 3 | Undecided; ask the privacy lawyer |
+| D-2 | If a company asks us to delete all its members' data, what happens? | With D-7, before the pilot | Undecided; ask the privacy lawyer |
 | D-4 | Names for the tiers | Any time | Keep "Tier 1/2/3" and "Free" for now (2026-11-12) |
 | D-5 | What a free account (no licence) sees on its result page | Milestone 5 | Just the tier name; no results |
 | D-6 | How the scoring algorithm and insights stay private | Milestone 5 | Undecided |
@@ -50,7 +51,6 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 
 | ID | What | When |
 | --- | --- | --- |
-| T-1 | Merge PR #47 | Now |
 | T-2 | Uptime checker on `/health` (Better Stack) | When Outlook is back |
 | T-3 | Part F: password reset from a second email; switch primary email | Confirm it was done |
 | T-4 | SES production access, then a real stranger's sign-up and re-testing every email | When AWS approves |
@@ -64,6 +64,7 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | T-12 | Re-plan Milestone 4 before starting it | Before Milestone 4 |
 | T-13 | Silence a harmless VS Code warning in `deploy.yml` | Whenever |
 | T-14 | Reply-To on site emails: pick the inbox, then a small PR | When the address is chosen |
+| T-16 | Run the Milestone 3 live checklist | Now |
 
 ## Later, not yet planned
 
@@ -86,7 +87,7 @@ These are not in any milestone yet. The code is shaped so none of them needs a r
 
 Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item below:
 
-- Do not build anything from a milestone later than the one in progress. As of 2026-11-12 Milestone 3 is in progress: PRs 0 to 13 in `05-build-plan.md`, merged on green without waiting for review, with founder decisions still raised (see "How this milestone is run" there).
+- Do not build anything from a milestone later than the one in progress. As of 2026-11-13 Milestone 3 is code-complete and live, waiting only for the founder's live checklist (T-16). Milestone 4 is next and must be re-planned with the founder first (T-12); do not write Milestone 4 code before that. Merging on green without review was granted for Milestone 3 only: ask before using it again.
 - An item marked **Decision** is the founder's to make. Do not pick an answer. Present the options, recommend one if asked, and wait.
 - The founder reviewed every decision on 2026-11-12. Those still here were deliberately left for later; do not re-ask them unprompted unless the milestone that needs them is being planned.
 - Never put survey statements, answers or a person's email into this file, a test or an admin history label.
@@ -94,12 +95,6 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - Steps that need the AWS console, SSH or GitHub are flagged **[console]**. CLAUDE.md asks that every such step be flagged, and that you ask before running anything against AWS.
 
 ## Tasks
-
-### T-1 Merge PR #47
-- **Status:** open, waiting on the founder. Opened 2026-11-12 from branch `m2-live-checks`.
-- **What it does:** docs only. Ticks Milestone 2's "Done when" boxes (the founder ran tasklist parts A to D on the live site and reported them 2026-11-12), moves those parts to the build plan's decision log, fixes stale lines (milestone map, Milestone 4's licence picker, CLAUDE.md status), records "tier names stay for now", and moves NOTES.md's porting checklist to the end.
-- **Note:** this backlog (branch `docs-backlog`) was written after #47 and assumes it. Merge #47 first. The founder also closed Milestone 2 on 2026-11-12; that is recorded on this branch, not in #47.
-- **Done when:** merged and CI green on `main`. **[GitHub]**
 
 ### T-2 Uptime checker on `/health` (tasklist part G)
 - **Status:** open. The founder chose Better Stack Uptime (free plan, commercial use allowed, 3-minute checks) and wants to sign up with an Accelerare address, which is on Microsoft 365. Paused on 2026-11-12 because Outlook was down.
@@ -154,7 +149,7 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Status:** `README.md` is empty on purpose; the founder is writing it separately. Do not write it unless asked.
 
 ### T-12 Re-plan Milestone 4 before starting it
-- **Status:** planned, not started. `05-build-plan.md` Milestone 4 begins with a note: a seat is now a licence an enterprise bought and assigned to a member, consumed by one attempt and upgradeable in place. The section's model text predates that and must be rewritten with the founder before any Milestone 4 code. Depends on Milestone 3.
+- **Status:** next up, not started; Milestone 3 is built (2026-11-13). `05-build-plan.md` Milestone 4 begins with two notes: what Milestone 3 already pulled forward (the membership licence, staff granting it by hand, the people limit), and this one: a seat is now a licence an enterprise bought and assigned to a member, consumed by one attempt and upgradeable in place. The section's model text predates that and must be rewritten with the founder before any Milestone 4 code. Depends on Milestone 3.
 
 ### T-13 VS Code warning on `env.IMAGE`
 - **Status:** cosmetic. `deploy.yml` sets `IMAGE` at run time through `$GITHUB_ENV`, so the editor flags `env.IMAGE`. Switching to a step output would silence it. Not worth a PR on its own.
@@ -164,10 +159,16 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Build (small PR, once the address exists):** an optional `REPLY_TO_EMAIL` environment variable in `config/settings/production.py` (empty means no header, so local and tests are unchanged); `AccountAdapter.send_mail` in `apps/accounts/` adds `reply_to=[...]` to the message, and the other sends (`services.send_reset_notice` and friends) do the same, ideally through one helper. A test that a sent mail carries the header when the setting is set. Add the variable to `.env.example`, to Parameter Store **[console]** under `/survey/prod/`, and to NOTES.md's porting checklist.
 - **Not part of this:** bulk email (consent, unsubscribe, `List-Unsubscribe`, batching through the Milestone 5 queue) stays with the lawyer, D-7.
 
+### T-16 Run the Milestone 3 live checklist
+- **Status:** open, waiting on the founder since 2026-11-13. Milestone 3 is code-complete and deployed; six of its seven "Done when" boxes can only be ticked by someone using the live site.
+- **What to do:** work through "Live checklist (for the founder)" in `05-build-plan.md`, Milestone 3: parts A to F, one per box (join by code and take the survey; the same by invite; deactivate and reactivate; a second admin; the people limit; erasure). It needs the superuser login, a private window and two spare email addresses, and nothing from SSH, the AWS console or GitHub. While SES is sandboxed (T-4), an address that cannot get mail is marked verified in the Django admin ("Login (allauth)", "Email addresses").
+- **Done when:** the founder reports each part. Then a docs-only PR ticks the boxes, records the date in the decision log, updates the status lines (build plan, `CLAUDE.md`, this file) and removes this item. Anything that did not behave as written is fixed first.
+- **Source:** `05-build-plan.md`, Milestone 3, "Done when" and "Live checklist".
+
 ## Decisions
 
 ### D-2 Enterprise-wide deletion requests
-- **Status:** undecided; needs the privacy lawyer (D-7). Needed during Milestone 3. Reviewed 2026-11-12.
+- **Status:** undecided; needs the privacy lawyer (D-7). Reviewed 2026-11-12. Milestone 3 was built without it: nothing in the product lets an organization ask for this, so a request would come to staff.
 - **Already decided (2026-11-12):** erasing a person **keeps** their membership link; the stripped response stays visible to the enterprise and counts in its historical total. This is the founder's choice, for the lawyer to confirm (recorded in `05-build-plan.md`, Milestone 3 product rules and decision log). Enterprise admins never see answers anyway (decided the same day, settling FR-19's enterprise scope).
 - **Still open:** how an enterprise's own request to delete its members' data works (staff erasing each member one by one from the admin is the obvious fallback, but it was not confirmed), and whether the membership link survives that kind of request.
 - **Code today:** `apps/accounts/erasure.py`, the strip list is one function, `_anonymise`; `Account.anonymised_at` marks stripped accounts. A completed survey means strip, otherwise hard delete.
@@ -186,7 +187,7 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 
 ### D-7 The privacy lawyer's list
 - **Status:** reviewed 2026-11-12, left for later. not yet asked. Needed before the pilot (Milestone 7).
-- **Questions collected so far:** is "strip email, phone and name, keep results and demographics" anonymous enough in the US, UK and India (age, gender, company and exact dates can identify someone in a small company); what the privacy text and disclosure page must say (the wording now on the site is listed under D-17); how long erased data may stay in RDS backups (30 days today); enterprise data agreements; D-2 and the founder's "keep the membership link on erasure" choice; consent and verifiable parental consent for under-18s in India (minors do not take the survey); transfers to the US, a UK representative and ICO registration; India's DPDP Act (substantive duties from 2027-05-13); consent, an unsubscribe link and `List-Unsubscribe` for bulk email (for example a feedback request to everyone who took the survey), which would be sent in batches through the Milestone 5 queue; data minimisation (an age band, optional gender) before demographics are collected.
+- **Questions collected so far:** is "strip email, phone and name, keep results and demographics" anonymous enough in the US, UK and India (age, gender, company and exact dates can identify someone in a small company); what the privacy text and disclosure page must say (the wording now on the site is listed under D-17); how long erased data may stay in RDS backups (30 days today); enterprise data agreements; D-2 and the founder's "keep the membership link on erasure" choice; consent and verifiable parental consent for under-18s in India (minors do not take the survey); transfers to the US, a UK representative and ICO registration; India's DPDP Act (substantive duties from 2027-05-13); consent, an unsubscribe link and `List-Unsubscribe` for bulk email (for example a feedback request to everyone who took the survey), which would be sent in batches through the Milestone 5 queue; data minimisation (an age band, optional gender) before demographics are collected; an invite sent to someone who never made an account keeps their address on the invite row, and the erase page works on accounts, so there is no admin tool yet to remove it.
 - **Source:** `05-build-plan.md` open follow-ups and Milestone 7; `04-infrastructure.md` "Pending and future".
 
 ### D-8 A user-facing "delete my account" button
@@ -227,6 +228,11 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Spelling:** the site says "licence" (British) and "organization" (US, the founder's choice on 2026-11-12). Pick one spelling for the whole site if anyone notices.
 - SES **Mail Manager** (managed credential rotation) was not chosen; revisit if rotating the SMTP credential by hand becomes a chore.
 - **allauth** was chosen for verification and later SSO; revisit if it fights the Milestone 3 join flows (`03-tech-stack.md` decision log).
+- **Erasing and revoking at the same moment:** erasing an account and revoking one of its licences lock rows in opposite orders, so if staff did both in the same instant PostgreSQL would stop one with a deadlock error and it would have to be repeated (NOTES.md 2026-11-12). Nothing is lost. Fix the lock order if it is ever seen.
+- **No favicon:** every page logs a 404 for `/favicon.ico`. Cosmetic; add an icon when there is a logo.
+- **The licence form's tier box:** in the Django admin the tier is typed as a number (1 to 3) rather than picked from a list. Make it a dropdown if staff ever mistype it.
+- **After "this invite was sent to another address":** the person is told to add and verify that address on their profile and open the link again; they are not brought back to the invite automatically.
+- **Possible repeats:** organization admins have a "possible repeat" filter and mark, but nothing sets `Response.possible_repeat` until matching exists (Milestone 5).
 - **Known refused edge:** account A has verified `x@`, but account B registered with `x@` and never verified it, so `x@` is B's login name and A's make-primary is refused (NOTES.md 2026-10-09).
 
 ## Later features

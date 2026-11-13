@@ -81,9 +81,9 @@ erDiagram
 | `account` | id, person_id, full_name, password_hash, is_active, anonymised_at (nullable), created_at | One login. `is_active` false means suspended or erased. `anonymised_at` is set when the identity was stripped but a completed survey was kept; the email is then a placeholder (`erased-<id>@erased.invalid`), so the real address can sign up again |
 | `contact_point` | id, account_id, kind (email/phone), value_normalised, value_display, verified_at, is_primary | Every account has at least one email and exactly one phone. Three rules: unique on (kind, value_normalised) once verified (one owner per proven address); unique on (account, kind, value_normalised); at most one primary per kind per account. The primary email is the login name (`account.email` always equals it). Unverified rows never take part in login, reset or matching |
 | `enterprise` | id, name, slug (unique), people_limit (default 25), created_by_account_id, created_at | Self-registered. No domain list. Shown as "organization" on the site. `people_limit` caps invites sent plus joins by code until the enterprise has bought licences |
-| `membership` | id, account_id, enterprise_id, role (member/admin), status (active/deactivated), joined_at, deactivated_at, joined_via (invite_id or join_code_id) | Never deleted. Unique on (account_id, enterprise_id) |
-| `invite` | id, enterprise_id, email, token, tier (nullable), expires_at, accepted_at, revoked_at | Single use |
-| `join_code` | id, enterprise_id, code, tier (nullable), max_uses, uses, expires_at, revoked_at | Shared code with a cap; `max_uses = 1` is a per-person code |
+| `membership` | id, account_id, enterprise_id, role (member/admin), status (active/deactivated), joined_at, deactivated_at, joined_via_invite_id (nullable), joined_via_code_id (nullable) | Never deleted. Unique on (account_id, enterprise_id). The two `joined_via` columns record the most recent way in and are never both set; both are empty for the creator. A deactivated membership is always role member |
+| `invite` | id, enterprise_id, email, token, tier (nullable), expires_at, accepted_at, revoked_at, created_by_account_id, created_at | Single use. The email is emptied when the person it was sent to is erased; the row stays because it still counts towards the people limit |
+| `join_code` | id, enterprise_id, code, tier (nullable), max_uses, uses, expires_at, revoked_at, created_by_account_id, created_at | Shared code with a cap; `max_uses = 1` is a per-person code. A database check keeps `uses` at or below `max_uses` |
 | `seat_pool` | id, enterprise_id, tier (1–3), seats | Set by root admin until payments exist |
 | `survey_version` | id, number, published_at, question_count | v1 only in MVP |
 | `question` | id, survey_version_id, position, text, min_value, max_value, metadata (JSONB) | 25 rows for v1, all 1–4; `metadata` holds later per-question fields |
@@ -107,7 +107,7 @@ Role checks run on the server on every request. The viewer's scope is derived fr
 | Member, enterprise context | Own responses under that membership | The membership's entitlement tier; none if no seat | Take, resume, retake |
 | Enterprise admin | All responses under memberships of that enterprise: member, status, dates and tier, never the answers or the self-report | Each response at its membership's tier | Invite, issue codes, make members admins, assign seats, deactivate, export |
 | Root admin (superuser) | Everything, including answers | Everything, all tiers | Everything, including merge/unmerge and erasure |
-| Support staff (Django group) | Which questions a response has answered, by position, never the values or the self-report | n/a | Grant, upgrade and revoke licences; read accounts, questions and the funnel; no erasure |
+| Support staff (Django group) | Which questions a response has answered, by position, never the values or the self-report | n/a | Grant, upgrade and revoke licences; read accounts, questions, the funnel and organizations (never a join code or an invite's link); deactivate a membership; no erasure |
 
 A deactivated member keeps access to their own responses through any account that still logs in (FR-10). The enterprise keeps its view (FR-9).
 

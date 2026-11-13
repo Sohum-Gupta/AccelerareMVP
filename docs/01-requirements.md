@@ -183,7 +183,7 @@ Open questions to resolve before or during the Architecture session:
 - [x] Languages: resolved, English only; strings externalised.
 - [ ] Phone verification by SMS: deferred; needs an Indian SMS provider and DLT registration.
 - [ ] Privacy lawyer review: what counts as anonymous enough for the results, age, gender, company and dates we keep after an erasure; backups; enterprise data agreements.
-- [ ] A company asking for its members' data to be deleted (undecided; Milestone 3).
+- [ ] A company asking for its members' data to be deleted (undecided; goes to the privacy lawyer with the rest of the list. Milestone 3 was built without it).
 - [ ] A user-facing "delete my account" button (not built; staff erase from the admin).
 
 ## Decision log
