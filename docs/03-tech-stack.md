@@ -63,6 +63,7 @@ survey-platform/
 │   ├── survey/             # SurveyVersion, Question; placeholder v1 in a data migration; load_questions
 │   ├── responses/          # Response; autosave and submit views; Support staff group (signals.py)
 │   ├── entitlements/       # Entitlement; giving licences from the stock; the organization's Licences page
+│   ├── payments/           # Price, Purchase, Refund; the one file that talks to Stripe (stripe_api.py)
 │   ├── funnel/             # FunnelEvent; admin funnel summary
 │   ├── matching/           # MatchCandidate; rules.py; merge and unmerge
 │   ├── results/            # Result; compute_result interface; tier filter

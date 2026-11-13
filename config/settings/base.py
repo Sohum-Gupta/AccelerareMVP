@@ -49,6 +49,9 @@ INSTALLED_APPS = [
     # dependencies run one way: accounts <- enterprises <- entitlements <- responses.
     "apps.enterprises",
     "apps.entitlements",
+    # Prices and the record of every payment. It may import the three apps
+    # above; none of them, and not responses, imports it.
+    "apps.payments",
     "apps.funnel",
     # Last on purpose: its post_migrate hook needs every other app's permissions.
     "apps.responses",
@@ -202,6 +205,20 @@ STORAGES = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# Payments (Stripe)
+# All three are optional, on a laptop and on the server, so the code can be
+# deployed before the keys exist and the order of the two does not matter.
+# Without the secret key the buy pages say buying online is not open yet.
+# Without the webhook secret Stripe's own messages are answered "not set up"
+# (buying still works: the page the person returns to asks Stripe directly).
+# Keys beginning sk_test_ take no real money. Never commit one.
+STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")
+STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
+# True adds Stripe's automatic sales tax to every purchase. It also needs tax
+# registration set up in Stripe's dashboard first (docs/06-backlog.md, D-20).
+STRIPE_AUTOMATIC_TAX = env.bool("STRIPE_AUTOMATIC_TAX", default=False)
 
 
 # Cache

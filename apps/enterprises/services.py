@@ -370,9 +370,7 @@ def set_seat_pool(enterprise, tier, seats):
     downsizes, a typing mistake is put right). Nobody loses a licence; no more
     can be given at that tier until the number given is back under it.
     """
-    # bool is an int in Python, and 2.0 == 2: neither may pass as a tier.
-    if isinstance(tier, bool) or not isinstance(tier, int) or tier not in TIERS:
-        raise Refused("The tier must be 1, 2 or 3.")
+    _check_seat_tier(tier)
     if isinstance(seats, bool) or not isinstance(seats, int) or not 0 <= seats <= MAX_SEATS:
         raise Refused(f"Enter a whole number of licences from 0 to {MAX_SEATS:,}.")
     with transaction.atomic():
@@ -383,6 +381,58 @@ def set_seat_pool(enterprise, tier, seats):
             enterprise=enterprise, tier=tier, defaults={"seats": seats}
         )
         return pool
+
+
+def add_seats(enterprise, tier, quantity):
+    """
+    The organization has bought `quantity` more licences of this tier: add them
+    to its stock and return the stock row. A payment calls this (Milestone 4b).
+    The people limit goes up with it, because it counts every licence bought.
+    """
+    _check_seat_tier(tier)
+    _check_seat_count(quantity)
+    with transaction.atomic():
+        Enterprise.objects.select_for_update().get(pk=enterprise.pk)
+        pool, _ = SeatPool.objects.get_or_create(enterprise=enterprise, tier=tier)
+        if pool.seats + quantity > MAX_SEATS:
+            raise Refused(f"An organization can hold at most {MAX_SEATS:,} licences of one tier.")
+        pool.seats += quantity
+        pool.save(update_fields=["seats"])
+        return pool
+
+
+def remove_seats(enterprise, tier, quantity):
+    """
+    Take `quantity` licences of this tier back out of the organization's stock
+    (a refund), and return the stock row. Only licences still in the stock can
+    go: not one given to a member, and not one set aside for an invite or a
+    join code. Refused if fewer than that are left.
+    """
+    _check_seat_tier(tier)
+    _check_seat_count(quantity)
+    with transaction.atomic():
+        enterprise = Enterprise.objects.select_for_update().get(pk=enterprise.pk)
+        left = _left(enterprise, tier)
+        if quantity > left:
+            raise Refused(
+                f"Only {left:,} Tier {tier} licence(s) are still in the stock; the rest "
+                "have been given to members or set aside for invites and join codes."
+            )
+        pool = SeatPool.objects.get(enterprise=enterprise, tier=tier)
+        pool.seats -= quantity
+        pool.save(update_fields=["seats"])
+        return pool
+
+
+def _check_seat_tier(tier):
+    # bool is an int in Python, and 2.0 == 2: neither may pass as a tier.
+    if isinstance(tier, bool) or not isinstance(tier, int) or tier not in TIERS:
+        raise Refused("The tier must be 1, 2 or 3.")
+
+
+def _check_seat_count(quantity):
+    if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity < 1:
+        raise Refused("Enter a whole number of licences, at least 1.")
 
 
 # --- join codes ----------------------------------------------------------------

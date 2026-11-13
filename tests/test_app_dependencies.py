@@ -1,7 +1,10 @@
 """
 The apps depend on each other in one direction only:
 
-    accounts <- enterprises <- entitlements <- responses
+    accounts <- enterprises <- entitlements <- payments <- responses
+
+(Nothing imports payments; it sits before responses only because responses
+must stay last.)
 
 An app may import the ones to its left, never the ones to its right; it reaches
 those through reverse relations (`account.memberships`, `membership.responses`).
@@ -16,7 +19,7 @@ import pytest
 from django.conf import settings
 
 APPS = Path(settings.BASE_DIR) / "apps"
-ORDER = ["accounts", "enterprises", "entitlements", "responses"]
+ORDER = ["accounts", "enterprises", "entitlements", "payments", "responses"]
 
 
 def imported_apps(app):
