@@ -7,8 +7,9 @@ rules (an organization keeps at least one admin, an accepted invite cannot be
 withdrawn, deactivating deletes the unfinished survey attempt) hold whoever is
 acting. What staff can do:
 
-* Organizations: find one, change its people limit, and create one for a
-  customer with a first admin.
+* Organizations: find one, change its people limit, create one for a
+  customer with a first admin, and set its stock of licences (how many of
+  each tier it has bought), until payments set that by themselves.
 * Memberships: deactivate, reactivate, make admin, make member.
 * Invites: withdraw. Join codes: switch off.
 
@@ -18,8 +19,8 @@ History lines and labels never hold an email or a name ("Membership 12 in
 Acme", "Invite 3", "Join code 4"), so nothing personal outlives an erasure.
 
 Who may do what. Superusers: everything above. Support staff (the group set up
-in apps/responses/signals.py): look at all four pages and deactivate a
-membership, nothing else. An invite's link secret is shown to nobody, and a
+in apps/responses/signals.py): look at all four pages, deactivate a membership
+and set an organization's stock of licences, nothing else. An invite's link secret is shown to nobody, and a
 join code only to superusers, on its own page: both are ways in.
 """
 
@@ -28,9 +29,11 @@ from django.contrib import admin, messages
 from django.contrib.admin import helpers
 from django.contrib.admin.widgets import AutocompleteSelect
 from django.contrib.auth import get_permission_codename
+from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q, Sum
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
+from django.urls import path, reverse
 
 from apps.accounts.models import Account
 
@@ -182,6 +185,25 @@ class CreateForCustomerForm(forms.ModelForm):
             raise forms.ValidationError(str(error)) from None
 
 
+class StockForm(forms.Form):
+    """
+    The "Licence stock" page: one box per tier, holding how many licences of
+    that tier the organization has bought in total (not how many to add).
+    """
+
+    def __init__(self, *args, summary, **kwargs):
+        super().__init__(*args, **kwargs)
+        for row in summary:
+            self.fields[f"tier_{row['tier']}"] = forms.IntegerField(
+                label=f"Tier {row['tier']} licences bought",
+                min_value=0,
+                max_value=services.MAX_SEATS,
+                initial=row["bought"],
+                help_text=f"The total bought so far. {row['given']} given to members, "
+                f"{row['left']} left.",
+            )
+
+
 @admin.register(Enterprise)
 class EnterpriseAdmin(admin.ModelAdmin):
     list_display = ("name", "slug", "members_now", "people_limit", "created_at")
@@ -212,6 +234,7 @@ class EnterpriseAdmin(admin.ModelAdmin):
             "slug",
             "people_limit",
             "places",
+            "licences",
             "members_now",
             "members_ever",
             "created_by",
@@ -241,10 +264,84 @@ class EnterpriseAdmin(admin.ModelAdmin):
         invites = enterprise.invites.count()
         joins = enterprise.join_codes.aggregate(total=Sum("uses"))["total"] or 0
         return (
-            f"{services.places_left(enterprise)} of {enterprise.people_limit} left "
+            f"{services.places_left(enterprise)} of {services.people_limit(enterprise)} left "
             f"({invites} invite(s) sent, {joins} join(s) by code; "
             "withdrawn and expired invites still count)"
         )
+
+    @admin.display(description="Licences bought")
+    def licences(self, enterprise):
+        """The stock, tier by tier. Changed on the "Licence stock" page, not here."""
+        rows = [row for row in services.seat_summary(enterprise) if row["bought"] or row["given"]]
+        if not rows:
+            return "None yet"
+        return "; ".join(
+            f"Tier {row['tier']}: {row['bought']} bought, {row['given']} given, {row['left']} left"
+            for row in rows
+        )
+
+    # --- the "Licence stock" page --------------------------------------------------
+
+    def has_stock_permission(self, request):
+        """Who may set an organization's stock: superusers and Support staff."""
+        return request.user.has_perm("enterprises.change_seatpool")
+
+    def get_urls(self):
+        custom = path(
+            "<path:object_id>/stock/",
+            self.admin_site.admin_view(self.stock_view),
+            name="enterprises_enterprise_stock",
+        )
+        return [custom, *super().get_urls()]
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        if self.has_stock_permission(request):
+            extra_context["stock_url"] = reverse(
+                "admin:enterprises_enterprise_stock", args=[object_id]
+            )
+        return super().change_view(request, object_id, form_url, extra_context)
+
+    def stock_view(self, request, object_id):
+        if not self.has_stock_permission(request):
+            raise PermissionDenied
+        enterprise = get_object_or_404(Enterprise, pk=object_id)
+        back = reverse("admin:enterprises_enterprise_change", args=[enterprise.pk])
+        summary = services.seat_summary(enterprise)
+        form = StockForm(request.POST or None, summary=summary)
+        if request.method == "POST" and form.is_valid():
+            changes = []
+            for row in summary:
+                new = form.cleaned_data[f"tier_{row['tier']}"]
+                if new == row["bought"]:
+                    continue
+                services.set_seat_pool(enterprise, row["tier"], new)
+                changes.append(f"Tier {row['tier']} from {row['bought']} to {new}")
+                if new < row["given"]:
+                    self.message_user(
+                        request,
+                        f"Tier {row['tier']}: {row['given']} are already given to members, more "
+                        f"than the {new} now recorded as bought. Nobody loses a licence, and no "
+                        "more can be given at that tier until fewer are given than bought.",
+                        messages.WARNING,
+                    )
+            if changes:
+                text = "Licence stock changed: " + "; ".join(changes)
+                # The organization's history says who changed its stock and how.
+                self.log_change(request, enterprise, text)
+                self.message_user(request, text + ".", messages.SUCCESS)
+            else:
+                self.message_user(request, "Nothing was changed.", messages.WARNING)
+            return redirect(back)
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Licence stock",
+            "opts": self.opts,
+            "enterprise": enterprise,
+            "form": form,
+            "people_limit": services.people_limit(enterprise),
+        }
+        return TemplateResponse(request, "admin/enterprises/enterprise/stock.html", context)
 
     def add_view(self, request, form_url="", extra_context=None):
         try:

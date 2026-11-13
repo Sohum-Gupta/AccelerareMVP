@@ -236,6 +236,9 @@ class TestSupportStaffGroup:
             "deactivate_membership",
             "view_invite",
             "view_joincode",
+            # The organization's stock of licences: support may set it until payments do.
+            "view_seatpool",
+            "change_seatpool",
             "view_surveyversion",
             "view_question",
             "view_funnelevent",

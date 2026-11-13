@@ -3,7 +3,8 @@ Creates the "Support staff" group and gives it its permissions.
 
 Support staff are Django staff accounts that are not superusers: they can grant
 and revoke licences, look things up for debugging, read the funnel, look at
-organizations and deactivate a membership, and they see which questions a
+organizations, deactivate a membership and set an organization's stock of
+licences, and they see which questions a
 response has answered but never the answers. A superuser makes
 someone support staff by ticking "staff" and adding them to this group.
 
@@ -35,6 +36,9 @@ DEBUGGING = [
     ("enterprises", "membership", ("view", "deactivate")),
     ("enterprises", "invite", ("view",)),
     ("enterprises", "joincode", ("view",)),
+    # The organization's stock of licences: support may set it, until payments
+    # do (the founder's choice of 2026-11-13).
+    ("enterprises", "seatpool", ("view", "change")),
     ("survey", "surveyversion", ("view",)),
     ("survey", "question", ("view",)),
 ]

@@ -39,6 +39,16 @@ class GrantForm(forms.ModelForm):
         model = Entitlement
         fields = ("account", "membership", "tier", "source")
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Staff grant by hand or record a purchase. "From the organization's
+        # stock" is not offered: those are given by the organization's admin.
+        self.fields["source"].choices = [
+            (value, label)
+            for value, label in self.fields["source"].choices
+            if value == "" or value in services.GRANTABLE_SOURCES
+        ]
+
     def clean(self):
         cleaned = super().clean()
         account, membership = cleaned.get("account"), cleaned.get("membership")

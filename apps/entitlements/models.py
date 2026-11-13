@@ -27,6 +27,10 @@ class Entitlement(models.Model):
     class Source(models.TextChoices):
         PURCHASE = "purchase", "Purchase"
         MANUAL = "manual", "Granted by hand"
+        # Given to a member by their organization's admin, out of the licences
+        # the organization bought (enterprises.SeatPool). Only these count
+        # against that stock.
+        SEAT = "seat", "From the organization's stock"
 
     # Exactly one of these two is set (a database rule, below).
     # PROTECT: a person or a membership cannot be deleted while a licence points at it.

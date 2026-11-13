@@ -1,0 +1,11 @@
+{% extends "admin/change_form.html" %}
+{% comment %}
+Adds the "Licence stock" button next to History, for staff who may set an
+organization's stock of licences (superusers and Support staff).
+{% endcomment %}
+{% block object-tools-items %}
+  {% if stock_url %}
+    <li><a href="{{ stock_url }}">Licence stock…</a></li>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}

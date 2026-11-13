@@ -53,7 +53,7 @@ from .shown import organization as _organization
 
 def _places(enterprise):
     """How many more people the organization may bring in, out of its limit (admins only)."""
-    return {"left": services.places_left(enterprise), "limit": enterprise.people_limit}
+    return {"left": services.places_left(enterprise), "limit": services.people_limit(enterprise)}
 
 
 # --- the account's organizations, and creating one -----------------------------

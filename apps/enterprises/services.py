@@ -12,10 +12,14 @@ The rules (decided by the founder on 2026-11-12):
   admin: the last one can be neither demoted nor deactivated.
 * Deactivating someone also makes them an ordinary member, so a returning admin
   has to be promoted again on purpose.
-* The people limit: until an organization has bought licences it can bring in
-  `people_limit` people in total (25 by default). Every invite ever sent counts,
-  whatever became of it, and so does every join by code, so revoking and
-  resending does not get round it. The creator does not count.
+* The people limit: an organization can bring in `people_limit` people in total
+  (25 by default) plus one for every licence it has bought. Every invite ever
+  sent counts, whatever became of it, and so does every join by code, so
+  revoking and resending does not get round it. The creator does not count.
+* The stock (decided by the founder on 2026-11-13): for each tier, how many
+  licences the organization has bought (SeatPool). Staff set it by hand until
+  payments exist. A licence counts against it from the moment an admin gives it
+  to a member until it is taken back; one staff granted by hand never counts.
 * Deactivating someone deletes their unfinished survey attempt for the
   organization. Their licence stays with the membership and works again when
   they are reactivated; what they have submitted stays.
@@ -50,7 +54,7 @@ from allauth.core import context as allauth_context
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
-from django.db.models import Sum
+from django.db.models import Count, Sum
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
@@ -60,7 +64,7 @@ from apps.accounts.adapter import describe_mail_error
 from apps.accounts.models import Account, ContactPoint
 from apps.accounts.normalisers import normalise_email
 
-from .models import Enterprise, Invite, JoinCode, Membership
+from .models import Enterprise, Invite, JoinCode, Membership, SeatPool
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +83,12 @@ DEFAULT_CODE_DAYS = 30
 MAX_CODE_USES = 10_000
 INVITE_DAYS = 14
 TIERS = (1, 2, 3)
+# The most licences of one tier an organization can be recorded as having bought.
+MAX_SEATS = 1_000_000
+# A licence that came out of an organization's stock (Entitlement.Source.SEAT).
+# Spelled out here because this app may not import the licences app; it reaches
+# licences through the reverse name `membership.entitlements`.
+SEAT_SOURCE = "seat"
 
 
 class Refused(Exception):
@@ -103,6 +113,14 @@ class WrongAddress(Refused):
 # --- reads ---------------------------------------------------------------------
 
 
+def people_limit(enterprise):
+    """
+    How many people in total the organization may bring in: its base number
+    (25 unless staff changed it) plus every licence it has bought, at any tier.
+    """
+    return enterprise.people_limit + sum(seats_bought(enterprise).values())
+
+
 def places_left(enterprise):
     """
     How many more people the organization may bring in: its limit, less every
@@ -111,7 +129,53 @@ def places_left(enterprise):
     """
     invites = enterprise.invites.count()
     code_joins = enterprise.join_codes.aggregate(total=Sum("uses"))["total"] or 0
-    return max(0, enterprise.people_limit - invites - code_joins)
+    return max(0, people_limit(enterprise) - invites - code_joins)
+
+
+def seats_bought(enterprise):
+    """The organization's stock: {tier: licences bought}, with 0 for a tier never bought."""
+    bought = dict.fromkeys(TIERS, 0)
+    bought.update(enterprise.seat_pools.values_list("tier", "seats"))
+    return bought
+
+
+def seats_given(enterprise):
+    """
+    {tier: licences from the stock that members hold now}. A licence counts
+    under the tier it has now, whether or not its survey has been taken, until
+    it is revoked (taken back). One that staff granted by hand never counts.
+    """
+    given = dict.fromkeys(TIERS, 0)
+    rows = (
+        Membership.objects.filter(
+            enterprise=enterprise,
+            # One filter call, so both conditions are about the same licence.
+            entitlements__source=SEAT_SOURCE,
+            entitlements__revoked_at__isnull=True,
+        )
+        .values_list("entitlements__tier")
+        .annotate(count=Count("entitlements"))
+    )
+    given.update(rows)
+    return given
+
+
+def seat_summary(enterprise):
+    """
+    The stock tier by tier, for a page: a list of {tier, bought, given, left}.
+    `left` is never below zero; `given` can be above `bought` after staff lower
+    a stock, and then nothing more can be given at that tier.
+    """
+    bought, given = seats_bought(enterprise), seats_given(enterprise)
+    return [
+        {
+            "tier": tier,
+            "bought": bought[tier],
+            "given": given[tier],
+            "left": max(0, bought[tier] - given[tier]),
+        }
+        for tier in TIERS
+    ]
 
 
 def normalise_code(typed):
@@ -221,6 +285,34 @@ def _create_with_free_slug(name, created_by):
                 return Enterprise.objects.create(name=name, slug=slug, created_by=created_by)
         except IntegrityError:
             continue
+
+
+# --- the stock of licences -----------------------------------------------------
+
+
+def set_seat_pool(enterprise, tier, seats):
+    """
+    Record how many licences of one tier the organization has bought in total,
+    and return the stock row. Staff call this from the admin; a payment will
+    call it once payments exist.
+
+    The number may be set below what has already been given out (a customer
+    downsizes, a typing mistake is put right). Nobody loses a licence; no more
+    can be given at that tier until the number given is back under it.
+    """
+    # bool is an int in Python, and 2.0 == 2: neither may pass as a tier.
+    if isinstance(tier, bool) or not isinstance(tier, int) or tier not in TIERS:
+        raise Refused("The tier must be 1, 2 or 3.")
+    if isinstance(seats, bool) or not isinstance(seats, int) or not 0 <= seats <= MAX_SEATS:
+        raise Refused(f"Enter a whole number of licences from 0 to {MAX_SEATS:,}.")
+    with transaction.atomic():
+        # The organization's lock: giving a licence and counting places hold it
+        # too, so they see the stock either before this change or after it.
+        Enterprise.objects.select_for_update().get(pk=enterprise.pk)
+        pool, _ = SeatPool.objects.update_or_create(
+            enterprise=enterprise, tier=tier, defaults={"seats": seats}
+        )
+        return pool
 
 
 # --- join codes ----------------------------------------------------------------

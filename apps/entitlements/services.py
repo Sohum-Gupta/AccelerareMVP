@@ -37,8 +37,14 @@ DEACTIVATED_MEMBERSHIP = (
 )
 
 
+# What staff (and, later, a payment) may grant directly. A licence from an
+# organization's stock is not granted this way: its admin gives it, within the
+# stock, and that has its own rules.
+GRANTABLE_SOURCES = (Entitlement.Source.PURCHASE, Entitlement.Source.MANUAL)
+
+
 def _check_source(source):
-    if source not in Entitlement.Source.values:
+    if source not in GRANTABLE_SOURCES:
         raise ValidationError("The source must be purchase or manual.")
 
 
