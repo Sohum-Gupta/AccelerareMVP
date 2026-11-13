@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from . import services
-from .forms import AddEmailForm, PhoneForm, SignupForm
+from .forms import AddEmailForm, FullNameForm, PhoneForm, SignupForm
 from .models import ContactPoint
 
 
@@ -19,7 +19,12 @@ def signup(request):
         data = form.cleaned_data
         try:
             services.register(
-                data["email"], data["phone"], data["country"], data["password1"], request
+                data["email"],
+                data["phone"],
+                data["country"],
+                data["password1"],
+                request,
+                full_name=data["full_name"],
             )
         except services.EmailInUse:
             # Same page as success: this form must never reveal who has an account.
@@ -32,7 +37,7 @@ def signup(request):
     return render(request, "account/signup.html", {"form": form})
 
 
-def _render_profile(request, add_email_form=None, phone_form=None):
+def _render_profile(request, add_email_form=None, phone_form=None, name_form=None):
     account = request.user
     contacts = list(account.contact_points.all())
     emails = [c for c in contacts if c.kind == ContactPoint.Kind.EMAIL]
@@ -41,6 +46,7 @@ def _render_profile(request, add_email_form=None, phone_form=None):
         # E.164 is a safe thing to put back in the box: a leading + overrides the country.
         phone_form = PhoneForm(initial={"phone": phone.value_normalised} if phone else None)
     context = {
+        "name_form": name_form or FullNameForm(initial={"full_name": account.full_name}),
         "emails": emails,
         "phone": phone,
         "add_email_form": add_email_form or AddEmailForm(),
@@ -131,6 +137,21 @@ def change_phone(request):
             messages.success(request, "Phone saved.")
             return redirect("account_profile")
     return _render_profile(request, phone_form=form)
+
+
+@login_required
+@require_POST
+def change_name(request):
+    form = FullNameForm(request.POST)
+    if form.is_valid():
+        try:
+            services.set_full_name(request.user, form.cleaned_data["full_name"])
+        except ValidationError as error:
+            form.add_error("full_name", error)
+        else:
+            messages.success(request, "Name saved.")
+            return redirect("account_profile")
+    return _render_profile(request, name_form=form)
 
 
 @login_required

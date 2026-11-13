@@ -68,7 +68,15 @@ class AccountAdmin(UserAdmin):
     own add form would not, so it is switched off.
     """
 
-    list_display = ("email", "is_active", "is_staff", "is_superuser", "erased", "created_at")
+    list_display = (
+        "email",
+        "full_name",
+        "is_active",
+        "is_staff",
+        "is_superuser",
+        "erased",
+        "created_at",
+    )
     list_filter = (
         "is_active",
         "is_staff",
@@ -77,6 +85,7 @@ class AccountAdmin(UserAdmin):
     )
     search_fields = (
         "email",
+        "full_name",
         "contact_points__value_normalised",
         "contact_points__value_display",
     )
@@ -85,7 +94,7 @@ class AccountAdmin(UserAdmin):
     inlines = [ReadOnlyContactPoints]
 
     fieldsets = (
-        (None, {"fields": ("email", "person", "password")}),
+        (None, {"fields": ("email", "full_name", "person", "password")}),
         ("Status", {"fields": ("is_active", "is_staff", "is_superuser", "anonymised_at")}),
         ("Permissions", {"fields": ("groups", "user_permissions")}),
         ("Dates", {"fields": ("created_at", "last_login")}),
@@ -109,6 +118,7 @@ class AccountAdmin(UserAdmin):
             # Nothing on an erased account can be switched back on.
             fields = (
                 *fields,
+                "full_name",
                 "is_active",
                 "is_staff",
                 "is_superuser",

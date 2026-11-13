@@ -29,7 +29,13 @@ from django.utils import timezone
 from apps.funnel import services as funnel
 
 from .models import Account, ContactPoint
-from .normalisers import display_phone, normalise_email, normalise_phone, phone_country
+from .normalisers import (
+    clean_full_name,
+    display_phone,
+    normalise_email,
+    normalise_phone,
+    phone_country,
+)
 
 
 class EmailInUse(Exception):
@@ -63,7 +69,15 @@ def _locked_contact(account: Account, contact: ContactPoint) -> ContactPoint:
     return fresh
 
 
-def register(email: str, phone: str, country: str | None, password: str, request=None) -> Account:
+def register(
+    email: str,
+    phone: str,
+    country: str | None,
+    password: str,
+    request=None,
+    *,
+    full_name: str = "",
+) -> Account:
     """
     Create a person, an account and its two contact points in one transaction.
     Both contacts start unverified: the email is proven by the link this sends
@@ -71,9 +85,14 @@ def register(email: str, phone: str, country: str | None, password: str, request
     SMS, later. Raises EmailInUse if the address is already a login name, in
     any letter case, and ValidationError for a password Django's validators
     reject (too short, too common, too like the email, all digits).
+
+    `full_name` is what the sign-up form collects, and the form is what makes it
+    required. Here it may be left out (the account then has no name until the
+    profile page asks for it); a name that is given is cleaned like any other.
     """
     typed, email_n = _clean_email(email)
     phone_n = normalise_phone(phone, country)
+    name = clean_full_name(full_name) if full_name else ""
     if not password:
         raise ValidationError("A password is required.")
     # The unsaved Account only gives the similarity validator the email to compare.
@@ -83,7 +102,7 @@ def register(email: str, phone: str, country: str | None, password: str, request
     try:
         with transaction.atomic():
             # The manager makes the Person and the primary email contact too.
-            account = Account.objects.create_user(email_n, password)
+            account = Account.objects.create_user(email_n, password, full_name=name)
             account.contact_points.filter(kind=ContactPoint.Kind.EMAIL).update(value_display=typed)
             ContactPoint.objects.create(
                 account=account,
@@ -146,6 +165,16 @@ def resend_verification(request, account: Account, contact: ContactPoint) -> Non
     if not cache.add(f"resend-verification:{contact.pk}", 1, RESEND_COOLDOWN_SECONDS):
         raise ValidationError("A link was sent a moment ago. Give it a minute, then try again.")
     send_verification(request, account, contact.value_normalised)
+
+
+def set_full_name(account: Account, full_name: str) -> Account:
+    """
+    Save the person's name from the profile page. It can be changed but not
+    emptied: once a name is asked for, organizations rely on seeing one.
+    """
+    account.full_name = clean_full_name(full_name)
+    account.save(update_fields=["full_name"])
+    return account
 
 
 def dismiss_personal_email_prompt(account: Account) -> None:

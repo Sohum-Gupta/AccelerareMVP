@@ -14,6 +14,18 @@
     <p class="mb-0 text-sm text-slate-700"><a href="{% url 'responses:history' %}">Your surveys: start, continue or see your results</a></p>
   </section>
 
+  <section class="mb-6 rounded-md border border-slate-300 bg-white p-4" aria-labelledby="name-title">
+    <h2 id="name-title" class="mb-1 text-base font-semibold">{% if user.full_name %}Your name{% else %}Add your name{% endif %}</h2>
+    {% if not user.full_name %}
+      <p class="mb-3 text-sm text-slate-700">We now ask everyone for their name. Please add yours.</p>
+    {% endif %}
+    <form method="post" action="{% url 'profile_change_name' %}" novalidate>
+      {% csrf_token %}
+      {% include "includes/field.html" with field=name_form.full_name %}
+      <button type="submit">Save name</button>
+    </form>
+  </section>
+
   {% if show_personal_email_prompt %}
     <section class="mb-6 rounded-md border border-slate-300 bg-white p-4" aria-labelledby="prompt-title">
       <h2 id="prompt-title" class="mb-1 text-base font-semibold">Add a personal email</h2>

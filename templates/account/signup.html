@@ -11,6 +11,7 @@
   <form method="post" action="{% url 'account_signup' %}" novalidate>
     {% csrf_token %}
     {% for error in form.non_field_errors %}<p class="mb-3 text-sm text-red-700">{{ error }}</p>{% endfor %}
+    {% include "includes/field.html" with field=form.full_name %}
     {% include "includes/field.html" with field=form.email hints="email" %}
     {% include "includes/phone_input.html" with phone=form.phone country=form.country %}
     {% include "includes/field.html" with field=form.password1 hints="password" %}

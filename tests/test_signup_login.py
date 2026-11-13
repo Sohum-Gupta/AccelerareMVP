@@ -21,6 +21,7 @@ SIGNUP = "/accounts/signup/"
 
 def signup_data(**overrides):
     data = {
+        "full_name": "Bob Example",
         "email": "Bob@Example.com",
         "phone": "098765 43210",
         "country": "IN",

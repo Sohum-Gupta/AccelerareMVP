@@ -7,7 +7,7 @@ Two outcomes, chosen by the data and never by the caller:
   is deleted outright, with its contacts, licences, unfinished attempt and
   person.
 * A completed survey: the person is stripped and the survey kept. The email,
-  phone and login are removed, the password is made unusable and the results stay
+  phone, name and login are removed, the password is made unusable and the results stay
   with no link to a person. `anonymised_at` marks it, so reports can count
   former members (historical totals) apart from current ones.
 
@@ -52,7 +52,7 @@ def _explain(account: Account, action: str, submitted: int) -> str:
     if action == DELETE:
         return (
             "This account has no completed survey, so it will be permanently deleted: "
-            f"its email and phone, its {licences} licence(s) and any unfinished attempt. "
+            f"its email, phone and name, its {licences} licence(s) and any unfinished attempt. "
             "This cannot be undone."
         )
     why = (
@@ -62,7 +62,7 @@ def _explain(account: Account, action: str, submitted: int) -> str:
         "the history of what it did)."
     )
     return (
-        f"{why} Its email, phone number and login will be removed and its results kept "
+        f"{why} Its email, phone number, name and login will be removed and its results kept "
         "with no link to a person. Any unfinished attempt is deleted and unused licences "
         "are revoked. This cannot be undone."
     )
@@ -137,7 +137,7 @@ def _hard_delete(account: Account) -> None:
 
 
 def _anonymise(account: Account) -> None:
-    """The strip list: email, phone, name (no name field exists yet), login."""
+    """The strip list: email, phone, name, login."""
     now = timezone.now()
     account.responses.filter(status="draft").delete()
     # The unfinished attempt is gone, so its licence is unused; nobody can use it.
@@ -150,6 +150,7 @@ def _anonymise(account: Account) -> None:
     EmailAddress.objects.filter(user=account).delete()
 
     account.email = f"erased-{account.pk}@erased.invalid"
+    account.full_name = ""
     account.set_unusable_password()
     account.is_active = False
     account.is_staff = False

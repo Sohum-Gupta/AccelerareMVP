@@ -83,6 +83,14 @@ class Account(AbstractBaseUser, PermissionsMixin):
     # AbstractBaseUser supplies `password` and `last_login`.
     # PermissionsMixin supplies `is_superuser`, `groups` and `user_permissions`.
     email = models.EmailField(unique=True)
+    # What the person asked to be called, as one box ("Full name"): names do not
+    # split into first and last everywhere. Sign-up asks for it; accounts made
+    # before Milestone 3 (and createsuperuser) have it blank until the profile
+    # page collects it. Erasing an account clears it.
+    # `db_default` keeps the empty default in the database itself: a deploy
+    # migrates first and swaps the code a moment later, and a sign-up handled by
+    # the old code in between inserts no value for this column.
+    full_name = models.CharField(max_length=150, blank=True, default="", db_default="")
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)  # may log into /admin/
     created_at = models.DateTimeField(auto_now_add=True)
