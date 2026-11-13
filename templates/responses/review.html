@@ -5,7 +5,7 @@
   <h1>Ready to submit</h1>
   <p class="text-lg font-medium">{{ answered }} of {{ total }} answered</p>
   {% if organization %}<p class="text-sm text-slate-600">You are taking this survey for {{ organization }}.</p>{% endif %}
-  <p>Every page is locked. Once you submit, you will see your results, not your answers, and the survey cannot be changed.</p>
+  <p>Every page is locked, but the survey has not been submitted yet. Once you submit, you will see your results, not your answers, and the survey cannot be changed.</p>
   <form method="post" action="{% url 'responses:submit' response_id %}">
     {% csrf_token %}
     <button type="submit" class="w-full">Submit</button>

@@ -85,6 +85,13 @@ class TestWithoutALicence:
         licences.revoke(Response.objects.get().entitlement)
         assert NOTICE in page(client)
 
+    def test_sent_here_from_a_survey_page_the_notice_is_said_once(self, client, bob):
+        """It used to be said twice: a message at the top, and the box (T-19, 2026-11-13)."""
+        response = client.get("/survey/1/page/1/", follow=True)
+        assert response.redirect_chain[-1][0] == START
+        assert response.content.decode().count(NOTICE) == 1
+        assert not list(response.context["messages"])
+
 
 @pytest.mark.django_db
 class TestWithALicence:
