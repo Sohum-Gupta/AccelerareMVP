@@ -11,6 +11,7 @@ from datetime import timedelta
 
 import pytest
 from django.contrib.auth.models import Group
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.utils import timezone
@@ -101,6 +102,9 @@ class TestMembership:
         assert refused(lambda: add_member(acme, bob, status="deactivated"))
         assert refused(lambda: add_member(acme, bob, deactivated_at=timezone.now()))
         assert not add_member(acme, bob, active=False).is_active
+
+    def test_a_deactivated_one_is_never_an_admin(self, acme, bob):
+        assert refused(lambda: add_member(acme, bob, role="admin", active=False))
 
     def test_the_role_is_member_or_admin(self, acme, bob):
         assert refused(lambda: add_member(acme, bob, role="owner"))
@@ -226,6 +230,51 @@ class TestErasure:
         erasure.erase_account(bob)
         membership.refresh_from_db()
         assert membership.deactivated_at == long_ago
+
+    def test_an_erased_admin_stops_being_one(self, acme, bob):
+        membership = add_member(acme, bob, role="admin")
+        complete(bob)
+        erasure.erase_account(bob)
+        membership.refresh_from_db()
+        assert not membership.is_active and not membership.is_admin
+
+    def test_the_only_admin_cannot_be_erased_while_others_are_still_members(self, acme, bob):
+        add_member(acme, bob, role="admin")
+        add_member(acme, verified_account("carol@example.com"))
+        for check in (erasure.plan_erasure, erasure.erase_account):
+            with pytest.raises(ValidationError) as caught:
+                check(bob)
+            assert " ".join(caught.value.messages) == (
+                "This account is the only admin of Acme, which still has other members. "
+                "Make another member an admin there first, then erase."
+            )
+        assert Account.objects.get(pk=bob.pk).email == "bob@example.com"
+
+    def test_once_there_is_another_admin_the_erasure_goes_ahead(self, acme, bob):
+        add_member(acme, bob, role="admin")
+        add_member(acme, verified_account("carol@example.com"), role="admin")
+        assert erasure.erase_account(bob).action == erasure.DELETE
+        assert acme.memberships.filter(role="admin", status="active").count() == 1
+
+    def test_an_admin_alone_in_an_organization_can_be_erased(self, acme, bob):
+        add_member(acme, bob, role="admin")
+        add_member(acme, verified_account("left@example.com"), active=False)
+        assert erasure.erase_account(bob).action == erasure.DELETE
+        assert Enterprise.objects.filter(pk=acme.pk).exists()
+
+    def test_an_ordinary_member_is_never_blocked(self, acme, bob):
+        add_member(acme, verified_account("admin@example.com"), role="admin")
+        add_member(acme, bob)
+        assert erasure.plan_erasure(bob).action == erasure.DELETE
+
+    def test_the_erase_page_gives_the_reason_in_plain_words(self, client, acme, bob):
+        root = Account.objects.create_superuser("root@example.com", PASSWORD)
+        client.force_login(root)
+        add_member(acme, bob, role="admin")
+        add_member(acme, verified_account("carol@example.com"))
+        page = client.get(f"/admin/accounts/account/{bob.pk}/erase/", follow=True)
+        assert "only admin of Acme" in page.content.decode()
+        assert Account.objects.filter(pk=bob.pk, anonymised_at__isnull=True).exists()
 
     def test_nothing_changes_if_it_fails_halfway(self, acme, bob, monkeypatch):
         membership = add_member(acme, bob)

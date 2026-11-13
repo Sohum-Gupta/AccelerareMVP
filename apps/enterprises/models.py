@@ -80,8 +80,8 @@ class Membership(models.Model):
     status = models.CharField(max_length=15, choices=Status, default=Status.ACTIVE)
     joined_at = models.DateTimeField(auto_now_add=True)
     deactivated_at = models.DateTimeField(null=True, blank=True)
-    # How this person first got in. Both empty for the creator and for an admin
-    # that staff appointed.
+    # How this person most recently got in. Both empty for the creator and for
+    # an admin that staff appointed.
     joined_via_invite = models.ForeignKey(
         "Invite", null=True, blank=True, on_delete=models.SET_NULL, related_name="memberships"
     )
@@ -106,6 +106,12 @@ class Membership(models.Model):
             models.CheckConstraint(
                 condition=models.Q(role__in=["member", "admin"]),
                 name="membership_role_is_member_or_admin",
+            ),
+            # Leaving also ends being an admin: someone who comes back is an
+            # ordinary member until an admin promotes them again.
+            models.CheckConstraint(
+                condition=models.Q(status="active") | models.Q(role="member"),
+                name="membership_deactivated_is_a_member",
             ),
             # Someone joins one way, not two.
             models.CheckConstraint(
