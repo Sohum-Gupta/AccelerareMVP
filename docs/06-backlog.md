@@ -86,6 +86,8 @@ These are not in any milestone yet. The code is shaped so none of them needs a r
 - **L-8** Moving the servers to Mumbai, with Terraform (deferred with India, 2026-11-13).
 - **L-9** Faster pages for UK and India users (CDN or regional move), if latency becomes a problem.
 - **L-10** Sending email through Microsoft 365's Graph API instead of SES, if ever wanted.
+- **L-11** Linking a third login to one person (today a person has two linked logins at most).
+- **L-12** A faster same-name check for possible duplicates, once there are many thousands of members.
 
 ---
 
@@ -297,4 +299,6 @@ None of these is in a milestone. Each has a seam in the current design (`02-arch
 - **L-7 Phone verification by SMS.** Needs a paid SMS provider and per-country sender registration (India DLT takes weeks). Turning it on activates the verified-phone matching rule, which is inert until then.
 - **L-8 Move to Mumbai (Phase 4).** `04-infrastructure.md`, "Moving to Mumbai"; SES must be set up and out of the sandbox in `ap-south-1` first; write Terraform at that point.
 - **L-9 Latency for UK and India.** About 150 ms from the UK and 250 ms from India to Oregon. A CDN or the regional move if it becomes a real problem; one database in one region, with replicas if it grows.
+- **L-11 A third linked login.** Since Milestone 5 a superuser can link two accounts that are the same person, and undo it. A login that is already linked cannot be linked to a third (`apps/matching/services.py`, `_who_moves`): with two at most, every link is one row and "undo" is exact. Allowing three or more means deciding what undoing one link does to the others. Build it when a real case appears; until then the superuser is told why and can choose the better pair.
+- **L-12 Same-name check at scale.** The same-name rule (`apps/matching/rules.py`, `same_name`) reads the number and name of every account that belongs to an organization and compares names in Python, because PostgreSQL cannot remove accents without the `unaccent` extension. It runs in the background worker and is fine for thousands of members. Past that, store the comparison form of the name in an indexed column on `Account` and compare in the database.
 - **L-10 Email through Microsoft Graph.** No redesign: a small backend class behind `MAILERS["default"]["BACKEND"]` plus an Entra app limited to one mailbox. Only if SES is ever unsuitable.

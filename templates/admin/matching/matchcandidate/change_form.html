@@ -1,0 +1,12 @@
+{% extends "admin/change_form.html" %}
+{% comment %}
+Adds the decision buttons next to History, for superusers: "Same person…" and
+"Different people…" while a pair waits, "Undo the link…" once it is linked.
+Each leads to a page that says what will happen and asks first.
+{% endcomment %}
+{% block object-tools-items %}
+  {% for decision in decisions %}
+    <li><a href="{{ decision.url }}">{{ decision.label }}</a></li>
+  {% endfor %}
+  {{ block.super }}
+{% endblock %}

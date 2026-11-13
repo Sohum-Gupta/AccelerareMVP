@@ -92,7 +92,8 @@ class TestGivingALicenceQueuesTheEmail:
         """They were told on the page they joined from."""
         code = orgs.create_code(acme[1], 1, tier=2)
         member = orgs.redeem_code(code.code, verified_account("carol@example.com"))
-        assert member.entitlements.count() == 1 and not Job.objects.exists()
+        assert member.entitlements.count() == 1
+        assert not Job.objects.filter(kind=LICENCE_EMAIL).exists()
 
 
 # --- the worker sends it --------------------------------------------------------------------

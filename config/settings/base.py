@@ -52,6 +52,9 @@ INSTALLED_APPS = [
     # Prices and the record of every payment. It may import the three apps
     # above; none of them, and not responses, imports it.
     "apps.payments",
+    # Accounts that look like the same person, for a superuser to decide. It
+    # may import accounts and entitlements; only responses imports it.
+    "apps.matching",
     "apps.funnel",
     # The queue of background jobs and the worker that does them. Like funnel,
     # it imports no other app; the others hand it work by name.

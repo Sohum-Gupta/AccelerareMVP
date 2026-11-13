@@ -27,6 +27,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.funnel import services as funnel
+from apps.jobs import services as jobs
 
 from .models import Account, ContactPoint
 from .normalisers import (
@@ -178,8 +179,27 @@ def set_full_name(account: Account, full_name: str) -> Account:
     emptied: once a name is asked for, organizations rely on seeing one.
     """
     account.full_name = clean_full_name(full_name)
-    account.save(update_fields=["full_name"])
+    with transaction.atomic():
+        account.save(update_fields=["full_name"])
+        look_for_duplicates_later(account)
     return account
+
+
+# The background job that looks for other accounts that may be the same person
+# as this one (the matching app does it; see its job_handlers.py).
+LOOK_FOR_DUPLICATES = "look_for_duplicates"
+
+
+def look_for_duplicates_later(account: Account) -> None:
+    """
+    Queue a look for other accounts that may belong to the same person. Called
+    whenever something that could make two accounts look alike has just
+    changed: an email was verified, a phone or a name was changed, the account
+    joined an organization or submitted a survey. The job is written in the
+    caller's transaction and holds only the account's number. Looking never
+    changes either account: it can only bring the pair to a superuser.
+    """
+    jobs.enqueue(LOOK_FOR_DUPLICATES, {"account_id": account.pk})
 
 
 def dismiss_personal_email_prompt(account: Account) -> None:
@@ -317,6 +337,7 @@ def change_phone(account: Account, phone: str, country: str | None) -> ContactPo
             .first()
         )
         if current is None:
+            look_for_duplicates_later(account)
             return ContactPoint.objects.create(
                 account=account,
                 kind=ContactPoint.Kind.PHONE,
@@ -330,4 +351,5 @@ def change_phone(account: Account, phone: str, country: str | None) -> ContactPo
         current.value_display = display_phone(phone_n)
         current.verified_at = None
         current.save(update_fields=["value_normalised", "value_display", "verified_at"])
+        look_for_duplicates_later(account)
         return current

@@ -14,7 +14,8 @@ from django.utils import timezone
 
 from apps.funnel import services as funnel
 
-from .models import ContactPoint
+from . import services
+from .models import Account, ContactPoint
 
 
 @receiver(email_confirmed)
@@ -34,3 +35,7 @@ def mark_contact_verified(sender, request, email_address, **kwargs):
     ).update(verified_at=timezone.now())
     if first and changed:
         funnel.record_event(funnel.Kind.EMAIL_VERIFIED)
+    if changed:
+        # A proven address is when an account starts to count, so this is when
+        # to look for another account of the same person (in the background).
+        services.look_for_duplicates_later(Account(pk=email_address.user_id))

@@ -34,8 +34,10 @@ leaves no event.
 import math
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
+from apps.accounts import services as accounts
 from apps.accounts.models import Account, Person
 from apps.enterprises.models import Membership
 from apps.entitlements import services as licences
@@ -243,13 +245,60 @@ def submit(response):
             raise Incomplete(f"{len(missing)} statement(s) still need an answer.")
         response.status = Response.Status.SUBMITTED
         response.submitted_at = timezone.now()
-        response.save(update_fields=["status", "submitted_at"])
+        response.possible_repeat = _is_possible_repeat(response)
+        response.save(update_fields=["status", "submitted_at", "possible_repeat"])
         funnel.record_event(
             funnel.Kind.SURVEY_SUBMITTED,
             tier=response.entitlement.tier,
             source=response.entitlement.source,
         )
+        # Someone who has now taken the survey is worth checking against the
+        # other accounts, in the background (it changes nothing for them).
+        accounts.look_for_duplicates_later(response.account)
         return response
+
+
+# --- possible repeats -------------------------------------------------------------
+
+
+def _is_possible_repeat(response):
+    """
+    True if this looks like a second go at the survey: the person said they
+    had taken it before, or an earlier submitted survey exists from this login
+    or one linked to it (the same person). Two accounts that merely look
+    alike, and that no superuser has linked, do not count.
+    """
+    return bool(response.took_before) or _earlier_by_same_person(response).exists()
+
+
+def _earlier_by_same_person(response):
+    account = response.account
+    same_person = (
+        Q(account__person_id=account.person_id) if account.person_id else Q(account=account)
+    )
+    earlier = Q(submitted_at__lt=response.submitted_at) | Q(
+        submitted_at=response.submitted_at, pk__lt=response.pk
+    )
+    return Response.objects.filter(same_person, earlier, status=Response.Status.SUBMITTED)
+
+
+def mark_possible_repeats(account_ids):
+    """
+    Work out "possible repeat" again for every submitted survey of these
+    accounts. Called when two logins have just been linked, or a link undone:
+    who counts as "the same person" has changed, so an earlier survey by the
+    other login now counts, or no longer does. Returns how many marks changed.
+    """
+    changed = 0
+    submitted = Response.objects.select_related("account").filter(
+        account_id__in=account_ids, status=Response.Status.SUBMITTED
+    )
+    for response in submitted:
+        now = _is_possible_repeat(response)
+        if now != response.possible_repeat:
+            Response.objects.filter(pk=response.pk).update(possible_repeat=now)
+            changed += 1
+    return changed
 
 
 # --- helpers -------------------------------------------------------------------

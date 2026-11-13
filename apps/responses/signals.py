@@ -18,6 +18,10 @@ from django.contrib.auth.models import Group, Permission
 from django.db.models.signals import post_migrate
 from django.dispatch import receiver
 
+from apps.matching.services import people_changed
+
+from . import services
+
 GROUP_NAME = "Support staff"
 
 # (app label, model, actions). Two jobs, named so they can become two groups
@@ -69,3 +73,13 @@ def ensure_support_staff_group(sender, **kwargs):
         for app, codename in codenames
     ]
     group.permissions.set(permissions)
+
+
+@receiver(people_changed, dispatch_uid="responses.mark_possible_repeats")
+def mark_possible_repeats(sender, accounts, **kwargs):
+    """
+    Two logins were linked, or a link was undone. Whether a survey is a
+    "possible repeat" depends on who counts as the same person, so work it out
+    again for both logins. It runs inside the link's own transaction.
+    """
+    services.mark_possible_repeats(accounts)
