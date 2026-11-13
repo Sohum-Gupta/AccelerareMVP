@@ -4,7 +4,7 @@ As of 2026-10-05 · Planning Session 4 · Updated 2026-10-09 after the first rea
 
 ## Summary
 
-One small EC2 instance runs the web app and Caddy (for HTTPS) as Docker containers; the background worker joins them in Milestone 5. One RDS PostgreSQL instance holds the data. GitHub Actions deploys on every push to `main`. Everything is created in the AWS console by following the runbook below, and every manual step is recorded here. Trial cost is roughly $30 per month in us-west-2 (Oregon); the Mumbai move is the same runbook in ap-south-1.
+One small EC2 instance runs the web app and Caddy (for HTTPS) as Docker containers, and since Milestone 5 (2026-11-13) the background worker as a third. One RDS PostgreSQL instance holds the data. GitHub Actions deploys on every push to `main`. Everything is created in the AWS console by following the runbook below, and every manual step is recorded here. Trial cost is roughly $30 per month in us-west-2 (Oregon); the Mumbai move is the same runbook in ap-south-1.
 
 Two principles:
 
@@ -18,7 +18,7 @@ flowchart LR
     U[Users] -->|HTTPS 443| C[Caddy<br/>TLS, reverse proxy]
     subgraph EC2 [EC2 t4g.small, Ubuntu, Docker Compose]
         C --> W[web: Django + gunicorn]
-        K[worker: run_worker<br/>from Milestone 5]
+        K[worker: run_worker<br/>since Milestone 5]
     end
     W --> R[(RDS PostgreSQL<br/>db.t4g.micro)]
     K --> R
@@ -182,7 +182,7 @@ Future changes and open questions:
 - **Replies and feedback:** decided 2026-11-12 to set a `Reply-To` header (address still to be chosen; `06-backlog.md`, T-14). Original note: set a `Reply-To` header pointing at a monitored Microsoft 365 mailbox such as `feedback@theaccelerare.com`. Alternatively send From a real address on a verified root domain, after looking at SPF and DMARC.
 - **Bulk mail** (for example a feedback request to everyone who took the survey) is closer to marketing than transactional mail. It needs a consent basis, an unsubscribe link and `List-Unsubscribe` header, and sending through the Milestone 5 job queue in small batches. Take it to the lawyers with the other privacy items.
 - **DMARC:** add a record for the sending domain before real volume, starting in monitoring mode.
-- **Bounce and complaint handling:** decided 2026-11-12: Milestone 5 records SES bounce and complaint events and stops sending to those addresses.
+- **Bounce and complaint handling:** decided 2026-11-12 that the site records SES bounce and complaint events and stops sending to those addresses. It needs an SNS topic made in the AWS console, so on 2026-11-13 it moved out of Milestone 5 to its own task (`06-backlog.md`, T-23). Not built.
 - **Mumbai move:** SES is per region; repeat the identity, credentials and production-access request in `ap-south-1` first.
 - **Switching to Graph later** needs no redesign: write a small backend class, point `MAILERS["default"]["BACKEND"]` at it, and add the Entra setup.
 

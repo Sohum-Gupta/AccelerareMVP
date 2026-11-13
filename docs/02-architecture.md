@@ -48,10 +48,10 @@ One codebase, split by domain so each part can be reasoned about alone. Each mod
 | `responses` | Response (draft/submitted), autosave, submission, the Support staff group | Submitted responses are immutable; every foreign key is PROTECT |
 | `entitlements` | Entitlement (person- or membership-level tier) | Seat pool is enforced here. Licences do not expire |
 | `funnel` | FunnelEvent | Events carry no link to an account or person; written inside the transaction of the thing that happened; imports nothing from the apps that call it |
-| `matching` | MatchCandidate, auto-link, merge, unmerge | All thresholds in one file |
+| `matching` | MatchCandidate (a possible duplicate), the rules, link and undo | All rules in one file. Nothing links automatically: a superuser decides (built in Milestone 5) |
 | `results` | Result storage, `compute_result` interface, tier filtering | UI reads stored results only |
 | `exports` | CSV generation per scope | Scope comes from the caller's role, never from the request |
-| `audit` | AuditLog entries for every admin action and deletion | Append-only |
+| `audit` | AuditLog entries for every staff action in the Django admin, what organization admins do, and erasure | Append-only; numbers and plain facts, never a name or an email |
 | `jobs` | Job table, worker loop, retries | At-least-once; jobs must be idempotent |
 
 ## Data model
@@ -125,9 +125,11 @@ If the invite or code carries a tier, an entitlement is created on the membershi
 1. Before Q1, the page states who will see the answers (FR-15) and asks the self-report question (FR-16).
 2. Each answer is saved to `response.answers` as it is given (one small request per answer). Pages of five statements lock when the person presses Next; leaving and returning resumes on the first unlocked page with the saved answers selected.
 3. Submit sets `status = submitted` and `submitted_at`; the row is never updated again.
-4. Submission enqueues two jobs: `run_matching(response_id)` and `compute_result(response_id)`. Neither can block or fail the submission.
+4. Submission marks the response a possible repeat if it is one, and enqueues two jobs: `look_for_duplicates(account_id)` and `compute_result(response_id)`. Neither can block or fail the submission.
 
-**Matching.** Runs on registration (after a contact point is verified) and on submission.
+**Matching.** *As built in Milestone 5 (2026-11-13): no rule links anything. Every rule below that says "auto-link" or "flagged" stores a possible duplicate for a superuser, who links the two logins, closes the pair as different people, or undoes a link; a person has two linked logins at most. The look runs in the background when an email is verified, a phone or name changes, someone joins an organization, a survey is submitted or the match box is filled in. "Possible repeat" is set on submission from the self-report or an earlier survey by the same person, without a candidate. The build plan's Milestone 5 section is the detailed account; the table below is the October design, kept for its reasoning.*
+
+Runs on registration (after a contact point is verified) and on submission.
 
 | Rule | Action | Reversible |
 | --- | --- | --- |
@@ -218,3 +220,4 @@ Applied in `01-requirements.md` v2:
 | 2026-10-05 | Root-admin screens on the framework's built-in admin; enterprise-admin screens custom | Customers see enterprise screens; only the founder sees root screens |
 | 2026-10-05 | Personal mailbox over SMTP for the trial; SES with a company domain before first customer | No domain yet |
 | 2026-10-05 | English only; strings externalised | Founder decision; cheap to keep the door open |
+| 2026-11-13 | Milestone 5 as built: possible duplicates are only ever decided by a superuser (no automatic link, including on a verified phone when SMS exists, until that is planned afresh); linking moves the newer login onto the older login's person and is undoable; a person has two linked logins at most; the audit log is fed by copying the Django admin's history and by the organization admins' services; the results table exists and is empty | Linking shares what one login paid for with another, so it is a person's decision. See `05-build-plan.md`, Milestone 5 |
