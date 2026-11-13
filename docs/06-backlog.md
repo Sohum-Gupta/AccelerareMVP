@@ -17,7 +17,7 @@ Every item has an ID (`T-` for tasks, `D-` for decisions, `L-` for later feature
 
 ## Where things stand (2026-11-13)
 
-Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-12. Milestone 3 (organizations) was built on 2026-11-12 and 2026-11-13 and is live; what is left of it is your checklist on the live site (T-16). Milestone 4 (licences for organizations) was built on 2026-11-13 and is live; what is left of it is your checklist on the live site (T-18). Nobody has yet tried Milestone 3 or Milestone 4 by hand on the live site. On 2026-11-13 you answered the choices made while building Milestone 4, the payments basics, and the two GitHub questions; the answers are in the build plan's decision log. What follows from them is built in this order: the licence changes (a licence is set aside when an invite or code promises one; built and live the same day, with two live checks added to T-18), then payments (Milestone 4b; built and deployed the same day, but closed until you add the Stripe test key, T-21, and then yours to try, T-22), then Milestone 5 (background jobs, the licence email, the audit log, possible duplicates; built and deployed the same day, with a live checklist that is yours to run, T-24). Nobody has yet tried Milestone 5 by hand on the live site either. The site is being built for the US first; the India items below are deferred. Every decision below was reviewed with the founder on 2026-11-12; the ones still listed were left here on purpose.
+Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-12. Milestone 3 (organizations) was built on 2026-11-12 and 2026-11-13 and is live; what is left of it is your checklist on the live site (T-16). Milestone 4 (licences for organizations) was built on 2026-11-13 and is live; what is left of it is your checklist on the live site (T-18). Nobody has yet tried Milestone 3 or Milestone 4 by hand on the live site. On 2026-11-13 you answered the choices made while building Milestone 4, the payments basics, and the two GitHub questions; the answers are in the build plan's decision log. What follows from them is built in this order: the licence changes (a licence is set aside when an invite or code promises one; built and live the same day, with two live checks added to T-18), then payments (Milestone 4b; built and deployed the same day; your Stripe test keys reached the server that afternoon, so buying is open on test keys and is yours to try, T-22), then Milestone 5 (background jobs, the licence email, the audit log, possible duplicates; built and deployed the same day, with a live checklist that is yours to run, T-24). Nobody has yet tried Milestone 5 by hand on the live site either. The same day you set up the uptime checker (Better Stack), confirmed Sentry is on its free plan, set up Stripe's test keys, and asked AWS again for SES production access after finding the October request had been refused. The site is being built for the US first; the India items below are deferred. Every decision below was reviewed with the founder on 2026-11-12; the ones still listed were left here on purpose.
 
 ## Waiting on you now
 
@@ -25,12 +25,10 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | --- | --- | --- |
 | T-16 | Run the Milestone 3 live checklist (parts A to F in the build plan) | Six of Milestone 3's seven boxes can only be ticked on the live site |
 | T-18 | Run the Milestone 4 live checklist (parts A to D in the build plan, and parts E and F for its second part) | Four of Milestone 4's five boxes, and two of its second part's three, can only be ticked on the live site |
-| T-21 | Stripe: a test-mode account, its secret key and webhook secret in Parameter Store (five steps in the build plan, Milestone 4b) | Until the key is on the server, the buy pages say buying online is not open yet |
-| T-22 | Run the Milestone 4b live checklist with Stripe's test card (parts A to C in the build plan) | Nothing has been run against Stripe itself yet; three of its four boxes can only be ticked on the live site |
+| T-22 | Run the Milestone 4b live checklist with Stripe's test card (parts A to C in the build plan). The keys are on the server, so it can be run now | Nothing has been run against Stripe itself yet; three of its four boxes can only be ticked on the live site |
 | T-24 | Run the Milestone 5 live checklist (parts A to D in the build plan, and E if you like) | Four of Milestone 5's five boxes can only be ticked on the live site; the worker has never sent a real email |
-| T-2 | Set up the uptime checker (Better Stack) once Outlook is back | Nobody is told if the site goes down |
 | T-3 | Confirm you did the second-email checks (part F) | Two Milestone 1 boxes can then be ticked |
-| T-4 | Check the AWS support case for SES production access | Until it is approved, strangers cannot get a sign-up email |
+| T-4 | Check the new AWS case for SES production access from 2026-11-14 (the October request was refused; you asked again on 2026-11-13), and confirm the suppression list is switched on | Until it is approved, strangers cannot get a sign-up email |
 | T-14 | Pick the inbox that replies to site emails should reach | Then a small PR adds the Reply-To |
 
 ## Decisions you have parked
@@ -47,16 +45,15 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | D-10 | Show dates in each person's time zone? | If people complain | Day only, in UTC |
 | D-11 | Keep `app.theaccelerare.com` or rename it? | Before the pilot, ideally before T-4 and T-10 | `app.` is a placeholder |
 | D-15 | Hide whether an email has an account (sign-up timing, reset warning) | If it becomes a concern | Accepted for now (2026-11-12) |
-| D-20 | Review sales tax and invoices with an accountant | Before real prices are set | No tax collected; Stripe's receipt, and a numbered invoice for an organization |
+| D-20 | Review sales tax and invoices with an accountant, and with it whether to use Stripe's "Managed Payments" (Stripe handles tax, fraud and disputes for 3.5% more) | Before real prices are set | No tax collected; Stripe's receipt, and a numbered invoice for an organization; Managed Payments not used |
 | D-17 | Review the wording that tells a member what an organization's admins can see | With D-7, before the pilot | The wording as built; "fine for now" (2026-11-13) |
 
 ## Tasks still open
 
 | ID | What | When |
 | --- | --- | --- |
-| T-2 | Uptime checker on `/health` (Better Stack) | When Outlook is back |
 | T-3 | Part F: password reset from a second email; switch primary email | Confirm it was done |
-| T-4 | SES production access, then a real stranger's sign-up and re-testing every email | When AWS approves |
+| T-4 | SES production access (asked again 2026-11-13), then a real stranger's sign-up and re-testing every email | Check the case from 2026-11-14 |
 | T-5 | Part E: the Milestone 1 browser checks | Low priority, your call |
 | T-6 | Turn on MFA for the `founder` AWS login | Before real customer data |
 | T-7 | CloudWatch alarms (CPU, disk, database storage) | Before the pilot |
@@ -70,10 +67,10 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | T-18 | Run the Milestone 4 live checklist | Now |
 | T-19 | The interface points the founder raised on the live site (six small fixes and a design pass) | When the founder asks; each is a small PR |
 | T-23 | Record bounces and complaints from Amazon SES and stop writing to those addresses | Before real email volume; needs the AWS console |
-| T-21 | Stripe test keys and webhook, in Stripe's dashboard and Parameter Store | Now; needed before payments can be tried on the live site |
-| T-22 | Run the Milestone 4b live checklist | After T-21 |
+| T-22 | Run the Milestone 4b live checklist | Now |
 | T-24 | Run the Milestone 5 live checklist | Now; part B needs an address Amazon SES can deliver to |
 | T-25 | Look for possible duplicates among the accounts that already existed | When you want it; a small PR |
+| T-26 | Uptime checker, four small things: watch the worker too, avoid false alarms during a deploy, a second place for alerts, and the free plan's terms | When you next open Better Stack |
 
 ## Later, not yet planned
 
@@ -98,7 +95,7 @@ These are not in any milestone yet. The code is shaped so none of them needs a r
 
 Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item below:
 
-- Do not build anything from a milestone later than the one in progress. As of 2026-11-13 Milestones 3 and 4 are both code-complete and live, each waiting only for the founder's live checklist (T-16, T-18). The work in progress is what the founder asked for on 2026-11-13, in this order: the licence changes that follow from their answers on Milestone 4's choices (built and live; "Milestone 4, second part" in the build plan), payments (Milestone 4b; code-complete and deployed, closed on the live site until the founder's Stripe steps, T-21, with the live checklist T-22), then Milestone 5 (code-complete and deployed; the live checklist is T-24). All three are built, so nothing is in progress: Milestone 6 is not planned or started and waits for the founder's word. Merging on green without waiting for review applied to those pieces of work (decision log, 2026-11-13) and ended with them; ask before doing it for anything further. `main` is protected: every change goes through a pull request whose `test` check has passed. The site is built for the US first (2026-11-13): do not design anything India-specific unless the founder brings it back.
+- Do not build anything from a milestone later than the one in progress. As of 2026-11-13 Milestones 3 and 4 are both code-complete and live, each waiting only for the founder's live checklist (T-16, T-18). The work in progress is what the founder asked for on 2026-11-13, in this order: the licence changes that follow from their answers on Milestone 4's choices (built and live; "Milestone 4, second part" in the build plan), payments (Milestone 4b; code-complete and deployed, open on the live site on Stripe's test keys since 2026-11-13, with the live checklist T-22), then Milestone 5 (code-complete and deployed; the live checklist is T-24). All three are built, so nothing is in progress: Milestone 6 is not planned or started and waits for the founder's word. Merging on green without waiting for review applied to those pieces of work (decision log, 2026-11-13) and ended with them; ask before doing it for anything further. `main` is protected: every change goes through a pull request whose `test` check has passed. The site is built for the US first (2026-11-13): do not design anything India-specific unless the founder brings it back.
 - An item marked **Decision** is the founder's to make. Do not pick an answer. Present the options, recommend one if asked, and wait.
 - The founder reviewed every decision on 2026-11-12. Those still here were deliberately left for later; do not re-ask them unprompted unless the milestone that needs them is being planned.
 - Never put survey statements, answers or a person's email into this file, a test or an admin history label.
@@ -107,24 +104,20 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 
 ## Tasks
 
-### T-2 Uptime checker on `/health` (tasklist part G)
-- **Status:** open. The founder chose Better Stack Uptime (free plan, commercial use allowed, 3-minute checks) and wants to sign up with an Accelerare address, which is on Microsoft 365. Paused on 2026-11-12 because Outlook was down.
-- **Context:** `/health` returns `200` with the body `ok` (`tests/test_health.py`). Sentry cannot report a site that is down, so this is the only "site is down" alarm. The runbook chose "UptimeRobot or similar" at 5 minutes; Better Stack replaces that choice.
-- **Steps given to the founder:** sign up; Monitors → Create monitor; "URL becomes unavailable" (or keyword `ok`); URL `https://app.theaccelerare.com/health`; 3 minutes; email alerts (push optional). Suggested adding a personal Gmail as a second recipient so an Outlook outage does not hide an alert. The deliberate "stop the container and see the alert" drill belongs to Milestone 7.
-- **When done, update:** `04-infrastructure.md` runbook step 8.4 (remove "Uptime checker not yet registered") and the Resources row "Uptime" (name Better Stack), the "Pending and future" bullet that lists the uptime checker, and add a Better Stack row to NOTES.md's porting checklist (who owns the account, which address gets alerts).
-- **Source:** `05-build-plan.md` tasklist part G; `04-infrastructure.md` step 8.4 and "Pending and future".
-
 ### T-3 Second-email checks (tasklist part F)
 - **Status:** the founder said on 2026-11-12 "I did F, I think". Not confirmed; the boxes stay unticked until they say so.
 - **What F is:** verify one or two business addresses as SES email identities **[console]** (the sandbox delivers only to verified addresses), then on the live site: password reset requested from a second verified email (link goes to that address, a link-free notice to the others); make a second email primary, log in with it, remove the old one.
 - **When confirmed:** tick Milestone 1 "Done when" boxes 2 ("Password reset works on the live site, from a second verified email too") and 3 ("A user can make a second email primary, log in with it, and remove the old one") in `05-build-plan.md`, with "(founder, live, <date>)".
 
 ### T-4 SES production access
-- **Status:** requested 2026-10-09 through an AWS support case; last recorded status "awaiting AWS". Not checked since. **[console]**
-- **Why it matters:** in the sandbox SES delivers only to verified addresses and at most 200 a day, so a stranger signing up never gets a verification email. Milestone 1 box 1 ("A stranger can sign up on the live site, receive the email, verify, log in and log out on a phone") waits on it.
+- **Status:** asked for a second time on 2026-11-13; awaiting AWS. **[console]** The first request (2026-10-09) was **refused on 2026-10-10**, with no reason given, and AWS closed the case. Nobody looked at it again until 2026-11-13, so these docs said "awaiting AWS" for five weeks while the answer was no. On 2026-11-13 the SES dashboard still said sandbox in US West (Oregon), 200 emails a day. The founder made a new request from the SES dashboard and answered AWS's six questions on the new case the same day.
+- **What the founder told AWS (as reported to Claude):** the application's address and the company's main site; transactional mail only (sign-up confirmation, password reset and its notice, organization invites, and notices such as a licence being given); fewer than 100 emails a day; no mailing list and no bought or imported addresses; the account-level suppression list is enabled for bounces and complaints; recording of bounces and complaints through SNS is "being added" (that is T-23, which is not built); Easy DKIM on the verified domain.
+- **To confirm [console]:** that the account-level suppression list really is switched on for both bounces and complaints (SES, Configuration, Suppression list, Account-level settings). The answer to AWS said so before it was checked, and the founder had not reported the result when this was written. If it is off, switch it on: the answer must be true.
+- **Next:** look at the case from 2026-11-14. AWS's reply goes to the AWS account's email and shows in the Support Center.
+- **Why it matters:** in the sandbox SES delivers only to verified addresses and at most 200 a day, so a stranger signing up never gets a verification email. Milestone 1 box 1 ("A stranger can sign up on the live site, receive the email, verify, log in and log out on a phone") waits on it. So does anyone receiving the licence email (Milestone 5) at an address SES has not verified.
 - **Side effects that end with approval:** the yellow "we could not send the email" warning on signup and login; the reset page's warning that reveals whether an account exists (NOTES.md 2026-10-10 entry; see D-15).
-- **When approved:** the founder signs up from an outside address on a phone; re-test every email flow (verify, resend, reset, reset notice, add email). Tick Milestone 1 box 1. Update `04-infrastructure.md` "Email sending" step 7 and the Resources row, and NOTES.md's porting checklist SES row ("a pending support case at the time of writing").
-- **If refused or stalled:** the runbook names Postmark, SendGrid or Resend as fallbacks; switching is a settings change through `MAILERS` (Django 6.1), not a code change.
+- **When approved:** the founder signs up from an outside address on a phone; re-test every email flow (verify, resend, reset, reset notice, add email, invite, licence given). Tick Milestone 1 box 1. Update `04-infrastructure.md` "Email sending" step 7 and the Resources row, and NOTES.md's porting checklist SES row.
+- **If refused again:** do not ask a third time without changing something. The runbook names Postmark, SendGrid or Resend as fallbacks; switching is a settings change through `MAILERS` (Django 6.1), not a code change. T-23 being built first (so the answer about bounces is "done", not "being added") is the other thing that could change AWS's answer.
 
 ### T-5 Milestone 1 browser checks (tasklist part E)
 - **Status:** open; the founder said on 2026-11-12 they are not worried about it. Do not push it.
@@ -163,7 +156,7 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Status:** cosmetic. `deploy.yml` sets `IMAGE` at run time through `$GITHUB_ENV`, so the editor flags `env.IMAGE`. Switching to a step output would silence it. Not worth a PR on its own.
 
 ### T-14 Reply-To on site emails
-- **Status:** decided 2026-11-12 (was D-12): replies to site emails go to a monitored inbox. The address is not chosen yet; candidates offered were a new support address (needs a mailbox or alias in Microsoft 365) or the existing admin address.
+- **Status:** decided 2026-11-12 (was D-12): replies to site emails go to a monitored inbox. Raised again on 2026-11-13; the founder said to leave it for now. The address is not chosen yet; candidates offered were a new support address (needs a mailbox or alias in Microsoft 365) or the existing admin address.
 - **Build (small PR, once the address exists):** an optional `REPLY_TO_EMAIL` environment variable in `config/settings/production.py` (empty means no header, so local and tests are unchanged); `AccountAdapter.send_mail` in `apps/accounts/` adds `reply_to=[...]` to the message, and the other sends (`services.send_reset_notice` and friends) do the same, ideally through one helper. A test that a sent mail carries the header when the setting is set. Add the variable to `.env.example`, to Parameter Store **[console]** under `/survey/prod/`, and to NOTES.md's porting checklist.
 - **Not part of this:** bulk email (consent, unsubscribe, `List-Unsubscribe`, batching through the Milestone 5 queue) stays with the lawyer, D-7.
 
@@ -191,16 +184,8 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **From Milestone 4, the same kind of thing** (the builder's suggestions, not the founder's requests): when an admin puts a tier on an invite or a code while the stock of that tier is empty, the page could say so at once instead of only after someone joins without a licence (settled on 2026-11-13 and built: making such an invite or code is refused); and "Give licence" could read "Give another licence" for a member whose last one is already used.
 - **Source:** the founder, on the live site, 2026-10-18 and 2026-10-25.
 
-### T-21 Stripe: test keys and the webhook
-- **Status:** open; the founder's, raised 2026-11-13 with the Milestone 4b plan. The founder was opening a Stripe account the same day. **[console]** (Stripe's dashboard and the AWS console; Claude has no access to either.)
-- **What to do:** the five steps under "What the founder does" in `05-build-plan.md`, Milestone 4b: a test-mode Stripe account; the secret key (`sk_test_…`) into Parameter Store as `/survey/prod/STRIPE_SECRET_KEY` and into the laptop's `.env`; a webhook in Stripe for `https://app.theaccelerare.com/payments/stripe/webhook/` with the events `checkout.session.completed` and `charge.refunded`, and its signing secret (`whsec_…`) into Parameter Store as `/survey/prod/STRIPE_WEBHOOK_SECRET`; then a deploy that is not docs-only; and receipts switched on in Stripe's email settings.
-- **Never** paste a key into a chat, a commit, a document or a screenshot. A key that has been shown anywhere is replaced in Stripe's dashboard ("roll key").
-- **Why the order does not matter:** both settings are optional. With no key the buy pages say buying online is not open yet; with a key and no webhook secret, buying works through the page the person returns to, and Stripe's own messages are answered "not set up" until the secret arrives (Stripe keeps retrying for days).
-- **Real keys later:** only after the founder has tried a purchase on test keys and says so (decision log, 2026-11-13), and after D-20. Going live means the same two parameters with `sk_live_…` and a new webhook secret, made in Stripe's live mode.
-- **When done:** remove this item, note the date in the decision log, and update `04-infrastructure.md` (the Secrets row and section 4) and NOTES.md's porting checklist if they do not already say so.
-
 ### T-22 Run the Milestone 4b live checklist
-- **Status:** open, waiting on T-21 and then on the founder, since 2026-11-13. Milestone 4b is code-complete and deployed. **Nothing in it has been run against Stripe:** every test uses a stand-in. The first real payment page, the first real message from Stripe and the first real refund will be the founder's, on test keys.
+- **Status:** open, waiting on the founder, since 2026-11-13. The founder did the Stripe steps that day (a sandbox account, the test secret key and the webhook's signing secret in Parameter Store, receipts switched on; this was task T-21, now removed). The secrets have reached the server: at 2:09pm PST an unsigned request to the webhook was answered "Bad signature", where at 12:22pm it had been answered "Not set up". Whether the buy page has stopped saying "Buying online is not open yet" is step 1 of part A; nobody has looked. Milestone 4b is code-complete and deployed. **Nothing in it has been run against Stripe:** every test uses a stand-in. The first real payment page, the first real message from Stripe and the first real refund will be the founder's, on test keys.
 - **What to do:** "Live checklist (for the founder)" in `05-build-plan.md`, Milestone 4b: part A (a person buys a licence and upgrades it), part B (an organization buys three), part C (a refund from the Django admin, and one that is refused). Stripe's test card is `4242 4242 4242 4242`. It needs the superuser login, a second ordinary account, an organization, and Stripe's dashboard in test mode.
 - **If something fails:** note what the page said and when. Sentry will have the error, without the person's details. The file that talks to Stripe is `apps/payments/stripe_api.py`; a payment that arrived but could not be finished is marked "needs attention" under "Payments" in the Django admin, with the reason.
 - **Done when:** the founder reports each part. Then a docs-only PR ticks the three boxes, records the date in the decision log, updates the status lines and removes this item.
@@ -218,6 +203,15 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **What to do:** add an action to the Accounts page of the Django admin, for superusers: "Look for possible duplicates of the selected accounts", which calls `accounts.services.look_for_duplicates_later` for each. Selecting all accounts once does the whole table. A history line per account, numbers only. One small PR with tests.
 - **Do not:** run it from a shell on the server; the admin is the place staff work.
 - **Source:** `05-build-plan.md`, Milestone 5, "Smaller rules".
+
+### T-26 Uptime checker: four small follow-ups
+- **Status:** open, the founder's, since 2026-11-13. **[console]** (Better Stack's site; nothing in AWS.) The uptime checker itself is done: a Better Stack account on the free plan under the founder's Accelerare address, one monitor on `https://app.theaccelerare.com/health` every 3 minutes, email alerts, and a test alert that arrived (this was task T-2, now removed).
+- **1. Watch the worker too.** Add a second monitor on `https://app.theaccelerare.com/health/worker`, "URL becomes unavailable". That address answers "ok", or "behind" with status 503 when a background job has waited more than ten minutes, which means the worker has stopped. Without it nobody is told if the worker dies; the site carries on and emails quietly stop.
+- **2. False alarms during a deploy.** The monitor's confirmation period is "Immediate start", so a check that lands in the few seconds a deploy restarts the site could raise an alarm. Setting it to 1 minute fixes that. Do the same on the worker's monitor.
+- **3. One address gets the alerts.** The second recipient T-2 suggested (a personal address, so an Outlook outage cannot hide an alert) needs a paid Responder seat, and the founder skipped it and the free phone push notification. Alerts therefore go to one Microsoft 365 address only. The free push notification in Better Stack's phone app is the cheapest second channel.
+- **4. The free plan's terms.** The pricing page calls the tier "Free for personal projects", while the choice of Better Stack was recorded as "commercial use allowed". Nobody has read the terms. Read them, or accept the small risk; UptimeRobot is the fallback the runbook first named.
+- **The drill** (stop the container, see the alert arrive) belongs to Milestone 7, as before.
+- **Source:** the founder's setup session of 2026-11-13; `04-infrastructure.md`, the Resources row "Uptime".
 
 ### T-23 Bounces and complaints from Amazon SES
 - **Status:** open; moved out of Milestone 5 on 2026-11-13 (the founder accepted this as a default before the re-plan). Decided on 2026-11-12 that the site should record them and stop sending to an address that hard-bounced or complained.
@@ -284,6 +278,7 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 ### D-20 Sales tax and invoices, reviewed with an accountant
 - **Status:** raised by the founder on 2026-11-13 while answering the payments basics: "do whatever makes sense for now, mark it as something to review later". **Decision:** the founder's, with an accountant. Needed before real prices are set, which is before real Stripe keys.
 - **Today's default (Milestone 4b builds this):** no sales tax is collected. The checkout is built so that Stripe's tax setting can be switched on without a code change. A person gets Stripe's emailed receipt; an organization gets a numbered invoice as well.
+- **A second question, raised 2026-11-13:** when opening the Stripe account the founder was offered "Managed Payments", where Stripe is the merchant of record and carries sales tax, fraud and disputes for an additional 3.5% of each sale, and skipped it. The checkout was not built for it. It is the same question from the other side (who is responsible for tax), so decide the two together, with the accountant or the lawyer. Choosing it would mean a change to how a purchase is started (`apps/payments/stripe_api.py`), not a redesign.
 - **Questions for the accountant:** does the founder's home state, or any state where customers are, tax this kind of sale (an online assessment and its results); at what volume of sales in another state does a duty to collect begin; what an invoice to a business must show; whether the $1, $2, $3 placeholder prices are before or after tax once real prices are chosen.
 - **If tax must be collected:** switch on Stripe's tax setting **[console]** (Stripe's dashboard, not AWS), register where required, and set `STRIPE_AUTOMATIC_TAX` to `true` in Parameter Store. Buying then needs no code change. **Refunds do:** the Refund button sends back the price before tax, because the site's record holds the price before tax, so the tax part of a refund would stay with Accelerare. That is a small change to `payments.services.refund` (refund the tax too), to be made before the setting is switched on. Record the answer in the decision log of `05-build-plan.md`.
 - **Source:** the founder's answers of 2026-11-13; `05-build-plan.md`, Milestone 4b.

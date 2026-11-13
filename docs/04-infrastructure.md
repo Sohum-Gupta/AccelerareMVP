@@ -46,9 +46,9 @@ flowchart LR
 | Secrets | SSM Parameter Store, SecureString, under `/survey/prod/` | `DATABASE_URL`, `DB_PASSWORD`, `SECRET_KEY`, `EMAIL_*`, `DEFAULT_FROM_EMAIL`, `SENTRY_DSN`, `ALLOWED_HOSTS`, and the optional `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `STRIPE_AUTOMATIC_TAX`. `deploy.sh` renders them to `/opt/survey/.env` through `deploy/render_env.py` |
 | Container registry | GitHub Container Registry (ghcr.io) | Free for this use; avoids ECR setup |
 | CI/CD | GitHub Actions | Test and lint on every push; on `main` build, push, then deploy over SSH with a key used only for deploys |
-| Email | Amazon SES over SMTP from `app.theaccelerare.com`, set up 2026-10-09 | Test mail delivered; production access requested and pending (sandbox: verified recipients only). See "Email sending" |
-| Error tracking | Sentry, on its free Developer plan once the new account's trial of the paid plan ends (founder, 2026-11-13); one project (`survey-platform`, organisation `accelerare`, US data region) | DSN in Parameter Store. `local` has no DSN; the server reports as environment `production` |
-| Uptime | A free external checker (UptimeRobot or similar) hitting `https://<domain>/health` every 5 minutes, alert by email | Detects the site being down; Sentry does not. Not yet set up |
+| Email | Amazon SES over SMTP from `app.theaccelerare.com`, set up 2026-10-09 | Test mail delivered. Still in the sandbox (verified recipients only, 200 a day): production access was refused on 2026-10-10 and asked for again on 2026-11-13. See "Email sending" |
+| Error tracking | Sentry, on its free Developer plan with no payment method on file, so nothing can be charged (the founder checked on 2026-11-13: 5,000 errors a month included, 2 used that month); one project (`survey-platform`, organisation `accelerare`, US data region) | DSN in Parameter Store. `local` has no DSN; the server reports as environment `production` |
+| Uptime | Better Stack Uptime, free plan, no card on file, under the founder's Accelerare address. One monitor on `https://<domain>/health` every 3 minutes, alert by email (set up by the founder on 2026-11-13; a test alert arrived) | Detects the site being down; Sentry does not. Alerts go to one address; the worker's `/health/worker` is not watched yet (`06-backlog.md`, T-26) |
 | Metrics and alarms | CloudWatch: EC2 CPU > 80% for 15 min, EC2 status check failed, RDS free storage < 2 GB, RDS CPU > 80%; all to one SNS topic emailing you | Default EC2 metrics do not include disk and memory; the CloudWatch agent adds them (optional for trial). Not yet set up |
 | Logs | `docker compose logs`; containers log to stdout. Optional: CloudWatch agent ships them off the box | Enough for the trial |
 
@@ -70,7 +70,7 @@ EC2, disk and IPv4 prices are from published rates as remembered when this was w
 
 ## Runbook: first-time setup
 
-Record anything you change from these steps directly in this section. Sections 1 to 7, and steps 8.1, 8.2 and 8.5, were completed on 2026-10-08/09; step 8.3 waits for Milestone 1 (the first real verification email) and step 8.4 for the uptime checker.
+Record anything you change from these steps directly in this section. Sections 1 to 7, and steps 8.1, 8.2 and 8.5, were completed on 2026-10-08/09; step 8.3 waits for Milestone 1 (the first real verification email); step 8.4 was completed on 2026-11-13.
 
 **1. Account**
 1. Create the account; enable MFA on the root user (an authenticator app, with the app's cloud backup turned on first). AWS gives no recovery codes: the safeguards are that backup, a second MFA device, and a root email you will keep for good. Never use root again afterwards.
@@ -120,7 +120,7 @@ Record anything you change from these steps directly in this section. Sections 1
 - `ALLOWED_HOSTS`: the domain (`app.theaccelerare.com`).
 - `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`: required (the app refuses to start without them). Set on 2026-10-09 to the SES SMTP endpoint, the SES SMTP username and password, and `Accelerare <noreply@app.theaccelerare.com>` (see "Email sending"). `EMAIL_PORT` is optional (587).
 - `SENTRY_DSN`: from the Sentry project (optional: empty turns reporting off). Created 2026-10-09.
-- `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`: optional (Milestone 4b). The secret key from Stripe's dashboard (Developers, API keys; `sk_test_…` until the founder says to go live) and the signing secret of the webhook made there for `https://<domain>/payments/stripe/webhook/` (`whsec_…`). Without the first the buy pages say buying online is not open yet; without the second Stripe's messages are answered "not set up". `STRIPE_AUTOMATIC_TAX` (`true` or absent) switches on Stripe's automatic sales tax. A new parameter reaches the server on the next deploy that is not docs-only. Not yet set as of 2026-11-13 (`06-backlog.md`, T-21).
+- `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`: optional (Milestone 4b). The secret key from Stripe's dashboard (Developers, API keys; `sk_test_…` until the founder says to go live) and the signing secret of the webhook made there for `https://<domain>/payments/stripe/webhook/` (`whsec_…`). Without the first the buy pages say buying online is not open yet; without the second Stripe's messages are answered "not set up". `STRIPE_AUTOMATIC_TAX` (`true` or absent) switches on Stripe's automatic sales tax. A new parameter reaches the server on the next deploy that is not docs-only. Both were set by the founder on 2026-11-13, with Stripe's test ("sandbox") values, and had reached the server by that afternoon: an unsigned request to the webhook is now answered "Bad signature" instead of "Not set up". `STRIPE_AUTOMATIC_TAX` is not set. Going live means replacing both with values made on Stripe's live side, and switching receipts on there too (a sandbox keeps its own settings).
 - `SITE_URL`: optional, and not set (Milestone 5). The site's own address for links in emails the worker sends. Without it the server uses `https://` and the first name in `ALLOWED_HOSTS`, which is right while the site has one host name.
 
 **5. Domain**
@@ -144,7 +144,7 @@ The server files live in the repository under `deploy/` and the pipeline copies 
 1. `docker compose run --rm web python manage.py createsuperuser` for the root admin (use an address that is not the AWS root email).
 2. Open `https://<domain>/admin/` and confirm login. (Survey v1's 25 questions appear from Milestone 2, not before.)
 3. Register a test individual account and confirm the verification email arrives. *Sign-up exists since Milestone 1. Still to do by hand: a live sign-up with `admin@theaccelerare.com`, the only address SES can deliver to until production access is approved (see `06-backlog.md`, T-4). SES delivery itself was tested on 2026-10-09 with a test message.*
-4. Confirm `/health` returns 200 and register it with the uptime checker. *Uptime checker not yet registered.*
+4. Confirm `/health` returns 200 and register it with the uptime checker. *Done 2026-11-13: Better Stack, one monitor every 3 minutes, email alerts. Register `/health/worker` the same way (`06-backlog.md`, T-26).*
 5. Trigger a deliberate error once and confirm it appears in Sentry. Until the site has a page that can fail, use `docker compose run --rm web python manage.py shell -c "1/0"`; a failing web request is checked in Milestone 7.
 
 **9. Backup restore test (before any real customer)**
@@ -172,7 +172,7 @@ Setup, done 2026-10-09:
 4. Set `EMAIL_HOST=email-smtp.us-west-2.amazonaws.com` (the console page did not display the endpoint; this is AWS's standard name for the region and the test confirmed it), `EMAIL_PORT` left at 587, `DEFAULT_FROM_EMAIL=Accelerare <noreply@app.theaccelerare.com>`, then ran `deploy.sh`. The deploy check reported no issues.
 5. Verified `admin@theaccelerare.com` as an email identity, because the sandbox delivers only to verified addresses. It is a recipient only; nothing sends from it.
 6. Test from the server: `send_mail` through the web container returned 1 and the message arrived in the Microsoft 365 inbox from `Accelerare <noreply@app.theaccelerare.com>`. Its headers showed `dkim=pass` for `app.theaccelerare.com` and for `amazonses.com`, `dmarc=pass`, `compauth=pass`, SCL 1. SPF passed for Amazon's bounce domain, not ours, so DMARC passes through DKIM alone (the expected result without a custom MAIL FROM domain).
-7. Requested production access on 2026-10-09 (transactional mail). The automated first reply asked for the URL, email type, volume, recipient source, bounce and complaint handling and a sample email; answered on the same case. **Status: awaiting AWS.** Until it is approved SES delivers only to verified addresses (and at most 200 a day), so a stranger cannot receive a verification email yet. Milestone 1's "done when" depends on this.
+7. Requested production access on 2026-10-09 (transactional mail). The automated first reply asked for the URL, email type, volume, recipient source, bounce and complaint handling and a sample email; answered on the same case. **AWS refused it on 2026-10-10**, giving no reason, and closed the case; this runbook went on saying "awaiting AWS" until the founder looked on 2026-11-13. A second request was made from the SES dashboard on 2026-11-13 and the same six questions answered on the new case (`06-backlog.md`, T-4, records what was said). **Status: awaiting AWS on the second request; check from 2026-11-14.** Until it is approved SES delivers only to verified addresses (and at most 200 a day), so a stranger cannot receive a verification email yet. Milestone 1's "done when" depends on this.
 
 The reply promised: keep the account-level suppression list on, check the SES reputation dashboard weekly by hand, never retry hard bounces, and add SNS bounce and complaint recording as the product matures.
 
@@ -237,7 +237,7 @@ Writing Terraform at this point is worthwhile; by then every setting is understo
 - **Privacy and legal, to take to lawyers first:** the UK GDPR and India's DPDP Act (substantive duties from 2027-05-13) apply to people in those countries wherever the server is. Topics: transfers to the US, a UK representative and ICO registration, consent and verifiable parental consent for under-18s in India, data agreements with enterprise customers, bulk-email consent and unsubscribe, and data minimisation (an age band rather than a birthdate, optional gender). Nothing here is built yet.
 - **Latency for UK and India users:** about 150 ms from the UK and 250 ms from India to Oregon. Revisit with a CDN or a regional move if it becomes a real problem. One database in one region is the plan; replicas, not separate databases, if it grows.
 - **PostgreSQL major version:** upgrade the local, CI and RDS databases together to a newer major version before the pilot, while the database is still empty. Check the end-of-standard-support date for 16.
-- **MFA on `founder`**, an uptime checker and the CloudWatch alarms are not yet set up.
+- **MFA on `founder`** and the CloudWatch alarms are not yet set up. The uptime checker is (2026-11-13), with small follow-ups in `06-backlog.md`, T-26.
 - **The `app.` subdomain is a placeholder:** rename before the pilot.
 - **SSH exposure:** consider Session Manager and removing the open port 22 during Milestone 7 (confirmed 2026-11-12; in the Milestone 7 plan).
 - **Editor warning:** VS Code flags `env.IMAGE` in `deploy.yml` as "might be invalid" because it is set at run time through `$GITHUB_ENV`. It is a false positive; switching to a step output would silence it.
@@ -267,3 +267,5 @@ Writing Terraform at this point is worthwhile; by then every setting is understo
 | 2026-10-09 | Email through Amazon SES over SMTP | See "Email sending" |
 | 2026-10-09 | SES: IAM SMTP credentials, not Mail Manager | Mail Manager costs extra and adds Secrets Manager; we need no rules or rotation yet |
 | 2026-10-09 | EC2 credit mode Standard | Fixes the monthly cost; Unlimited can bill extra |
+| 2026-11-13 | Uptime checker: Better Stack (free plan), replacing "UptimeRobot or similar"; 3-minute checks of `/health`, email alerts to one address | The founder's choice of 2026-11-12, set up by them on 2026-11-13. A second recipient needs a paid seat and was skipped |
+| 2026-11-13 | SES production access asked for a second time, after the first request was found to have been refused on 2026-10-10 | Without it no stranger can receive mail. If refused again, change something first: build T-23 or move to a fallback provider |
