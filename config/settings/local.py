@@ -16,6 +16,9 @@ from .base import *
 
 DEBUG = True
 
+# Where `manage.py runserver` listens, for links in emails the worker sends.
+SITE_URL = SITE_URL or "http://localhost:8000"
+
 # Locally nothing runs collectstatic, so the hashed-manifest storage from
 # base.py would fail every {% static %} lookup when DEBUG is off (as in tests).
 # Use plain storage and let WhiteNoise serve straight from static/.

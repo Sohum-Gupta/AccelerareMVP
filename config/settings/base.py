@@ -210,6 +210,12 @@ STORAGES = {
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
+# The site's own address, for links in emails the background worker sends: it
+# has no web request to read the address from. Empty here; local.py and
+# production.py each say what it is.
+SITE_URL = env("SITE_URL", default="")
+
+
 # Payments (Stripe)
 # All three are optional, on a laptop and on the server, so the code can be
 # deployed before the keys exist and the order of the two does not matter.

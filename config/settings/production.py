@@ -62,3 +62,8 @@ MAILERS = {
 
 # The "From" address recipients see.
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+
+# The site's address for links in emails the worker sends. It is the first
+# name in ALLOWED_HOSTS, over HTTPS, unless SITE_URL says otherwise, so the
+# server needs no new setting.
+SITE_URL = SITE_URL or (f"https://{ALLOWED_HOSTS[0]}" if ALLOWED_HOSTS else "")
