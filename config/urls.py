@@ -3,6 +3,7 @@ from django.urls import include, path
 
 from apps.accounts import views as account_views
 from apps.enterprises import views as enterprise_views
+from apps.entitlements import organization_views as licence_views
 from apps.responses import organization_views
 
 from . import views
@@ -54,6 +55,28 @@ urlpatterns = [
         "organizations/<slug:slug>/responses/<int:pk>/",
         organization_views.detail,
         name="organization_response",
+    ),
+    # An organization's Licences page and its buttons, served by the licences
+    # app for the same reason.
+    path(
+        "organizations/<slug:slug>/licences/",
+        licence_views.licences,
+        name="organization_licences",
+    ),
+    path(
+        "organizations/<slug:slug>/licences/members/<int:pk>/give/",
+        licence_views.give,
+        name="organization_licence_give",
+    ),
+    path(
+        "organizations/<slug:slug>/licences/<int:pk>/tier/",
+        licence_views.change_tier,
+        name="organization_licence_tier",
+    ),
+    path(
+        "organizations/<slug:slug>/licences/<int:pk>/take-back/",
+        licence_views.take_back,
+        name="organization_licence_take_back",
     ),
     path("organizations/", include("apps.enterprises.urls")),
     # Joining an organization. Not under /organizations/: the person is not a member yet.

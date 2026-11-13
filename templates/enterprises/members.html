@@ -5,6 +5,7 @@
   <p class="mb-1 text-sm"><a href="{% url 'enterprises:dashboard' organization.slug %}">{{ organization.name }}</a></p>
   <h1>Members</h1>
   <p class="text-sm text-slate-600">{{ current_members }} member{{ current_members|pluralize }} now · {{ all_time_members }} in total, including people who have left</p>
+  <p class="text-sm"><a href="{% url 'organization_licences' organization.slug %}">Give or take back licences</a></p>
 
   <ul class="divide-y divide-slate-200 rounded-md border border-slate-200 bg-white">
     {% for row in rows %}

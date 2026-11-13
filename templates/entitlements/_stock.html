@@ -1,0 +1,16 @@
+{% comment %}
+An organization's stock of licences, one line per tier it has bought ("7 of 10
+Tier 2 licences left"). Staff can lower a stock below what has been given; the
+line then says how many are given and that no more can be. Admin pages only.
+{% endcomment %}
+<ul class="mb-3 list-none space-y-1 p-0 text-sm" data-stock>
+  {% for line in stock %}
+    <li data-tier="{{ line.tier }}">
+      {% if line.given > line.bought %}
+        <span class="font-medium">{{ line.given }} of {{ line.bought }} {% include "responses/_tier.html" with tier=line.tier %} licence{{ line.bought|pluralize }} given.</span> No more can be given at this tier until some are taken back.
+      {% else %}
+        <span class="font-medium">{{ line.left }} of {{ line.bought }} {% include "responses/_tier.html" with tier=line.tier %} licence{{ line.bought|pluralize }} left</span>
+      {% endif %}
+    </li>
+  {% endfor %}
+</ul>
