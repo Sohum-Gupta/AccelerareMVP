@@ -8,6 +8,7 @@ from apps.responses import organization_views
 from . import views
 
 urlpatterns = [
+    path("", views.home, name="home"),
     path("health", views.health, name="health"),
     path("admin/", admin.site.urls),
     # Ours, before the include, so reverse("account_signup") finds this one.
