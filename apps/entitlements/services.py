@@ -39,10 +39,13 @@ from django.utils import timezone
 from apps.enterprises import services as orgs
 from apps.enterprises.models import Enterprise, Membership
 from apps.funnel import services as funnel
+from apps.jobs import services as jobs
 
 from .models import Entitlement
 
 TIERS = (1, 2, 3)
+# The background job that emails a member about a licence (job_handlers.py).
+LICENCE_EMAIL = "send_licence_email"
 
 
 def _check_tier(tier):
@@ -212,6 +215,8 @@ def assign_seat(admin_membership, member_membership, tier):
     deactivated, and when the member already holds a licence for the
     organization that they have not used or have not finished using (whoever it
     came from): after they submit they can be given another.
+
+    The member is told by email, in the background (Milestone 5).
     """
     _check_seat_tier(tier)
     with transaction.atomic():
@@ -231,7 +236,14 @@ def assign_seat(admin_membership, member_membership, tier):
         if holding:
             raise Refused(holding)
         _check_one_left(enterprise, tier)
-        return _give_from_stock(member, tier, admin.account)
+        licence = _give_from_stock(member, tier, admin.account)
+        if member.account_id != admin.account_id:
+            # Tell the member by email, later and outside this request: the job
+            # is written in this transaction, so it exists only if the licence
+            # does, and the worker sends it (job_handlers.py). An admin giving
+            # themselves a licence is not emailed about it.
+            jobs.enqueue(LICENCE_EMAIL, {"entitlement_id": licence.pk})
+        return licence
 
 
 def give_seat_on_joining(membership, tier):

@@ -1,0 +1,12 @@
+{% autoescape off %}Hello,
+
+{{ enterprise_name }} has given you a licence to take the Accelerare survey for it. You can start whenever you are ready:
+
+{{ start_url }}
+
+You will be asked to log in first. Before you begin, a page tells you what the organization's admins will be able to see. They never see your answers.
+
+One licence is one attempt at the survey.
+
+Accelerare
+{% endautoescape %}
