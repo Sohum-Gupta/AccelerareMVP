@@ -14,6 +14,8 @@
     {% include "responses/_next_step.html" with step=personal key="personal" %}
   {% endif %}
 
+  <p class="text-sm"><a href="{% url 'payments:buy' %}">Buy a licence, or upgrade one you have</a></p>
+
   <h2 class="mt-6 mb-2 text-lg font-semibold">History</h2>
   {% if rows %}
     <ul class="divide-y divide-slate-200 rounded-md border border-slate-200 bg-white">

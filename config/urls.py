@@ -4,6 +4,7 @@ from django.urls import include, path
 from apps.accounts import views as account_views
 from apps.enterprises import views as enterprise_views
 from apps.entitlements import organization_views as licence_views
+from apps.payments import views as payment_views
 from apps.responses import organization_views
 
 from . import views
@@ -64,6 +65,12 @@ urlpatterns = [
         "organizations/<slug:slug>/licences/",
         licence_views.licences,
         name="organization_licences",
+    ),
+    # Buying licences into an organization's stock, served by the payments app.
+    path(
+        "organizations/<slug:slug>/licences/buy/",
+        payment_views.buy_stock,
+        name="organization_licences_buy",
     ),
     path(
         "organizations/<slug:slug>/licences/members/<int:pk>/give/",

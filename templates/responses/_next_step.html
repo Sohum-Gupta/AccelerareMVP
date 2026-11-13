@@ -14,9 +14,10 @@ neither. `step.organization` is empty for the personal context.
     <a href="{{ step.start_url }}" class="inline-block rounded-md bg-brand px-4 py-2 font-medium text-white no-underline hover:bg-brand-dark">Start</a>
   {% elif step.organization %}
     <h2 id="next-title-{{ key }}" class="mb-1 text-base font-semibold">No unused licence for {{ step.organization }}</h2>
-    <p class="mb-0 text-sm text-slate-700">Taking the survey for {{ step.organization }} needs a licence. Accelerare adds licences by hand for now.</p>
+    <p class="mb-0 text-sm text-slate-700">Taking the survey for {{ step.organization }} needs a licence from it. Ask one of its admins for one.</p>
   {% else %}
     <h2 id="next-title-{{ key }}" class="mb-1 text-base font-semibold">{% if step.free %}Free account{% else %}No unused licence{% endif %}</h2>
-    <p class="mb-0 text-sm text-slate-700">Taking the survey needs a licence. Accelerare adds licences by hand for now.</p>
+    <p class="text-sm text-slate-700">Taking the survey needs a licence. One licence is one attempt at the survey.</p>
+    <a href="{% url 'payments:buy' %}" class="inline-block rounded-md bg-brand px-4 py-2 font-medium text-white no-underline hover:bg-brand-dark">Buy a licence</a>
   {% endif %}
 </section>

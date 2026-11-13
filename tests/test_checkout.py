@@ -490,17 +490,17 @@ class TestComingBackFromStripe:
         buy(logged_in)
         purchase = Purchase.objects.get()
         answer = client.get("/buy/cancelled/", {"purchase": purchase.pk})
-        assert answer["Location"] == "/survey/history/"
+        assert answer["Location"] == "/buy/"  # back to the page they left
         assert said(answer) == ["Nothing was charged. You can buy whenever you like."]
         assert fresh(purchase).status == "pending"
         for odd in ({"purchase": "abc"}, {"purchase": "999999"}, {}):
-            assert client.get("/buy/cancelled/", odd)["Location"] == "/survey/history/"
+            assert client.get("/buy/cancelled/", odd)["Location"] == "/buy/"
 
     def test_cancelling_a_stock_purchase_goes_back_to_the_organization(self, client, stripe, acme):
         client.force_login(acme[1].account)
         buy_stock(acme[1])
         answer = client.get("/buy/cancelled/", {"purchase": Purchase.objects.get().pk})
-        assert answer["Location"] == "/organizations/acme/licences/"
+        assert answer["Location"] == "/organizations/acme/licences/buy/"
 
 
 # --- the messages Stripe sends ---------------------------------------------------------------
