@@ -1,0 +1,20 @@
+{% extends "admin/change_list.html" %}
+{% comment %}
+The Jobs page: says how the queue stands above the list, and gives superusers a
+"Queue a test job" button to see that the worker is alive.
+{% endcomment %}
+{% block object-tools-items %}
+  {% if can_test %}
+    <li>
+      <form method="post" action="{{ test_url }}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="addlink" style="cursor: pointer; border: 0;">Queue a test job</button>
+      </form>
+    </li>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}
+{% block content %}
+  <p{% if behind %} class="errornote"{% endif %} data-queue-standing>{{ standing }}</p>
+  {{ block.super }}
+{% endblock %}

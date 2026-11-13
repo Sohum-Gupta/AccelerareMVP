@@ -4,8 +4,9 @@
 # deploy.sh copies nothing and renders nothing here; it runs this file from
 # /opt/survey, next to the Caddyfile and the .env it builds from Parameter Store.
 #
-# There is no worker container yet. `manage.py run_worker` arrives in Milestone 5;
-# when it does, add a second service that reuses the web image with that command.
+# Three containers: Caddy (HTTPS), web (the site) and worker (the background
+# jobs, since Milestone 5). web and worker are the same image with different
+# commands, so they are always the same version of the code.
 
 services:
   caddy:
@@ -33,6 +34,18 @@ services:
     # gunicorn. The image's own CMD starts gunicorn on port 8000.
     expose:
       - "8000"
+
+  worker:
+    # The same build as web, always: one image, two commands.
+    image: ${APP_IMAGE:-ghcr.io/sohum-gupta/acceleraremvp:latest}
+    restart: unless-stopped
+    env_file: .env
+    # Reads the queue of background jobs and does them (apps/jobs). It serves
+    # no web pages and nothing connects to it. If it stops, the site carries
+    # on and the jobs wait; the Jobs page of the admin shows how long.
+    command: ["python", "manage.py", "run_worker"]
+    # When a deploy replaces it, let it finish the job in hand first.
+    stop_grace_period: 30s
 
 volumes:
   caddy_data:

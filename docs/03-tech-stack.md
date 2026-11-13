@@ -46,7 +46,7 @@ survey-platform/
 ├── docker-compose.yml      # local PostgreSQL only
 ├── Dockerfile              # app image for deployment
 ├── deploy/                 # server-only files, copied to /opt/survey by the deploy step
-│   ├── docker-compose.yml  # caddy + web (worker added in Milestone 5)
+│   ├── docker-compose.yml  # caddy + web + worker (the same image as web, running run_worker)
 │   ├── Caddyfile
 │   ├── deploy.sh
 │   └── render_env.py       # Parameter Store JSON -> .env
@@ -69,7 +69,7 @@ survey-platform/
 │   ├── results/            # Result; compute_result interface; tier filter
 │   ├── exports/            # CSV views per scope
 │   ├── audit/              # AuditLog and a helper to write entries
-│   └── jobs/               # Job model, enqueue(), worker command
+│   └── jobs/               # Job (the queue), enqueue(), the run_worker command; each app's job_handlers.py registers what it can do
 ├── templates/              # base.html and one folder per app; templates/admin/ overrides for the Django admin
 ├── static/
 │   └── css/                # Tailwind input and built output
@@ -90,7 +90,7 @@ Each app exposes a small set of plain functions (for example `enterprises.servic
 
 **Tenant scoping.** `enterprises.scoping.for_admin(request)` returns the active admin membership or raises; every enterprise-scoped queryset is built from it (`Response.objects.filter(membership__enterprise=membership.enterprise)`). No view reads an enterprise id from the URL.
 
-**Jobs.** `jobs.enqueue(kind, payload, run_after=None)` inserts a row. `python manage.py run_worker` loops: select the oldest runnable unlocked job with `SELECT ... FOR UPDATE SKIP LOCKED`, lock it, dispatch by `kind` to a registered function, mark done or schedule a retry with exponential backoff (max 5 attempts), record the error text. Handlers must be idempotent.
+**Jobs.** `jobs.enqueue(kind, payload, run_after=None)` inserts a row. `python manage.py run_worker` loops: select the oldest runnable unlocked job with `SELECT ... FOR UPDATE SKIP LOCKED`, lock it, dispatch by `kind` to a registered function, mark done or schedule a retry with exponential backoff (max 5 attempts), record the kind of error (never its text, which can quote an address). Handlers must be idempotent. *(Built 2026-11-13, Milestone 5 PR 1.)*
 
 **Algorithm interface.** `results/algorithm.py` defines `compute_result(response: Response) -> ResultPayload | None` and `ALGORITHM_VERSION`. The MVP implementation returns `None` and stores nothing. Phase 2 replaces the body; nothing else changes.
 

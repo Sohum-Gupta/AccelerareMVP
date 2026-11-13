@@ -114,6 +114,8 @@ jobs:
           test "$body" = "ok"
           # Any warning fails the run, not just errors, so a new security warning is caught here.
           docker exec smoke python manage.py check --deploy --fail-level WARNING
+          # The worker runs this same image with another command; make sure it is there.
+          docker exec smoke python manage.py run_worker --help > /dev/null
           docker exec smoke id -un | grep -qx app
 
       - name: Log in to ghcr.io

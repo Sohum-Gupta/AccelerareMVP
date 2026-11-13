@@ -131,7 +131,7 @@ The server files live in the repository under `deploy/` and the pipeline copies 
 - `caddy`: official image, ports 80 and 443, mounts `Caddyfile` and volumes for certificates, proxies to `web:8000`, and refuses request bodies over 5 MB (413) before they reach Django.
 - `web`: `ghcr.io/sohum-gupta/acceleraremvp:latest` (override with `APP_IMAGE`), `env_file: .env`, the image's own command runs gunicorn on 8000.
 - Both `restart: unless-stopped`.
-- **No `worker` yet.** The earlier version of this runbook listed one, but `manage.py run_worker` is a Milestone 5 command and a container started now would crash-loop. Add a second service reusing the web image with that command in Milestone 5.
+- **A `worker` container since Milestone 5 (2026-11-13).** It is the same image as `web`, started with `python manage.py run_worker`, and does the background jobs (`apps/jobs`). `deploy.sh` ends with a "Worker check" that asks that container to do whatever is due and stop, so a worker that cannot start fails the deploy instead of restarting quietly for ever. If the worker is down the site carries on and jobs wait; the Django admin's "Background jobs" page says how long, and `/health/worker` answers "behind" (503) once a job has waited ten minutes. What follows is the note from before it existed. **No `worker` yet (historical).** The earlier version of this runbook listed one, but `manage.py run_worker` is a Milestone 5 command and a container started now would crash-loop. Add a second service reusing the web image with that command in Milestone 5.
 
 **7. Deploy pipeline** (`.github/workflows/ci.yml` and `deploy.yml`)
 1. On every push and pull request: `uv sync`, `ruff check`, `ruff format --check`, `pytest` against a PostgreSQL service container (`ci.yml`).

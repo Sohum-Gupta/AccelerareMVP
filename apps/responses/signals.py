@@ -44,6 +44,9 @@ DEBUGGING = [
     ("payments", "price", ("view",)),
     ("payments", "purchase", ("view",)),
     ("payments", "refund", ("view",)),
+    # The queue of background jobs: support can see whether the worker is
+    # keeping up and whether a job failed. Running one again is for superusers.
+    ("jobs", "job", ("view",)),
     ("survey", "surveyversion", ("view",)),
     ("survey", "question", ("view",)),
 ]

@@ -243,6 +243,8 @@ class TestSupportStaffGroup:
             "view_price",
             "view_purchase",
             "view_refund",
+            # Background jobs: look only.
+            "view_job",
             "view_surveyversion",
             "view_question",
             "view_funnelevent",
