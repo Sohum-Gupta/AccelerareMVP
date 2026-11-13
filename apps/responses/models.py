@@ -9,6 +9,13 @@ answers. Everything is PROTECT: deleting an account, a survey version or a licen
 is refused while a response points at it. Accounts are soft-deleted instead, and
 a real erasure is a deliberate procedure that removes the responses first.
 
+Context. An attempt is personal (`membership` is empty) or taken for one
+organization (`membership` is the person's membership of it). The context is
+never chosen separately: it is copied from the licence when the attempt starts
+(services.start_response), so a response and its licence always agree, and the
+licence decides who may see that the survey was taken. A person may have one
+unfinished attempt per context: one personal, and one for each organization.
+
 All writes go through services.py; the models only describe the shape and the
 database rules. The service layer, not the model, enforces "locked pages stay
 locked" and "submitted stays submitted".
@@ -38,6 +45,17 @@ class Response(models.Model):
     entitlement = models.OneToOneField(
         "entitlements.Entitlement", on_delete=models.PROTECT, related_name="response"
     )
+    # Empty for a personal attempt; the membership for one taken for an
+    # organization. Always the same as the licence's membership (the service
+    # copies it). PROTECT: a membership is deactivated, never deleted, while a
+    # response points at it.
+    membership = models.ForeignKey(
+        "enterprises.Membership",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="responses",
+    )
     status = models.CharField(max_length=20, choices=Status, default=Status.DRAFT)
     answers = models.JSONField(default=dict, blank=True)
     # How many pages are locked (Next pressed). Page n is locked when this >= n.
@@ -61,12 +79,19 @@ class Response(models.Model):
                 ),
                 name="response_submitted_at_iff_submitted",
             ),
-            # One open draft per account, so two tabs starting at once cannot
-            # both create one. Milestone 3 widens this to account + membership.
+            # One open draft per account and context, so two tabs starting at
+            # once cannot both create one. Two rules, because in SQL an empty
+            # membership never counts as equal to another empty one: a single
+            # rule on (account, membership) would let personal drafts pile up.
             models.UniqueConstraint(
                 fields=["account"],
-                condition=models.Q(status="draft"),
-                name="response_one_open_draft_per_account",
+                condition=models.Q(status="draft", membership__isnull=True),
+                name="response_one_open_personal_draft",
+            ),
+            models.UniqueConstraint(
+                fields=["account", "membership"],
+                condition=models.Q(status="draft", membership__isnull=False),
+                name="response_one_open_draft_per_membership",
             ),
             # "How did you take it" is only an answer when "taken before" is yes.
             # (The null check matters: in SQL, NULL = true is NULL, and a check

@@ -74,8 +74,9 @@ def revoke(entitlement):
     """
     End a licence. The row stays; revoking twice keeps the first date. An
     unfinished attempt on it is deleted: it could never be continued, and while it
-    existed the account could not start on any other licence (one open draft per
-    account). A submitted response is kept. Returns (entitlement, draft_deleted).
+    existed the account could not start on any other licence of that context (one
+    open draft per context). A submitted response is kept. Returns
+    (entitlement, draft_deleted).
     """
     with transaction.atomic():
         # Held while responses.services.start_response is choosing a licence, so
