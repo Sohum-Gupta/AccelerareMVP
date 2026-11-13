@@ -600,6 +600,77 @@ When every part passes, tell Claude: the four boxes are then ticked in a docs-on
 
 ---
 
+## Milestone 4, second part — Licences set aside for invites and join codes
+
+*Planned on 2026-11-13 from the founder's answers of that day (decision log). It changes two of the choices made while building Milestone 4, and it comes before payments because it changes how the stock is counted, which a purchase adds to.*
+
+**Goal:** a licence promised by an invite or a join code is really there. It is set aside out of the organization's stock when the invite or the code is made, the page read before joining says it comes with one, and an invite that has not been used can be emailed again or moved to another address.
+
+**Status (2026-11-13).** Planned (PR 0, this section). Nothing is built: until PR 1 is deployed the site behaves as Milestone 4 describes above.
+
+**How it is run.** Merged on green without waiting for review, like Milestones 3 and 4 (decision log, 2026-11-13). The rules below marked *builder's call* were not asked one by one, because the founder asked for small choices to be made sensibly and listed; each can be overruled.
+
+**The product rules** (the founder's, 2026-11-13, unless marked)
+
+- **Setting aside.** When an admin makes an invite with a tier, one licence of that tier is set aside. When they make a join code with a tier, one is set aside for each person the code allows. If the stock does not have that many left, making it is refused, and the message says how many are left.
+- **What "left" means now.** For each tier: the licences bought, less those given to members, less those set aside. A licence set aside cannot be given to someone else by hand.
+- **Joining.** Whoever joins with that invite or code is given the licence that was set aside for them. Nobody joins without the licence they were promised any more, so the "joined without a licence" warning is removed.
+- **Coming back.** A licence set aside returns to the stock when the invite is withdrawn or expires, when the code is switched off or expires (for the uses nobody took), and when the person an invite was sent to is erased.
+- **Emailing an invite again.** An invite that can still be accepted can be emailed again to the same address.
+- **Moving an invite.** It can instead be sent to a different address. The old link stops working, the new address gets a new link, and the licence set aside follows it: only the new address can accept.
+- **Five emails.** An invite is emailed at most five times in all, counting the first, the repeats and the moves.
+- **The page before joining.** It says so when the invite or code comes with a licence: "Joining makes you a member. This invite comes with a licence to take the survey for (organization)." ("This code comes with…" for a code.) Otherwise: "Joining makes you a member. To take the survey for (organization) you also need a licence from it, which it may give you later." The tier is not named.
+
+**Smaller rules, the builder's calls** (raised here so they can be overruled)
+
+- Emailing an invite again keeps its link, so the earlier email still works, and starts its 14 days afresh. Moving it makes a new link and also starts the 14 days afresh.
+- Only an invite that can still be accepted can be emailed again or moved. One that has expired or been withdrawn is replaced by sending a new invite.
+- Moving an invite does not use another of the organization's places: it is still one person being brought in. The cap of five emails is what stops the invite form being used to write to many strangers.
+- The five counts emails the mail server accepted. A send it refused (as Amazon SES does in its sandbox) does not count, and the admin can still copy the link.
+- The join and its licence now happen together or not at all. This replaces "a join never fails because of the stock": the stock can no longer be the reason, and if something unexpected goes wrong while giving the licence, the person is told to try again rather than let in without what the page promised.
+- A member who comes back with an invite and already holds a licence they have not used keeps it and gets no second one (kept by the founder); the licence set aside for that invite returns to the stock.
+- Staff can still lower a stock below what is given and set aside. Every promise already made is kept (the page then shows more given than bought), and nothing more can be given or set aside at that tier until it is back under.
+- An invite or code made before this change that carries a tier is treated as if its licences had been set aside.
+- The tier drop-downs on the invite and join code forms say how many of each tier are left.
+
+**What you build**
+
+- `apps/enterprises/services.py`: `seats_set_aside(enterprise)` (per tier: open invites with a tier, plus the unused uses of working codes with a tier), and `seat_summary` gains `set_aside` and takes it off `left`. `invite_by_email` and `create_code` refuse a tier whose stock cannot cover it, under the organization's lock (`create_code` now takes that lock). `resend_invite(invite, by, request)` and `move_invite(invite, email, by, request)`, both returning `(invite, sent)`. `joined_without_licence` is removed. `_announce_join` no longer swallows a listener's failure.
+- `Invite.emails_sent` (a small number, 0 by default, in a new migration), raised each time the mail server accepts the invite's email; `MAX_INVITE_EMAILS = 5`.
+- `apps/entitlements/services.py`: `give_seat_on_joining` gives the licence without asking the stock (it was set aside), and still gives nothing to someone who already holds one.
+- Pages: the invites page gets "Email it again" and "Send to a different address" on each open invite, with "Emailed 2 of 5 times"; the stock lines on the dashboard and the Licences page say how many are set aside; the join confirmation page gets the new last sentence; the warning comes off the dashboard and the Licences page. The staff admin shows the set-aside number beside bought, given and left, and how many times an invite was emailed.
+
+**Technical detail**
+
+- Counted, never stored, like everything else about the stock: an invite's licence is set aside while the invite is "pending" (not accepted, not withdrawn, not expired, address not erased), and a code's are `max_uses - uses` while it is "active". Expiry therefore needs no job: the count simply stops including it.
+- When someone joins, the same transaction makes the invite accepted (or the code's uses one higher) and creates the licence, so the number left does not move: one fewer set aside, one more given.
+- The enterprises app still cannot import the licences app. It owns invites, codes and the stock numbers, so the set-aside count lives there, and the licences app keeps listening for `member_joined`.
+- Emailing never happens while a lock is held. The count is raised first, under the invite's lock, and lowered again if the mail server refuses; two clicks at once therefore cannot send a sixth email.
+- Moving an invite locks the organization, then the invite; checks the new address like a new invite (a valid address, not an active member's, no other open invite to it); then changes the address and the link together. The old link is simply unknown afterwards, so it reveals nothing, not even the new address.
+- Erasure needs no new rule: erasing the person an open invite was sent to already empties its address, which makes it "erased" and returns its licence.
+
+**Tests**
+
+- Setting aside: an invite with a tier is refused when none is left and takes one off "left" when made; a code needs as many left as it allows; two admins promising the last licence at the same moment (threads) produce exactly one; a licence set aside cannot be given by hand.
+- Returning: withdrawing, expiry, switching off, a code's unused uses, and erasure each put the licence back.
+- Joining: by invite and by code the person gets the licence and "left" does not move; a returning member with an unused licence gets no second and the set-aside one returns; a failure while giving the licence undoes the join.
+- Emailing again and moving: the link survives a repeat and dies on a move; the old address can no longer accept and the new one can; the sixth email is refused; a refused send is not counted; another organization's invite is "not found"; a member who is not an admin cannot do either.
+- Pages: the two sentences on the join page; the stock lines; no warning anywhere.
+
+**PR plan**
+
+0. `lc-plan`: this section. Docs only.
+1. `lc-set-aside`: the count, the refusals, the licence on joining, the join page's sentence, the stock lines, the warning removed; the Milestone 4 live checklist brought in line.
+2. `lc-resend-move`: `Invite.emails_sent`, emailing again, moving, the cap of five, the invites page, the staff admin; docs synced.
+
+**Done when**
+
+- [ ] On the live site: with one Tier 2 licence left, an invite with a Tier 2 licence can be sent and a second is refused; the person who accepts has the licence at once; withdrawing an open one gives the licence back. *(Founder's live check.)*
+- [ ] An open invite is emailed again, then moved to another address: the old link no longer works and the new one does. *(Founder's live check.)*
+- [ ] All tests pass, including every tenant isolation test.
+
+---
+
 ## Milestone 4b — Payments
 
 *Moved here on 2026-11-13 by the founder, from Phase 3, to follow Milestone 4. The founder answered the basics the same day (below). The full plan, in the style of Milestones 3 and 4, is this milestone's PR 0 and is not written yet; no code before it.*
@@ -788,6 +859,7 @@ Not a milestone. Self-serve purchase for individuals and enterprises (likely Raz
 | 2 | Survey and responses | 1 | Individuals take and view the survey; licences, erasure and the funnel are built (closed 2026-11-12) |
 | 3 | Organizations, memberships, join | 2 | Organization admins onboard members and see who took the survey; licences per membership (built 2026-11-13; the founder's live checks remain) |
 | 4 | Licences for organizations (seat pools) | 3 | An organization's admins give out the licences it has bought; counts are right (built 2026-11-13; the founder's live checks remain) |
+| 4, part 2 | Licences set aside for invites and codes | 4 | A licence promised by an invite or a code is really there; an invite can be sent again or moved (planned 2026-11-13) |
 | 4b | Payments | 4 | A purchase adds licences without staff typing (moved here from Phase 3 on 2026-11-13; the basics are decided, the plan is its PR 0) |
 | 5 | Jobs, matching, audit | 4b | Worker live; repeats flagged and linked; actions audited |
 | 6 | Root admin, export, erasure audit | 5 | Root console complete; CSV; erasure audited and documented |
@@ -810,6 +882,7 @@ Moved on 2026-11-12 to `06-backlog.md`, the one list of open tasks and parked de
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-13 | The licence changes are planned as "Milestone 4, second part": three PRs (0 to 2), built before payments. Its builder's calls are listed there under "Smaller rules": what emailing again and moving do to the link and the 14 days, that a move uses no extra place, that only accepted emails count towards the five, and that a join and its licence now happen together or not at all | They change how the stock is counted, which a purchase adds to. The founder asked for small choices to be made sensibly and listed rather than asked one at a time |
 | 2026-11-13 | The founder's answers to the seven choices made while building Milestone 4 (was `06-backlog.md`, D-18). Kept as built: a member holds one licence in hand at a time, whoever it came from; what the Licences page lists and offers; a member who comes back with an invite keeps an unused licence and gets no second one. Overruled: the page read before joining must say when the invite or code comes with a licence; and a tier may no longer be put on an invite or a code while the stock has none (next row). The wording of the sentence on that page was left to the builder, and the "joined without a licence" warning goes away with the new design | The founder took them one at a time. The full text of each is under "Smaller rules" in the Milestone 4 section |
 | 2026-11-13 | A licence is set aside out of the organization's stock when an invite or a join code with a tier is made, and making one is refused when none of that tier is left. An unused invite can be emailed again or moved to another address: the old link stops working and the licence follows the new address. An invite is emailed at most five times in all. Withdrawing an invite or letting it expire returns its licence to the stock. A join code sets aside one licence for each person it allows; the unused ones return when it is switched off or expires. Replaces "the stock is checked when the person joins" and the rule of the same day that someone may join without the promised licence | Founder's design: a person who is promised a licence gets it, and an admin cannot promise more than the organization has bought. The invite parts are the founder's; the join code part and the cap of five were left to the builder and accepted |
 | 2026-11-13 | The GitHub repository stays public (was `06-backlog.md`, D-19) | Founder's decision. No secret is in it and the survey statements were never committed |
