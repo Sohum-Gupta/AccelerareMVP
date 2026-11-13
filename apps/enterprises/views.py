@@ -365,6 +365,9 @@ def _invite_row(invite, now, request):
         "revoked_at": invite.revoked_at,
         "state": state,
         "link": services.invite_link(invite, request) if state == "pending" else "",
+        "emails_sent": invite.emails_sent,
+        # It can be emailed again, or moved to another address, until the cap.
+        "can_email": state == "pending" and invite.emails_sent < services.MAX_INVITE_EMAILS,
     }
 
 
@@ -405,8 +408,68 @@ def invites(request, slug):
         "form": form,
         "rows": rows,
         "days": services.INVITE_DAYS,
+        "max_emails": services.MAX_INVITE_EMAILS,
     }
     return render(request, "enterprises/invites.html", context)
+
+
+def _their_invite(membership, pk):
+    """An invite of the admin's own organization. Any other id is "not found"."""
+    return get_object_or_404(Invite, pk=pk, enterprise_id=membership.enterprise_id)
+
+
+@verified_email_required
+@require_POST
+def resend_invite(request, slug, pk):
+    """Email an open invite again, to the same address. The link stays the same."""
+    membership = scoping.for_admin(request, slug)
+    invite = _their_invite(membership, pk)
+    try:
+        invite, sent = services.resend_invite(invite, membership, request=request)
+    except services.Refused as error:
+        messages.error(request, str(error))
+    else:
+        if sent:
+            messages.success(request, f"The invite was emailed to {invite.email} again.")
+        else:
+            messages.warning(
+                request,
+                f"We could not send the email to {invite.email}. "
+                "Copy the invite's link below and send it to them yourself.",
+            )
+    return redirect("enterprises:invites", membership.enterprise.slug)
+
+
+@verified_email_required
+@require_POST
+def move_invite(request, slug, pk):
+    """
+    Send an open invite to a different address instead. The old link stops
+    working, and only the new address can accept.
+    """
+    membership = scoping.for_admin(request, slug)
+    invite = _their_invite(membership, pk)
+    try:
+        invite, sent = services.move_invite(
+            invite, request.POST.get("email", ""), membership, request=request
+        )
+    except services.Refused as error:
+        messages.error(request, str(error))
+    else:
+        if sent:
+            messages.success(
+                request,
+                f"The invite now goes to {invite.email} and has been emailed there. "
+                "The old link no longer works.",
+            )
+        else:
+            messages.warning(
+                request,
+                f"The invite now goes to {invite.email}, but we could not send the email. "
+                "Copy its new link below and send it to them yourself. "
+                "The old link no longer works.",
+            )
+    return redirect("enterprises:invites", membership.enterprise.slug)
 
 
 @verified_email_required
@@ -417,7 +480,7 @@ def revoke_invite(request, slug, pk):
     a licence that was set aside for it is.
     """
     membership = scoping.for_admin(request, slug)
-    invite = get_object_or_404(Invite, pk=pk, enterprise_id=membership.enterprise_id)
+    invite = _their_invite(membership, pk)
     try:
         services.revoke_invite(invite, by=membership)
     except services.Refused as error:

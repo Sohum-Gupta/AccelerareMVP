@@ -194,7 +194,9 @@ class Invite(models.Model):
     """
     An invitation sent to one email address. Single use, and it expires. It can
     be accepted only by an account that has verified that address; the link
-    proves nothing by itself.
+    proves nothing by itself. Until it is used it can be emailed again, or
+    moved to another address (which changes `email` and `token` together, so
+    the old link is simply unknown afterwards).
     """
 
     enterprise = models.ForeignKey(
@@ -215,6 +217,11 @@ class Invite(models.Model):
     expires_at = models.DateTimeField()
     accepted_at = models.DateTimeField(null=True, blank=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
+    # How many times the mail server has accepted this invite's email: the
+    # first send, each "email it again" and each move to another address.
+    # services.MAX_INVITE_EMAILS caps it, so one invite cannot be used to write
+    # to many people.
+    emails_sent = models.PositiveSmallIntegerField(default=0)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

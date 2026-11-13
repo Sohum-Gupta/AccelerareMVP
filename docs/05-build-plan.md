@@ -606,7 +606,7 @@ When every part passes, tell Claude: the four boxes are then ticked in a docs-on
 
 **Goal:** a licence promised by an invite or a join code is really there. It is set aside out of the organization's stock when the invite or the code is made, the page read before joining says it comes with one, and an invite that has not been used can be emailed again or moved to another address.
 
-**Status (2026-11-13).** PR 0 (the plan) and PR 1 (`lc-set-aside`) are merged: licences are set aside, the page before joining says when one comes with the invite or code, the stock lines show what is set aside, and the "joined without a licence" warning is gone. PR 2 (emailing an invite again and moving it) is next.
+**Status (2026-11-13).** Code-complete and live: PR 0 the plan (#75), PR 1 `lc-set-aside` (#76) and PR 2 `lc-resend-move`, which wrote this paragraph. 1,315 tests. Licences are set aside, the page before joining says when one comes with the invite or code, the stock lines show what is set aside, the "joined without a licence" warning is gone, and an open invite can be emailed again or moved to another address, five emails at most. What remains is the founder's two live checks (the checklist is below; `06-backlog.md`, T-18). Nobody has tried it by hand on the live site yet.
 
 **How it is run.** Merged on green without waiting for review, like Milestones 3 and 4 (decision log, 2026-11-13). The rules below marked *builder's call* were not asked one by one, because the founder asked for small choices to be made sensibly and listed; each can be overruled.
 
@@ -623,7 +623,7 @@ When every part passes, tell Claude: the four boxes are then ticked in a docs-on
 
 **Smaller rules, the builder's calls** (raised here so they can be overruled)
 
-- Emailing an invite again keeps its link, so the earlier email still works, and starts its 14 days afresh. Moving it makes a new link and also starts the 14 days afresh.
+- Emailing an invite again keeps its link, so the earlier email still works. Moving it makes a new link. Either way the invite's 14 days start afresh when the email goes out, so what the email says ("works for 14 days") is true of every email. *As built:* if the mail server refuses the email, the days do not restart; a moved invite whose email could not be sent keeps the expiry date it had, which the page shows.
 - Only an invite that can still be accepted can be emailed again or moved. One that has expired or been withdrawn is replaced by sending a new invite.
 - Moving an invite does not use another of the organization's places: it is still one person being brought in. The cap of five emails is what stops the invite form being used to write to many strangers.
 - The five counts emails the mail server accepted. A send it refused (as Amazon SES does in its sandbox) does not count, and the admin can still copy the link.
@@ -665,9 +665,37 @@ When every part passes, tell Claude: the four boxes are then ticked in a docs-on
 
 **Done when**
 
-- [ ] On the live site: with one Tier 2 licence left, an invite with a Tier 2 licence can be sent and a second is refused; the person who accepts has the licence at once; withdrawing an open one gives the licence back. *(Founder's live check.)*
-- [ ] An open invite is emailed again, then moved to another address: the old link no longer works and the new one does. *(Founder's live check.)*
-- [ ] All tests pass, including every tenant isolation test.
+- [ ] On the live site: with one Tier 2 licence left, an invite with a Tier 2 licence can be sent and a second is refused; the person who accepts has the licence at once; withdrawing an open one gives the licence back. *(Founder's live check, part E below.)*
+- [ ] An open invite is emailed again, then moved to another address: the old link no longer works and the new one does. *(Founder's live check, part F below.)*
+- [x] All tests pass, including every tenant isolation test. *(1,315 tests, in CI and locally, 2026-11-13.)*
+
+**Checks at the end (2026-11-13)**
+
+*Automated, all passing.* The full suite: 1,315 tests, including every tenant isolation test. `ruff check`, `ruff format --check`, `manage.py check --fail-level WARNING` and `makemigrations --check`. Both code PRs were checked by breaking the code on purpose and confirming a test fails: twelve breaks in PR 1 and fifteen in PR 2, all caught. Four tests run two requests at the same moment in threads: two admins promising the last licence, two people joining on a two-person code, two clicks on "Email it again" at the cap, and two invites moved to one address.
+
+One run in a real browser at phone width, against a local server (PR 2): an admin sends an invite with a Tier 2 licence, sees "Emailed 1 of 5 times", emails it again (the link is unchanged), opens "Send it to a different address instead", moves it (a new link; the old one answers "That invite link is not valid."), sees "1 set aside for invites and join codes" on the Licences page, and is refused a join code for five people when one licence is left. Nothing was wider than the phone.
+
+*Not covered by anything automated:* real email delivery, and the live site beyond `/health` answering 200 after each deploy. While Amazon SES is in its sandbox, a send to an address SES has not verified is refused; the page then says so and the invite's link is copied by hand. That path is tested, but it means the founder's live check will show "we could not send the email" for most addresses until SES is out of the sandbox (`06-backlog.md`, T-4).
+
+**Live checklist (for the founder)**
+
+Run it after the Milestone 4 checklist above, in the same organization, or in any organization whose stock you can set. You need window 1 (your superuser login) and window 2 (a private window), and two accounts with verified email addresses that are not members yet. Nothing here needs SSH, the AWS console or GitHub.
+
+*Part E: a licence is set aside for an invite (box 1).*
+1. Django admin, the organization, "Licence stock…": set "Tier 2 licences bought" so that exactly one is left (the organization's Licences page should read "1 of N Tier 2 licences left").
+2. Window 1: "Invites". Type the first person's address, choose "Tier 2 licence (1 left)" and press "Send invite". The invite's line ends "Comes with a Tier 2 licence". The Licences page now reads "0 of N Tier 2 licences left · 1 set aside for invites and join codes", and beside every member the Tier 2 choice has gone from "Give licence".
+3. "Invites" again: the drop-down now says "Tier 2 licence (none left)". Send a second invite, to any other address, with Tier 2: it is refused, "Your stock has no Tier 2 licences left".
+4. Window 2, logged in as the first person: open the invite's link (from the email, or "Copy link"). Above the button the page says "This invite comes with a licence to take the survey for (your organization)." Join. The message says you have a licence. Window 1: the Licences page shows that person with a Tier 2 licence, "Not used yet", and nothing set aside.
+5. To see a licence come back: Django admin, raise "Tier 2 licences bought" by one; send an invite with Tier 2 to any address (the Licences page says 1 set aside); press "Withdraw invite"; the Licences page says 1 left and nothing set aside.
+
+*Part F: email an invite again, then move it (box 2).*
+1. Window 1: "Invites". Send an invite to the second person's address (with or without a licence). Its line says "Emailed 1 of 5 times." (or "Emailed 0 of 5 times." if the page warned that the email could not be sent: a refused email is not counted). Copy its link and keep it.
+2. Press "Email it again". The page says the invite was emailed again (or that it could not be sent), and the link in the box is the same as before.
+3. Open "Send it to a different address instead", type an address of your own that has no account in this organization, and press "Move the invite". The page says the invite now goes to the new address and that the old link no longer works. The link in the box has changed.
+4. Window 2: paste the old link you kept. It answers "That invite link is not valid."
+5. Window 2, logged in with an account that has verified the new address: open the new link and join. It works. (An account that has only the old address is told the invite was sent to another address.)
+
+When both parts pass, tell Claude: the two boxes are ticked in a docs-only PR.
 
 ---
 
@@ -859,7 +887,7 @@ Not a milestone. Self-serve purchase for individuals and enterprises (likely Raz
 | 2 | Survey and responses | 1 | Individuals take and view the survey; licences, erasure and the funnel are built (closed 2026-11-12) |
 | 3 | Organizations, memberships, join | 2 | Organization admins onboard members and see who took the survey; licences per membership (built 2026-11-13; the founder's live checks remain) |
 | 4 | Licences for organizations (seat pools) | 3 | An organization's admins give out the licences it has bought; counts are right (built 2026-11-13; the founder's live checks remain) |
-| 4, part 2 | Licences set aside for invites and codes | 4 | A licence promised by an invite or a code is really there; an invite can be sent again or moved (planned 2026-11-13) |
+| 4, part 2 | Licences set aside for invites and codes | 4 | A licence promised by an invite or a code is really there; an invite can be sent again or moved (built 2026-11-13; the founder's live checks remain) |
 | 4b | Payments | 4 | A purchase adds licences without staff typing (moved here from Phase 3 on 2026-11-13; the basics are decided, the plan is its PR 0) |
 | 5 | Jobs, matching, audit | 4b | Worker live; repeats flagged and linked; actions audited |
 | 6 | Root admin, export, erasure audit | 5 | Root console complete; CSV; erasure audited and documented |
@@ -882,6 +910,7 @@ Moved on 2026-11-12 to `06-backlog.md`, the one list of open tasks and parked de
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-13 | The licence changes (Milestone 4, second part) are code-complete and deployed: PRs 0 to 2 (#75, #76 and the PR that wrote this line). Its two live checks wait for the founder (`06-backlog.md`, T-18). One rule changed while building: an invite's 14 days restart only when its email actually goes out, not on a send the mail server refused | A refused send reaches nobody, so it should neither count towards the five nor keep an invite, and the licence set aside for it, alive |
 | 2026-11-13 | The licence changes are planned as "Milestone 4, second part": three PRs (0 to 2), built before payments. Its builder's calls are listed there under "Smaller rules": what emailing again and moving do to the link and the 14 days, that a move uses no extra place, that only accepted emails count towards the five, and that a join and its licence now happen together or not at all | They change how the stock is counted, which a purchase adds to. The founder asked for small choices to be made sensibly and listed rather than asked one at a time |
 | 2026-11-13 | The founder's answers to the seven choices made while building Milestone 4 (was `06-backlog.md`, D-18). Kept as built: a member holds one licence in hand at a time, whoever it came from; what the Licences page lists and offers; a member who comes back with an invite keeps an unused licence and gets no second one. Overruled: the page read before joining must say when the invite or code comes with a licence; and a tier may no longer be put on an invite or a code while the stock has none (next row). The wording of the sentence on that page was left to the builder, and the "joined without a licence" warning goes away with the new design | The founder took them one at a time. The full text of each is under "Smaller rules" in the Milestone 4 section |
 | 2026-11-13 | A licence is set aside out of the organization's stock when an invite or a join code with a tier is made, and making one is refused when none of that tier is left. An unused invite can be emailed again or moved to another address: the old link stops working and the licence follows the new address. An invite is emailed at most five times in all. Withdrawing an invite or letting it expire returns its licence to the stock. A join code sets aside one licence for each person it allows; the unused ones return when it is switched off or expires. Replaces "the stock is checked when the person joins" and the rule of the same day that someone may join without the promised licence | Founder's design: a person who is promised a licence gets it, and an admin cannot promise more than the organization has bought. The invite parts are the founder's; the join code part and the cap of five were left to the builder and accepted |

@@ -576,7 +576,15 @@ class MembershipAdmin(ReadOnlyAdmin):
 
 @admin.register(Invite)
 class InviteAdmin(ReadOnlyAdmin):
-    list_display = ("id", "enterprise", "email", "state", "created_at", "expires_at")
+    list_display = (
+        "id",
+        "enterprise",
+        "email",
+        "state",
+        "emails_sent",
+        "created_at",
+        "expires_at",
+    )
     search_fields = ("email", "enterprise__name")
     list_select_related = ("enterprise",)
     actions = ["withdraw_selected"]
