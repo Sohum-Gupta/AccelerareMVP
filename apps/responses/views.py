@@ -98,10 +98,10 @@ def _start(request, membership):
         else SelfReportForm.for_draft(draft)
     )
     if request.method == "POST" and form.is_valid():
-        took_before, via = form.answer
+        took_before, via, match_hint = form.answer
         try:
             response = services.start_response(request.user, membership)
-            services.save_self_report(response, took_before, via)
+            services.save_self_report(response, took_before, via, match_hint)
         except services.Refused as error:
             form.add_error(None, str(error))
         else:

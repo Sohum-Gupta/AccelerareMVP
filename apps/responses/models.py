@@ -64,6 +64,11 @@ class Response(models.Model):
     # took it; empty otherwise (a database rule, below).
     took_before = models.BooleanField(null=True, blank=True)
     took_before_via = models.CharField(max_length=20, choices=TookBeforeVia, blank=True)
+    # The optional box under "Yes": an email address or phone number the person
+    # used when they took the survey before. It is used once, in the
+    # background, to look for their other account (the matching app), and then
+    # emptied; so it is almost always empty. Never shown to an organization.
+    match_hint = models.CharField(max_length=254, blank=True, default="", db_default="")
     started_at = models.DateTimeField(auto_now_add=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
     possible_repeat = models.BooleanField(default=False)
@@ -102,6 +107,13 @@ class Response(models.Model):
                     | models.Q(took_before__isnull=False, took_before=True)
                 ),
                 name="response_took_before_via_only_when_took_before",
+            ),
+            # The same for the box under "Yes".
+            models.CheckConstraint(
+                condition=(
+                    models.Q(match_hint="") | models.Q(took_before__isnull=False, took_before=True)
+                ),
+                name="response_match_hint_only_when_took_before",
             ),
         ]
 

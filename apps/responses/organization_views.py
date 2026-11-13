@@ -45,7 +45,7 @@ from .forms import ResponseFilterForm
 from .models import Response
 
 # What an admin must never be shown. Not read from the database on these pages.
-_NEVER = ("answers", "took_before", "took_before_via", "pages_completed")
+_NEVER = ("answers", "took_before", "took_before_via", "match_hint", "pages_completed")
 
 # The orders the table offers, by the value in the address.
 _ORDERS = {
