@@ -733,6 +733,19 @@ def _acting_admin(by, enterprise_id):
     return current
 
 
+def lock_for_admin(admin_membership):
+    """
+    Lock the organization's row and return (the organization, the acting admin's
+    membership as it is now), or Refused if they are no longer an active admin
+    of it. For the licences app, which gives licences out of the organization's
+    stock: every count of the stock is made while holding this lock, so two
+    admins giving the last licence at the same moment take turns. The caller is
+    inside a transaction.
+    """
+    enterprise = Enterprise.objects.select_for_update().get(pk=admin_membership.enterprise_id)
+    return enterprise, _acting_admin(admin_membership, enterprise.pk)
+
+
 def _locked(membership, by):
     """
     Lock the organization, then the membership, and return the membership as it
