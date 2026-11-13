@@ -54,6 +54,7 @@ from apps.entitlements.models import Entitlement
 from apps.responses import services as surveys
 from apps.survey.models import Question
 
+from . import payments
 from .orgs import new_member, org_with_admin
 from .test_profile import verified_account
 from .test_response_context import finish, fresh, grant, grant_personal
@@ -69,11 +70,13 @@ STOCK_TIER = 2
 # Pages of one organization, as the part of the address after /organizations/<slug>/.
 MEMBER_PAGES = [""]  # any active member may open these
 # Only an admin may open these.
-ADMIN_PAGES = ["members/", "codes/", "invites/", "responses/", "licences/"]
+ADMIN_PAGES = ["members/", "codes/", "invites/", "responses/", "licences/", "licences/buy/"]
 # Forms on those pages that make something new (admin only), with what each is sent.
 ADMIN_FORMS = [
     ("codes/", {"max_uses": "5", "days": "30"}),
     ("invites/", {"email": "someone.new@example.com"}),
+    # Buying into the stock: writes a payment row and would open Stripe's page.
+    ("licences/buy/", {"tier": "2", "quantity": "3"}),
 ]
 
 
@@ -157,6 +160,7 @@ def untouched(org):
         and seat.revoked_at is None
         and seat.tier == STOCK_TIER
         and licences_of(org).count() == 3  # one each from staff, and the one from the stock
+        and not org.enterprise.purchases.exists()  # nothing was bought for it
     )
 
 
@@ -195,7 +199,10 @@ def build(name):
 
 
 @pytest.fixture
-def world(db):
+def world(db, monkeypatch, settings):
+    # Buying is open, with Stripe played by a stand-in: a buy form sent to the
+    # wrong organization would then really write a payment row, and be caught.
+    payments.install(monkeypatch, settings)
     return SimpleNamespace(acme=build("Acme"), globex=build("Globex"))
 
 

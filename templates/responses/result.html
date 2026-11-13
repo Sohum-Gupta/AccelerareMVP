@@ -19,5 +19,8 @@
       <p class="mb-0 text-sm text-slate-700">Your results will appear here. They are being prepared in a later update.</p>
     {% endif %}
   </section>
+  {% if not row.organization and not row.withdrawn and row.tier < 3 %}
+    <p class="mt-4 mb-0 text-sm" data-upgrade>This survey is at {% include "responses/_tier.html" with tier=row.tier %}. <a href="{% url 'payments:buy' %}">Upgrade its licence</a> to move it to a higher results level; you do not take the survey again.</p>
+  {% endif %}
   <p class="mt-6"><a href="{% url 'responses:history' %}">All your surveys</a></p>
 {% endblock %}
