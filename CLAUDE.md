@@ -26,9 +26,14 @@ before doing any work:
    to 5 (1,547 tests). Buying is closed on the live site until the founder adds the Stripe test key
    (T-21), and nothing has been run against Stripe itself: every test uses a stand-in, and the founder's
    live checklist (T-22) is the first real run. Never let a test reach Stripe (`tests/conftest.py`), and
-   never print or commit a key. The work in progress: Milestone 5. Merging on green without
-   waiting for a review applies to the licence changes, payments and Milestone 5 and nothing else: ask
-   before doing it for anything further. Product choices that come up are still asked of the founder first. `main` is
+   never print or commit a key. Milestone 5 (background jobs and the worker, the licence email, the
+   audit log, possible duplicates and linking two logins, the match box, the results seam) is
+   code-complete and deployed: PRs 0 to 7 (1,786 tests). The server runs a third container, the worker.
+   Nobody has tried Milestone 5 by hand on the live site; its remaining "Done when" boxes are the
+   founder's live checks (T-24). Nothing is in progress: Milestone 6 has not been planned or started,
+   and it waits for the founder's word. Merging on green without waiting for a review applied to the
+   licence changes, payments and Milestone 5 and has ended with them: ask before doing it for anything
+   further. Product choices that come up are still asked of the founder first. `main` is
    protected on GitHub: every change goes through a pull request whose `test` check has passed. The site
    is built for the US first; India is deferred.**
    Do not build anything from a later milestone than the one in progress.
