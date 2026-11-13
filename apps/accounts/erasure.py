@@ -90,10 +90,35 @@ def plan_erasure(account: Account, by: Account | None = None) -> Plan:
         .exists()
     ):
         raise ValidationError("This is the last active superuser, so it cannot be erased.")
+    stranded = _organizations_left_without_an_admin(account)
+    if stranded:
+        raise ValidationError(
+            f"This account is the only admin of {', '.join(stranded)}, which still has "
+            "other members. Make another member an admin there first, then erase."
+        )
     submitted = account.responses.filter(status="submitted").count()
     has_admin_history = LogEntry.objects.filter(user=account).exists()
     action = ANONYMISE if submitted or has_admin_history else DELETE
     return Plan(action, _explain(account, action, submitted))
+
+
+def _organizations_left_without_an_admin(account: Account) -> list[str]:
+    """
+    Names of the organizations where this account is the only active admin while
+    other people are still active members. Erasing it would leave them with
+    nobody who can invite, deactivate or see who took the survey, so staff are
+    asked to appoint another admin first (founder's decision, 2026-11-12). An
+    organization with nobody else in it does not block: it is simply left empty.
+    """
+    names = []
+    admin_of = account.memberships.filter(role="admin", status="active").select_related(
+        "enterprise"
+    )
+    for membership in admin_of:
+        others = membership.enterprise.memberships.filter(status="active").exclude(pk=membership.pk)
+        if others.exists() and not others.filter(role="admin").exists():
+            names.append(membership.enterprise.name)
+    return names
 
 
 def erase_account(account: Account, by: Account | None = None) -> Plan:
@@ -159,7 +184,10 @@ def _anonymise(account: Account) -> None:
         )
     # The membership link is kept, deactivated: the person has left, and the
     # organization keeps its count of who took the survey.
-    account.memberships.filter(status="active").update(status="deactivated", deactivated_at=now)
+    # Like any deactivation, it also ends being an admin.
+    account.memberships.filter(status="active").update(
+        status="deactivated", deactivated_at=now, role="member"
+    )
     account.contact_points.all().delete()
     EmailAddress.objects.filter(user=account).delete()
 
