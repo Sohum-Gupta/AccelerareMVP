@@ -1,6 +1,6 @@
 # Build Plan — Survey Platform
 
-As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs; open items live in `06-backlog.md` · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded and Milestone 2 closed 2026-11-12
+As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs; open items live in `06-backlog.md` · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded and Milestone 2 closed 2026-11-12 · Milestone 3 re-planned 2026-11-12
 
 ## How to read this document
 
@@ -279,70 +279,120 @@ This is the first milestone that delivers the product's core, and it does so bef
 
 ---
 
-## Milestone 3 — Enterprises, memberships, invites and codes
+## Milestone 3 — Organizations, memberships, invites and codes
 
-**Goal:** anyone can create an enterprise and become its admin; admins can invite by email or issue codes; people join through either; admins see a table of their members' responses (who, when, status and tier; results from Milestone 5; never the answers, decided 2026-11-12); nothing from one enterprise is ever visible to another.
+*Re-planned on 2026-11-12 with the founder. This section replaces the original one; the differences are in the decision log. The site says "organization"; the code, the tables and these docs keep the word "enterprise" for the same thing.*
+
+**Goal:** anyone can create an organization and become its admin; admins invite by email or issue join codes; people join through either; a licence tied to a membership lets a member take the survey for the organization; admins see who took it, when, its status and tier, never the answers; nothing from one organization is ever visible to another.
+
+**Status (2026-11-12).** Planned, not started. Fourteen PRs, listed under "PR plan" below. PR 0 is this re-plan.
+
+**How this milestone is run** (founder, 2026-11-12). Each PR is built, tested, opened, merged once CI is green and checked on the live site without waiting for the founder's review. Anything that is the founder's decision (a product rule, a privacy question, anything not settled below) is raised with them and waits for their answer. Every PR ends with a short summary of what was done and which small calls were made. The milestone ends with automated checks and a hand-run checklist for the founder.
+
+**The product rules, as decided by the founder on 2026-11-12**
+
+- **Creating.** Any account with a verified email can create an organization, with no review, and becomes its first admin. Two organizations may share a name; each gets its own slug.
+- **Admins.** An admin can make a member an admin and make an admin a member again. The last active admin can never be demoted or deactivated. Staff can do the same in the Django admin. An admin is also a member: they can take the survey for their own organization.
+- **The people limit.** Until an organization has bought licences it can bring in at most 25 people in total, by email invite or by join code (`Enterprise.people_limit`, default 25). Every invite ever sent counts, including revoked and expired ones, plus every join by code, so revoking and resending does not get round it. The creator does not count. Staff raise the number by hand in the Django admin; how buying licences raises it is a Milestone 4 question (`06-backlog.md`, D-16). Joining only makes someone a member; taking the survey still needs a licence.
+- **Licences.** A licence (`Entitlement`) belongs to a person or to a membership, never both. A membership licence can only be used for that organization and a personal one only personally, so the licence decides who sees the result. Until Milestone 4 adds seats, staff grant both kinds by hand in the Django admin. A person may have a personal attempt and an organization attempt open at the same time.
+- **What an admin sees.** Of a member: name, email, joined date, status and licence tier; never the phone number and never a survey taken personally. Of a response taken for the organization: member, "In progress" or "Submitted", the start and submit dates, tier and the possible-repeat flag; never the answers, the self-report or how far along a draft is. Results are added in Phase 2.
+- **What a member sees.** The organization's name and their own surveys. Never other members.
+- **Joining tells the truth first.** Before someone joins, a confirmation page says what the organization's admins will be able to see. The survey's disclosure page says it again for an organization attempt.
+- **Deactivating.** An admin deactivates a member who has left. Their unfinished attempt for the organization is deleted; the licence stays with the membership, unusable until they are reactivated; submitted surveys stay visible to the organization; the person keeps their own history. A deactivated member cannot rejoin with a shared join code: an admin reactivates them (a button) or sends a fresh invite.
+- **Invites.** Single use, expire after 14 days, and can be accepted only by an account that has verified the invited address. The link does not verify the address. If the email cannot be sent (the SES sandbox, an outage), the invite is kept and the admin can copy the link.
+- **Join codes.** Ten characters shown as `XXXXX-XXXXX`; the admin picks the number of uses and an expiry (30 days by default); any email may redeem one. A code or invite may carry a tier: the field is stored but hidden until Milestone 4 gives it meaning.
+- **Erasure.** Erasing a person keeps their membership link (founder's choice, for the privacy lawyer to confirm; `06-backlog.md`, D-7). An account with a completed survey is stripped as before: its membership is deactivated and shows as "Erased member", its name is removed, and its address is removed from any invite that was sent to it. An account with no completed survey is deleted along with its memberships and their unused licences. How an organization's own request to delete all its members' data works is still open (D-2).
+- **Names.** Sign-up asks for a full name (`Account.full_name`); accounts made before this are asked for it on the profile page. Erasing an account removes it.
 
 **What you build**
 
-- `apps/enterprises/models.py`: `Enterprise` (name, slug unique, created_by FK, created_at), `Membership` (account FK, enterprise FK, role member/admin, status active/deactivated, joined_at, joined_via_invite FK nullable, joined_via_code FK nullable; unique on account+enterprise), `Invite` (enterprise FK, email, token unique, tier nullable, expires_at, accepted_at nullable, revoked_at nullable, created_by FK), `JoinCode` (enterprise FK, code unique, tier nullable, max_uses, uses, expires_at, revoked_at nullable, created_by FK).
-- `apps/enterprises/services.py`: `create_enterprise(account, name)`, `invite_by_email(admin_membership, email, tier=None)`, `accept_invite(token, account)`, `create_code(admin_membership, max_uses, expires_at, tier=None)`, `redeem_code(code, account)`, `revoke_invite`, `revoke_code`, `deactivate_membership`.
-- `apps/enterprises/scoping.py`: `for_admin(request, slug) -> Membership` which loads the active admin membership for the logged-in account and that slug, or raises `PermissionDenied`. Every enterprise view starts by calling it.
-- Views and templates under `/enterprise/`: `create.html`, `dashboard.html`, `members.html` (list with status, tier, joined date; deactivate button), `invites.html` (list, create, revoke), `codes.html` (list with uses/max, create, revoke), `responses.html` (filterable, sortable table: member, status, date, tier, possible_repeat flag), `response_detail.html` (one response: member, status, dates, tier, and results from Milestone 5; never the answers or the self-report, decided 2026-11-12).
-- Join pages: `/join/invite/<token>/` and `/join/code/` (enter code; if not logged in, sign up first then redeem). After joining, the member's survey start page tells them that <enterprise>'s administrators will see that they took the survey, when, and their tier (and later their results), but not their answers.
-- `Response.membership` now set when the survey is started from the enterprise context; the member's own list shows context per response.
-- Email: the invite email, sent via a job in milestone 5; until then sent synchronously.
-- Django admin (the hub): `Enterprise`, `Membership`, `Invite` and `JoinCode` registered for staff, with a "deactivate membership" action that calls the service, so support never needs the shell.
+- `Account.full_name` (blank for accounts made earlier), required on the sign-up form, editable on the profile, shown and searchable in the staff admin, cleared by `erasure._anonymise`.
+- `apps/enterprises/models.py` (listed before `apps.responses`, which must stay last): `Enterprise` (name, slug unique, created_by FK nullable, created_at, people_limit default 25), `Membership` (account FK, enterprise FK, role member/admin, status active/deactivated, joined_at, deactivated_at nullable, joined_via_invite FK nullable, joined_via_code FK nullable; unique on account+enterprise), `Invite` (enterprise FK, email normalised, token unique, tier nullable, expires_at, accepted_at nullable, revoked_at nullable, created_by FK nullable, created_at), `JoinCode` (enterprise FK, code unique, tier nullable, max_uses, uses, expires_at, revoked_at nullable, created_by FK nullable, created_at; a check that uses never exceeds max_uses). No `__str__` contains an email, so no admin history label can.
+- `apps/enterprises/services.py`: `create_enterprise(account, name)`, `create_code(admin_membership, max_uses, expires_at, tier=None)`, `revoke_code`, `redeem_code(code, account)`, `invite_by_email(admin_membership, email, tier=None)`, `revoke_invite`, `accept_invite(token, account)`, `deactivate_membership`, `reactivate_membership`, `set_role`, `places_left(enterprise)`. A refused action raises an exception whose message is plain words for the page.
+- `apps/enterprises/scoping.py`: `for_admin(request, slug) -> Membership` loads the active admin membership of the logged-in account for that slug, and `for_member(request, slug)` the active membership of any role. Both answer 404 for a slug that does not exist and for one the account does not belong to, so nobody can probe which organizations exist. Every organization view starts by calling one of them.
+- `apps/entitlements`: `Entitlement.person` becomes nullable, `Entitlement.membership` (FK, nullable) is added, with a check that exactly one of the two is set. `grant_for_membership(membership, tier, source, granted_by)`; `unused_licence` and `has_survey_access` take the context (a membership, or none for personal). The admin grant form takes an account (personal) or a membership.
+- `apps/responses`: `Response.membership` (FK, nullable; null means personal), always equal to its licence's membership (the service enforces it). "One open draft per account" becomes one per account and context, in a new migration. `start_response(account, membership=None)` consumes that context's oldest unused licence.
+- Survey pages per context: `/survey/start/` (personal) and `/survey/start/<slug>/` (for an organization, through `for_member`); the disclosure text has an organization version; "My surveys" lists each response with its context and offers Start or Continue per context; the result page names the context.
+- Organization pages under `/organizations/`: the list of the account's organizations with "Create an organization", `new/`, and per organization (`<slug>/`) the dashboard, `members/` (name, email, role, status, joined date, licence; deactivate, reactivate, make admin, make member), `codes/` (list with uses, create, revoke), `invites/` (list, send, revoke, copy link, "18 of 25 places left"), `responses/` (filterable, sortable table) and `responses/<id>/` (one response; 404 for any other organization's id). A header link and a box on the profile lead there.
+- Join pages: `/join/code/` and `/join/invite/<token>/`. Logged out, the person signs up or logs in first and is brought back (the pending join is kept in the session; if it is lost, entering the code or opening the link again works). The sign-up funnel event records the channel `invite` or `code`.
+- Email: the invite email, sent synchronously until the Milestone 5 worker exists, through the same failure handling as the other mails.
+- Django admin (the hub): `Enterprise` (search, the people limit editable, create one for a customer with a first admin), `Membership` (actions that call the services: deactivate, reactivate, make admin, make member), `Invite` and `JoinCode` (read-only, with a revoke action). Support staff can view all four and deactivate a membership.
 
 **Technical detail**
 
-- *Carried over from Milestone 2.* The database rule "one open draft per account" (`response_one_open_draft_per_account`) becomes one per account and membership, in a new migration. Sign-up events from invites and codes record the funnel channel `invite` or `code` (it is `direct` until then). Enterprise reports show two views: current members (active memberships) and the historical total (including deactivated members and accounts erased with `anonymised_at`).
-- *Erasure and memberships.* The founder decided on 2026-11-12 that erasing a person **keeps** their membership link: the enterprise still sees the former member's response (with the identity stripped) and it counts in the historical total. A membership links a person to a workplace, which can identify them in a small company, so the privacy lawyer must confirm this (`06-backlog.md`, D-7). How an enterprise's own request to delete its members' data works is still open (D-2). The strip list is one function (`erasure._anonymise`), so a change of answer is small.
-
-- Tokens and codes: generate with `secrets.token_urlsafe(32)` for invite tokens; for human-entered codes use a 10-character alphabet without ambiguous characters (no `0/O`, `1/I/l`), uppercase, grouped as `XXXXX-XXXXX`. Store uppercase; compare case-insensitively.
-- `accept_invite` and `redeem_code` run inside `transaction.atomic()` and lock the invite/code row with `select_for_update()` so a shared code cannot exceed `max_uses` under concurrent redemptions. Check: not revoked, not expired, uses < max_uses, account has no existing membership in that enterprise (if deactivated, reactivate rather than duplicate).
-- Accepting an invite requires the logged-in account to have the invited email as a *verified* contact point. Otherwise show "this invite was sent to x@y; log in with that address or add and verify it."
-- Code redemption accepts any email. That is the documented trade for the convenience of shared codes.
-- Tier on invite/code creates an entitlement in milestone 4; in this milestone, store the field and ignore it.
-- Enterprise self-registration creates the enterprise and the first admin membership in one transaction. No approval step.
-- Deactivation sets `status = deactivated`; responses keep their `membership_id`; the admin responses table still shows them, marked as former member.
-- Scoping: the enterprise slug is in the URL for navigation only. `for_admin()` verifies that *this account* has an *active admin* membership for *that slug*; the returned membership's `enterprise` is then the only enterprise id used in any query in that view. The slug is never trusted on its own.
-- Table filtering and sorting via query parameters (`?status=submitted&sort=-submitted_at`) rendered by HTMX into the table body; validate the sort field against an allow-list.
+- Dependencies run one way: `accounts` ← `enterprises` ← `entitlements` ← `responses`. `accounts` (erasure) reaches memberships through the reverse name `account.memberships`; `enterprises` reaches licences and responses through `membership.entitlements` and `membership.responses`, never by importing those apps.
+- Tokens and codes: `secrets.token_urlsafe(32)` for invite tokens; join codes use a 10-character alphabet without ambiguous characters (no `0/O`, `1/I/L`), stored uppercase without the hyphen, compared after uppercasing and dropping spaces and hyphens.
+- `redeem_code` and `accept_invite` run in one transaction. They lock the `Enterprise` row (so the people limit cannot be exceeded by two joins at once) and then the code or invite row (so a code cannot pass `max_uses`). Checks: not revoked, not expired, uses below the cap, places left, and the account's existing membership: active means "you are already a member"; deactivated is refused for a code and reactivated by an invite.
+- `invite_by_email` locks the `Enterprise` row, refuses when no places are left, refuses a second open invite to the same address and an address that already belongs to an active member, then sends the mail. The count is every invite row plus the sum of `JoinCode.uses`.
+- Accepting an invite requires the logged-in account to hold the invited address as a verified contact point. Otherwise the page says "this invite was sent to x@y; log in with that address, or add and verify it on your profile".
+- One open draft per context: two partial unique constraints, one on `account` where the status is draft and the membership is null, one on `account, membership` where the status is draft and the membership is set. The pages of one attempt also check that its membership is still active.
+- Erasure stays correct in every PR that adds something an account can own: memberships (PR 2), invites holding an address (PR 4), membership licences (PR 5), organization drafts (PR 6). `created_by` on the three models is set to null when that account is deleted.
+- Scoping: the slug is in the URL for navigation only. `for_admin()` verifies that *this account* has an *active admin* membership for *that slug*; the returned membership's `enterprise` is then the only enterprise id used in any query in that view. The response detail page looks the id up inside that enterprise, so another organization's id is a 404.
+- Table filtering and sorting through query parameters (`?status=submitted&sort=-submitted_at`), rendered by HTMX into the table body; the sort field is checked against an allow-list.
+- Carried over from Milestone 2: organization reports show two views, current members (active memberships) and the historical total (including deactivated and erased members).
+- Brute-forcing join codes is limited in Milestone 7 (rate limit on the join page); the code space is about 10^15.
 
 **Tests**
 
-- Tenant isolation (the most important tests in the project): create enterprises A and B with one admin and two members each, each member with a submitted response. Assert that A's admin, hitting `members`, `responses`, `response_detail` for a B response, and (later) `export`, sees nothing from B — `response_detail` returns 404, not 403, so that B's ids are not even confirmed to exist. Assert that B's member cannot access A's admin pages at all.
-- A member (non-admin) of A cannot open A's admin pages.
-- Invite: accept with the matching verified email succeeds once; second accept fails; expired, revoked, and wrong-email cases fail with the right messages.
-- Code: `max_uses = 2`, three concurrent redemptions (use threads in the test or sequential with the lock asserted) yield exactly two memberships; revoked and expired codes fail; a deactivated member redeeming reactivates rather than duplicates.
-- Deactivated member: still sees own responses; admin still sees them.
-- Enterprise create: creator becomes admin; a second create by the same account creates a second enterprise and a second admin membership.
-- Erasing an account that has a membership follows the rule decided above, and a former member's results still count in the historical total.
+- Tenant isolation (the most important tests in the project), written before the pages they protect: organizations A and B, each with one admin and two members, each member with a submitted response for the organization and one taken personally. A's admin, on `members`, `codes`, `invites`, `responses` and `responses/<id>` for a B response, sees nothing of B: the detail page is a 404, not a 403. B's member cannot open A's pages at all. A member (not an admin) of A cannot open A's admin pages. No organization page ever shows a personal response, an answer value or a phone number.
+- Codes: `max_uses = 2` and three simultaneous redemptions give exactly two memberships (the lock is asserted); revoked and expired codes fail; a deactivated member is refused; an active member is told they already belong.
+- Invites: accepted once by the matching verified address; a second accept fails; expired, revoked and wrong-address cases fail with the right message; an invite reactivates a deactivated member; a refused mail keeps the invite.
+- The people limit: the 26th person is refused by invite and by code; revoked and expired invites still count; two joins racing for the last place give one member; raising `people_limit` lets the next one in.
+- Roles: the creator is an admin; promote and demote work; the last active admin cannot be demoted or deactivated.
+- Licences and responses: a membership licence starts an attempt only for that organization and a personal one only personally; a personal and an organization draft can be open together, two for one context cannot; deactivating deletes the organization draft and blocks its pages; reactivating makes the licence usable again.
+- Erasure: an account with a completed survey keeps its (deactivated) membership, shows as "Erased member", loses its name, and its address is gone from its invites; an account without one is deleted with its memberships; the organization's historical total still counts the former member.
+- Pages: every organization, join and survey-context page renders for the right role at phone width and redirects or 404s for the wrong one.
+
+**PR plan** (one branch and one pull request each, in this order)
+
+0. `m3-replan`: this section, and the requirements, architecture and backlog brought in line with the decisions. Docs only.
+1. `m3-full-name`: `Account.full_name`, sign-up, profile, staff admin, erasure.
+2. `m3-enterprise-models`: the `enterprises` app, its four models and database rules, a minimal read-only admin, erasure handling for memberships.
+3. `m3-enterprise-services`: `create_enterprise`, join codes, deactivate, reactivate, `set_role`, the people limit, `scoping.py`; the concurrency tests.
+4. `m3-invite-services`: `invite_by_email`, `revoke_invite`, `accept_invite`, the invite email, erasure handling for invites.
+5. `m3-membership-licences`: `Entitlement.membership`, the exactly-one rule, `grant_for_membership`, context-aware `unused_licence` and `has_survey_access`, the admin grant form, erasure handling.
+6. `m3-response-context`: `Response.membership`, one open draft per context, `start_response(account, membership)`, deactivation deletes the organization draft.
+7. `m3-survey-context-pages`: start, disclosure, "My surveys" and result per context.
+8. `m3-organization-pages`: create, list, dashboard, members; the header and profile links; isolation tests first.
+9. `m3-codes-invites-pages`: the codes and invites pages with the places-left count; isolation tests first.
+10. `m3-join-flows`: join by code and by invite link, sign up then join, the confirmation page, the funnel channel.
+11. `m3-responses-table`: the admin's responses table and response page; isolation tests first.
+12. `m3-enterprise-admin`: the Django admin for the four models, the Support staff permissions.
+13. `m3-docs-live-checks`: docs synced with what was built, NOTES, an end-to-end automated run, and the founder's live checklist.
 
 **Done when**
 
-- [ ] On the live site: create an enterprise, generate a code, open an incognito window, sign up and join with the code, take the survey, and see that response in the admin table and detail page.
-- [ ] Same with an email invite.
-- [ ] Deactivate that member; they still see their response, you still see it.
-- [ ] All tenant isolation tests pass.
+- [ ] On the live site: create an organization, make a join code, open an incognito window, sign up and join with the code, have staff grant that membership a licence, take the survey for the organization, and see the response in the admin's table and response page, with no answers anywhere.
+- [ ] The same with an email invite (to an address SES can deliver to while it is sandboxed).
+- [ ] Deactivate that member: they still see their own response, the admin still sees it, the shared code no longer lets them back in, and Reactivate does.
+- [ ] Make a second admin; the last admin cannot be demoted or deactivated.
+- [ ] With the people limit lowered to a small number in the Django admin, the next invite and the next code join are refused.
+- [ ] Erase a member with a completed survey and one without: the first shows as "Erased member" and still counts in the historical total, the second is gone.
+- [ ] All tests pass, including every tenant isolation test.
 
 **Why this order / what to understand**
 
 This is where the project becomes multi-tenant, and multi-tenancy is where products leak data. The single most valuable thing in this milestone is `scoping.for_admin()` and the tests that prove it works. Read that function slowly.
 
-*The threat model, plainly.* An attacker signs up, creates their own enterprise, and now has an admin page. They look at the URL, `/enterprise/their-slug/responses/42/`, and change `their-slug` to `acme`, or change `42` to `41`. If any view takes the enterprise from the URL and trusts it, or loads response 41 without checking that it belongs to the admin's enterprise, Acme's data is on the attacker's screen. The scoping helper makes this structurally impossible: the only enterprise id in scope comes from the attacker's own membership, so filtering by it returns nothing of Acme's. The 404-not-403 rule stops the attacker learning which ids exist.
+*The threat model, plainly.* An attacker signs up, creates their own organization, and now has an admin page. They look at the URL, `/organizations/their-slug/responses/42/`, and change `their-slug` to `acme`, or change `42` to `41`. If any view takes the organization from the URL and trusts it, or loads response 41 without checking that it belongs to the admin's organization, Acme's data is on the attacker's screen. The scoping helper makes this structurally impossible: the only enterprise id in scope comes from the attacker's own membership, so filtering by it returns nothing of Acme's. The 404-not-403 rule stops the attacker learning which ids and which organizations exist.
 
-*Why invites and codes rather than domains.* Covered in the architecture doc, but worth repeating here because you'll be tempted to add a "join if your email ends in @acme.com" shortcut. Don't. It reintroduces the fake-enterprise problem and buys little, since the admin can send invites to the whole staff list in one go.
+*Why the licence carries the context.* A response already points at exactly one licence. If the licence says "this is Acme's", the response is Acme's, and nothing can disagree. Letting the person pick a context separately from the licence would mean two facts that could contradict each other, and Milestone 4's seats would have had to undo it.
 
-*Why locking matters for codes.* Two people redeem the last seat of a `max_uses=10` code at the same instant. Both read `uses = 9`, both write `uses = 10`, and you have eleven members on a ten-use code. The row lock makes the second redemption wait for the first and then see `uses = 10`. Seat pools in the next milestone have the same shape and the same fix.
+*Why invites and codes rather than domains.* Covered in the architecture doc, but worth repeating here because you'll be tempted to add a "join if your email ends in @acme.com" shortcut. Don't. It reintroduces the fake-organization problem and buys little, since the admin can send invites to the whole staff list in one go.
 
-*The admin table is a real product surface.* Enterprise customers will judge the product by this page. Keep it simple, but make filtering, sorting and the empty state work properly. "No responses yet. Invite members to get started" with a link beats a blank table.
+*Why locking matters for codes and the people limit.* Two people redeem the last use of a code at the same instant. Both read `uses = 9`, both write `uses = 10`, and you have eleven members on a ten-use code. The row lock makes the second redemption wait for the first and then see `uses = 10`. The people limit and, in the next milestone, seat pools have the same shape and the same fix.
+
+*Why a limit before paying.* An organization costs nothing to create, and an invite sends an email in Accelerare's name. Without a limit, anyone could use the invite form to send mail to strangers, and Amazon pauses senders whose mail is reported. Twenty-five places is enough to try the product and too few to abuse.
+
+*The admin table is a real product surface.* Organization customers will judge the product by this page. Keep it simple, but make filtering, sorting and the empty state work properly. "No responses yet. Invite members to get started" with a link beats a blank table.
 
 ---
 
 ## Milestone 4 — Seat pools and entitlements
 
 *Re-plan this section before starting it. On 2026-10-09 the founder decided that a licence is one survey attempt plus results at its tier, and Milestone 2 built the individual half of `Entitlement` with a one-to-one from `Response`. So a seat here is a licence an enterprise bought and assigned to a member, consumed by that member's one attempt, and upgradeable in place; the "joined without a seat" warning becomes "cannot take the survey until given a licence".*
+
+*State after Milestone 3 (as planned 2026-11-12).* Milestone 3 pulls the model half of this milestone forward: `Entitlement.person` becomes nullable, the membership FK and the exactly-one check constraint are added, and staff grant a membership licence by hand with source `manual` (`grant_for_membership`). `Response.membership` follows the licence. Each organization has a people limit of 25 until it has bought licences. What is left for this milestone: `SeatPool`, the source `seat`, organization admins assigning licences within the pool, invites and codes that carry a tier consuming a seat, and how seats raise the people limit (`06-backlog.md`, D-16).
 
 *State after Milestone 2.* `Entitlement` exists with a non-null `person`, source purchase or manual, and `grant_individual`, `revoke`, `change_tier`, `unused_licence` and `has_survey_access` are built, with an admin grant form (the account is found with the admin's search box, by email or phone), a revoke action and an unused-licences filter. This milestone makes `person` nullable, adds the membership FK, the exactly-one check constraint and the source `seat`, and records the funnel event `licence_granted` with source `seat`. Licences do not expire. Staff manage `SeatPool` from the admin like everything else.
 
@@ -551,7 +601,7 @@ Not a milestone. Self-serve purchase for individuals and enterprises (likely Raz
 | 0 | Foundations and first deploy | — | Empty site on HTTPS with CI/CD |
 | 1 | Accounts | 0 | Sign up, verify, log in, reset |
 | 2 | Survey and responses | 1 | Individuals take and view the survey; licences, erasure and the funnel are built (closed 2026-11-12) |
-| 3 | Enterprises, memberships, join | 2 | Enterprise admins onboard members and view responses |
+| 3 | Organizations, memberships, join | 2 | Organization admins onboard members and see who took the survey; licences per membership (re-planned 2026-11-12, in progress) |
 | 4 | Seat pools and entitlements | 3 | Tiers assigned and counted |
 | 5 | Jobs, matching, audit | 4 | Worker live; repeats flagged and linked; actions audited |
 | 6 | Root admin, export, erasure audit | 5 | Root console complete; CSV; erasure audited and documented |
@@ -574,6 +624,14 @@ Moved on 2026-11-12 to `06-backlog.md`, the one list of open tasks and parked de
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-12 | Milestone 3 re-planned into fourteen PRs (0 to 13); PRs are merged on green without waiting for the founder's review, decisions are still raised, each PR ends with a summary, and the milestone ends with automated checks and a founder checklist | Founder's instruction, to move quickly towards the walkthrough on 2026-11-13 without giving up the decisions |
+| 2026-11-12 | A licence belongs to a person or to a membership, never both, and decides the context of the response that uses it; staff grant membership licences by hand until seats exist. The model half of Milestone 4 moves into Milestone 3 | One fact instead of two that could disagree; Milestone 4 needed the same schema change |
+| 2026-11-12 | The site says "organization" (US spelling, the founder's choice); code, tables and docs keep "enterprise" | Covers companies and schools; renaming the code buys nothing |
+| 2026-11-12 | Sign-up asks for a full name (`Account.full_name`); earlier accounts are asked on the profile; erasure removes it | Organization admins would otherwise see members by email only, and Milestone 5's name rule needs it |
+| 2026-11-12 | Organization admins can promote a member to admin and demote an admin; the last active admin is protected | Otherwise every change of admin is a support request |
+| 2026-11-12 | An organization that has not bought licences can bring in 25 people in total, by invite or code; every invite ever sent counts; staff raise `people_limit` by hand | Founder: anyone may create an organization, but it is very limited until it pays; also stops the invite form being used to send spam through SES |
+| 2026-11-12 | A deactivated member cannot rejoin with a shared code; an admin reactivates them or sends a fresh invite. Overrides the original "redeeming reactivates" | Deactivating someone should keep them out |
+| 2026-11-12 | Smaller Milestone 3 calls agreed by the founder: admins are members too; members never see other members; admins never see phone numbers, personal responses or how far a draft has got; deactivating deletes the organization draft and keeps the licence with the membership; invites are single use, last 14 days, need the verified invited address, and the link can be copied if the mail fails; codes are `XXXXX-XXXXX` with a 30-day default; tier on a code or invite is stored but hidden until Milestone 4; a join shows what admins will see first; an unknown slug and someone else's slug are both 404; erased members show as "Erased member" and their address leaves their invites | Listed to the founder on 2026-11-12 and accepted as a set |
 | 2026-11-12 | Milestone 2 is closed. Milestone 3 starts when the founder says so | Every "Done when" box is ticked; the open Milestone 1 checks do not block it |
 | 2026-11-12 | Enterprise admins see a member's response status, dates and tier (and results from Milestone 5), never the answers or the self-report; the enterprise CSV export has no answer columns | Consistent with members never seeing their own answers; safest for the privacy review; easy to widen later. Settles FR-19's enterprise scope |
 | 2026-11-12 | Erasing a person keeps their membership link; the stripped response stays visible to the enterprise and counts in its historical total | Founder's choice, for the privacy lawyer to confirm; enterprise-wide deletion requests are still open |
