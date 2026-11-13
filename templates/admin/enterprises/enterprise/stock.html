@@ -1,0 +1,49 @@
+{% extends "admin/base_site.html" %}
+{% load admin_urls %}
+{% comment %}
+The "Licence stock" page: how many licences of each tier an organization has
+bought. Staff type the totals here after a sale made off the site, until
+payments exist and set them without anyone typing. The organization's admins
+then give the licences to members on their own Licences page.
+{% endcomment %}
+{% block breadcrumbs %}
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">Home</a></li>
+  <li><a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a></li>
+  <li><a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a></li>
+  <li><a href="{% url opts|admin_urlname:'change' enterprise.pk %}">{{ enterprise.name }}</a></li>
+  <li aria-current="page">Licence stock</li>
+</ol>
+{% endblock %}
+{% block content %}
+<div id="content-main" style="max-width: 50rem;">
+  <p style="font-size: 1.1em;"><strong>How many licences {{ enterprise.name }} has bought, in total, at each tier.</strong></p>
+  <p>
+    Type the new total, not the number to add: an organization that had 10 and buys 5 more
+    is set to 15. Its admins give these licences to members themselves. A licence you grant
+    by hand under "Entitlements" is a gift on top and does not use this stock.
+  </p>
+  <p>
+    Every licence bought also lets the organization bring in one more person:
+    it can bring in {{ people_limit }} in total at the moment.
+  </p>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <fieldset class="module aligned">
+      {% for field in form %}
+        {# Room between the rows, so an error sits visibly with its own box. #}
+        <div class="form-row" style="padding: .75rem 0;">
+          {{ field.errors }}
+          {{ field.label_tag }} {{ field }}
+          {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+        </div>
+      {% endfor %}
+    </fieldset>
+    <div class="submit-row">
+      <input type="submit" value="Save the stock" class="default">
+      <a href="{% url opts|admin_urlname:'change' enterprise.pk %}" class="closelink">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

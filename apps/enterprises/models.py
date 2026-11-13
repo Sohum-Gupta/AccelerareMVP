@@ -44,8 +44,14 @@ class Enterprise(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     # How many people the organization may bring in before it has bought
     # licences: every invite ever sent plus every join by code. The creator does
-    # not count. Staff raise it by hand in the admin (backlog D-16).
-    people_limit = models.PositiveIntegerField(default=25)
+    # not count. This is the base number: every licence the organization has
+    # bought (its seat pools, below) is added to it. Staff can change the base
+    # by hand in the admin. services.people_limit gives the number in effect.
+    people_limit = models.PositiveIntegerField(
+        default=25,
+        help_text="The base number of people this organization may bring in. "
+        "Every licence it has bought is added on top.",
+    )
 
     class Meta:
         ordering = ["name", "id"]
@@ -53,6 +59,46 @@ class Enterprise(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class SeatPool(models.Model):
+    """
+    How many licences of one tier an organization has bought: its stock. The
+    site says "licences" and "stock"; the code says "seat" and "seat pool".
+
+    One row per organization and tier, holding the total ever bought. How many
+    have been given out is not stored here: it is counted from the licences
+    themselves (services.seats_given), so the two can never disagree. Staff set
+    the number by hand in the admin until payments exist (Milestone 4b).
+
+    It lives in this app, not with the licences, because the people limit is
+    worked out here and this app may not import the licences app.
+    """
+
+    enterprise = models.ForeignKey(
+        Enterprise,
+        on_delete=models.PROTECT,
+        related_name="seat_pools",
+        verbose_name="organization",
+    )
+    tier = models.PositiveSmallIntegerField()
+    seats = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["enterprise", "tier"]
+        verbose_name = "licence stock"
+        verbose_name_plural = "licence stocks"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["enterprise", "tier"], name="seatpool_one_per_enterprise_and_tier"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(tier__gte=1, tier__lte=3), name="seatpool_tier_1_to_3"
+            ),
+        ]
+
+    def __str__(self):
+        return f"Tier {self.tier} licences of {self.enterprise.name}"
 
 
 class Membership(models.Model):
