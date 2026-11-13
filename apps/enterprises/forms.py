@@ -19,7 +19,7 @@ from .services import (
 MAX_CODE_DAYS = 365
 
 
-def tier_field(label):
+def tier_field(label, help_text):
     """
     The optional "licence to give on joining" drop-down of the invite and join
     code forms: "No licence" (the default) or a tier, which the form hands
@@ -30,13 +30,39 @@ def tier_field(label):
         required=False,
         coerce=int,
         empty_value=None,
-        choices=[("", "No licence"), *((tier, f"Tier {tier} licence") for tier in TIERS)],
-        help_text=(
-            "Taken from your stock at the moment they join. "
-            "If none is left then, they still join, without a licence."
-        ),
+        choices=_tier_choices(None),
+        help_text=help_text,
         error_messages={"invalid_choice": "Choose a tier from the list, or no licence."},
     )
+
+
+def _tier_choices(left):
+    """
+    The drop-down's lines. With `left` ({tier: how many the stock can still
+    promise}) each tier says so: "Tier 2 licence (3 left)". Every tier stays in
+    the list even with none left; the service refuses it and says why, which
+    is clearer than a tier that has silently gone.
+    """
+
+    def label(tier):
+        if left is None:
+            return f"Tier {tier} licence"
+        number = left.get(tier, 0)
+        return (
+            f"Tier {tier} licence ({number:,} left)"
+            if number
+            else f"Tier {tier} licence (none left)"
+        )
+
+    return [("", "No licence"), *((tier, label(tier)) for tier in TIERS)]
+
+
+class _StockAwareForm(forms.Form):
+    """A form with the tier drop-down, told how many of each tier are left."""
+
+    def __init__(self, *args, left=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["tier"].choices = _tier_choices(left)
 
 
 class EnterpriseForm(forms.Form):
@@ -54,7 +80,7 @@ class EnterpriseForm(forms.Form):
     )
 
 
-class JoinCodeForm(forms.Form):
+class JoinCodeForm(_StockAwareForm):
     """The "New join code" form: how many people it lets in, and for how long."""
 
     max_uses = forms.IntegerField(
@@ -81,10 +107,15 @@ class JoinCodeForm(forms.Form):
             "max_value": f"Choose a number of days from 1 to {MAX_CODE_DAYS}.",
         },
     )
-    tier = tier_field("Licence for each person who joins")
+    tier = tier_field(
+        "Licence for each person who joins",
+        "One licence is set aside from your stock for each person the code allows, so you "
+        "need that many left. Those nobody takes come back when the code is switched off "
+        "or expires.",
+    )
 
 
-class InviteForm(forms.Form):
+class InviteForm(_StockAwareForm):
     """The "Invite someone" form: one email address, and the licence that comes with it."""
 
     email = forms.EmailField(
@@ -96,7 +127,11 @@ class InviteForm(forms.Form):
             "invalid": "Enter a valid email address.",
         },
     )
-    tier = tier_field("Licence to give them when they join")
+    tier = tier_field(
+        "Licence to give them when they join",
+        "The licence is set aside from your stock when the invite is sent, and comes back "
+        "if the invite is withdrawn or expires.",
+    )
 
 
 class JoinForm(forms.Form):

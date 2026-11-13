@@ -165,6 +165,7 @@ class TestCreateCode:
 
     def test_takes_an_expiry_and_a_tier(self, acme):
         when = timezone.now() + timedelta(days=3)
+        services.set_seat_pool(acme[0], 2, 1)  # a code with a tier needs the stock to cover it
         code = services.create_code(acme[1], 1, expires_at=when, tier=2)
         assert code.expires_at == when and code.tier == 2
 

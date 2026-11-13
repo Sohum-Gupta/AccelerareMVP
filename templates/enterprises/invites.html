@@ -7,7 +7,7 @@
 {% block content %}
   <p class="mb-1 text-sm"><a href="{% url 'enterprises:dashboard' organization.slug %}">{{ organization.name }}</a></p>
   <h1>Invites</h1>
-  <p class="text-sm text-slate-700">An invite goes to one email address, works once and lasts {{ days }} days. An invite can also give the person a licence from your stock when they join: choose its tier below.</p>
+  <p class="text-sm text-slate-700">An invite goes to one email address, works once and lasts {{ days }} days. An invite can also come with a licence from your stock: choose its tier below, and the licence is set aside for that person until they join.</p>
 
   {% include "enterprises/_places.html" %}
 

@@ -31,10 +31,15 @@ The rules (decided by the founder on 2026-11-12):
   brings a deactivated member back. If the email cannot be sent, the invite is
   kept and the admin can copy the link.
 * A tier on an invite or a join code (decided by the founder on 2026-11-13):
-  the admin may choose one, and each person who joins with it is given a
-  licence of that tier out of the stock. If none is left they still join,
-  without a licence. This app only announces the join (`member_joined`); the
-  licences app, which depends on this one, listens and gives the licence.
+  the admin may choose one, and the licences it promises are set aside out of
+  the stock from that moment: one for an invite, one for each person a code
+  allows. Making it is refused when the stock cannot cover it. Whoever joins
+  with it is given the licence that was set aside. A licence set aside comes
+  back when the invite is withdrawn or expires, or the code is switched off
+  or expires. Nothing is stored for this: it is counted from the invites and
+  codes themselves (seats_set_aside). This app only announces the join
+  (`member_joined`); the licences app, which depends on this one, listens and
+  gives the licence, and the join and the licence happen together or not at all.
 
 Who is acting: a function that an organization's admin can call takes `by`, the
 acting admin's own Membership, and checks again that it is an active admin of
@@ -59,8 +64,7 @@ from allauth.core import context as allauth_context
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Sum
-from django.db.models.functions import Coalesce
+from django.db.models import Count, F, Sum
 from django.dispatch import Signal
 from django.urls import reverse
 from django.utils import timezone
@@ -100,10 +104,10 @@ SEAT_SOURCE = "seat"
 
 # Sent when someone joins with a code or an invite (redeem_code, accept_invite),
 # with `membership` and `tier`: the tier the code or invite carries, or None.
-# The licences app listens and gives the new member a licence out of the stock.
-# It is a signal because this app may not import that one, the same pattern as
-# `account_erasing` in accounts/erasure.py. See _announce_join for what happens
-# when a listener fails.
+# The licences app listens and gives the new member the licence that was set
+# aside for them. It is a signal because this app may not import that one, the
+# same pattern as `account_erasing` in accounts/erasure.py. See _announce_join
+# for what happens when a listener fails.
 member_joined = Signal()
 
 
@@ -176,40 +180,57 @@ def seats_given(enterprise):
     return given
 
 
-def joined_without_licence(enterprise):
+def seats_set_aside(enterprise, now=None):
     """
-    {membership id: tier} for the active members whose invite or join code came
-    with a licence of that tier and who have never held a licence for the
-    organization: the stock had none left when they joined. Counted, never
-    stored, so a member drops out as soon as an admin gives them a licence.
+    {tier: licences promised but not yet given}. An invite with a tier sets one
+    aside while it can still be accepted; a join code with a tier sets one aside
+    for each use it has left while it still works. Counted, never stored: when
+    an invite is withdrawn, expires or loses its address (the person was
+    erased), or a code is switched off or expires, its licences are simply no
+    longer counted, which is what puts them back in the stock.
     """
-    promised = Coalesce("joined_via_invite__tier", "joined_via_code__tier")
-    rows = (
-        Membership.objects.filter(
-            enterprise=enterprise,
-            status=Membership.Status.ACTIVE,
-            entitlements__isnull=True,
-        )
-        .annotate(promised=promised)
-        .filter(promised__isnull=False)
-        .values_list("pk", "promised")
+    now = now or timezone.now()
+    aside = dict.fromkeys(TIERS, 0)
+    invites = (
+        _open_invites(enterprise, now)
+        .exclude(email="")
+        .filter(tier__isnull=False)
+        .order_by()
+        .values_list("tier")
+        .annotate(count=Count("pk"))
     )
-    return dict(rows)
+    for tier, count in invites:
+        aside[tier] += count
+    codes = (
+        enterprise.join_codes.filter(
+            tier__isnull=False, revoked_at__isnull=True, expires_at__gt=now
+        )
+        .order_by()
+        .values_list("tier")
+        .annotate(unused=Sum(F("max_uses") - F("uses")))
+    )
+    for tier, unused in codes:
+        aside[tier] += unused
+    return aside
 
 
 def seat_summary(enterprise):
     """
-    The stock tier by tier, for a page: a list of {tier, bought, given, left}.
-    `left` is never below zero; `given` can be above `bought` after staff lower
-    a stock, and then nothing more can be given at that tier.
+    The stock tier by tier, for a page: a list of {tier, bought, given,
+    set_aside, left}. `left` is what can still be given or promised: bought,
+    less given, less set aside. It is never below zero; `given` plus `set_aside`
+    can be above `bought` after staff lower a stock, and then nothing more can
+    be given or set aside at that tier.
     """
     bought, given = seats_bought(enterprise), seats_given(enterprise)
+    aside = seats_set_aside(enterprise)
     return [
         {
             "tier": tier,
             "bought": bought[tier],
             "given": given[tier],
-            "left": max(0, bought[tier] - given[tier]),
+            "set_aside": aside[tier],
+            "left": max(0, bought[tier] - given[tier] - aside[tier]),
         }
         for tier in TIERS
     ]
@@ -359,8 +380,9 @@ def create_code(admin_membership, max_uses, expires_at=None, tier=None):
     """
     Make a join code for the admin's organization. `max_uses` is how many people
     it lets in; it expires in 30 days unless another date is given. With a
-    tier, each person who joins with the code is given a licence of that tier
-    out of the organization's stock, while it has one left.
+    tier, one licence of that tier is set aside out of the organization's stock
+    for each person the code allows, and each person who joins with it is given
+    one. Refused when the stock has fewer left than the code allows.
     """
     if isinstance(max_uses, bool) or not isinstance(max_uses, int):
         raise Refused("Enter how many people may use the code, as a whole number.")
@@ -373,7 +395,17 @@ def create_code(admin_membership, max_uses, expires_at=None, tier=None):
     elif expires_at <= now:
         raise Refused("Choose an expiry date in the future.")
     with transaction.atomic():
-        admin = _acting_admin(admin_membership, admin_membership.enterprise_id)
+        # The organization's lock: the stock is counted under it, so two admins
+        # promising the last licences at the same moment take turns.
+        enterprise, admin = lock_for_admin(admin_membership)
+        if tier is not None:
+            left = _left(enterprise, tier)
+            if left < max_uses:
+                raise Refused(
+                    f"This code would give a Tier {tier} licence to each of "
+                    f"{_people(max_uses)}, but your stock has {_only(left)} left. "
+                    "Lower the number of people, or choose no licence."
+                )
         while True:
             code = "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
             try:
@@ -409,8 +441,8 @@ def redeem_code(code, account):
     Refused, in this order, when: the code is unknown; the account already
     belongs (AlreadyMember) or was deactivated there; the code is revoked,
     expired or used up; or the organization has no places left. If the code
-    carries a tier, joining also brings a licence of that tier while the stock
-    has one left; with none left the person still joins.
+    carries a tier, joining also brings the licence of that tier that was set
+    aside when the code was made.
     """
     found = _find_code(code)
     with transaction.atomic():
@@ -485,8 +517,8 @@ def invite_by_email(admin_membership, email, tier=None, *, request=None):
     Refused when the address is not an address, already belongs to an active
     member, or already has an open invite, and when the organization has no
     places left. The invite uses a place from the moment it exists, whatever
-    becomes of it. With a tier, whoever accepts it is given a licence of that
-    tier out of the stock, if it has one left at that moment.
+    becomes of it. With a tier, a licence of that tier is set aside out of the
+    stock for whoever accepts it; refused when the stock has none left.
 
     The email goes out after the invite is saved, and only when a request is
     given (a view passes it; it is what the link's address is built from).
@@ -515,6 +547,11 @@ def invite_by_email(admin_membership, email, tier=None, *, request=None):
             )
         if places_left(enterprise) < 1:
             raise Refused(f"{enterprise.name} has no places left. Contact us to add more.")
+        if tier is not None and _left(enterprise, tier) < 1:
+            raise Refused(
+                f"Your stock has no Tier {tier} licences left, so this invite cannot "
+                "come with one. Send it without a licence, or choose another tier."
+            )
         invite = Invite.objects.create(
             enterprise=enterprise,
             email=address,
@@ -559,7 +596,8 @@ def send_invite_email(invite, request):
 def revoke_invite(invite, by=None):
     """
     Withdraw an invite that has not been accepted. Revoking twice keeps the
-    first date. It still counts towards the people limit.
+    first date. It still counts towards the people limit. A licence that was
+    set aside for it is back in the stock from this moment.
     """
     with transaction.atomic():
         invite = Invite.objects.select_for_update().get(pk=invite.pk)
@@ -582,8 +620,10 @@ def accept_invite(token, account):
     expired; or the account has not verified the address the invite was sent to
     (WrongAddress). A deactivated member is brought back, as an ordinary member.
     Accepting needs no free place: the invite took its place when it was sent.
-    If the invite carries a tier, joining also brings a licence of that tier
-    while the stock has one left; with none left the person still joins.
+    If the invite carries a tier, joining also brings the licence that was set
+    aside when it was sent. Someone coming back who already holds a licence
+    they have not used keeps that one and gets no second; the one set aside
+    returns to the stock.
     """
     found = _find_invite(token)
     with transaction.atomic():
@@ -738,18 +778,26 @@ def _announce_join(membership, tier):
     Tell the apps that depend on this one that someone has just joined. The
     caller is inside the join's transaction and holds the organization's lock.
 
-    A join never fails because of what a listener does: an empty stock is the
-    organization's bookkeeping, not the new member's problem. So the listeners
-    run inside a savepoint. If one fails, whatever it wrote is undone, the
-    failure is logged for staff (naming nobody), and the join goes ahead.
+    The join and what the listeners do happen together or not at all. A
+    licence was set aside for this person and the page they read before
+    joining said so. If giving it fails for a reason nobody planned for, the
+    error is raised: the whole join is undone, the person sees the error page
+    and can try again, and nobody is let in without what they were promised.
     """
-    try:
-        with transaction.atomic():
-            member_joined.send(sender=Membership, membership=membership, tier=tier)
-    except Exception:  # whatever went wrong, the person still joins
-        logger.exception(
-            "A listener to member_joined failed; membership %s joined anyway", membership.pk
-        )
+    member_joined.send(sender=Membership, membership=membership, tier=tier)
+
+
+def _left(enterprise, tier):
+    """How many licences of this tier can still be given or promised. The caller holds the lock."""
+    return next(row["left"] for row in seat_summary(enterprise) if row["tier"] == tier)
+
+
+def _people(number):
+    return "1 person" if number == 1 else f"{number:,} people"
+
+
+def _only(number):
+    return "none" if number == 0 else f"only {number:,}"
 
 
 def _check_can_join(account):

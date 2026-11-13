@@ -21,9 +21,10 @@ organization pages' own `Refused`, with a message the admin can be shown, or
 `NotFound` when the member or licence is not that organization's. A licence
 given this way has the source "seat" and is the only kind that counts against
 the stock; one staff granted by hand is a gift on top and only staff change it.
-An invite or a join code can carry a tier: give_seat_on_joining gives whoever
-joins with it a licence from the stock (signals.py calls it), or nothing if
-the stock has none left. They join either way.
+An invite or a join code can carry a tier. Its licences are set aside out of
+the stock when it is made (the enterprises app counts them), and
+give_seat_on_joining gives whoever joins with it the one set aside for them
+(signals.py calls it).
 
 Lock order, everywhere a licence is given, taken back or used: the
 organization's row, then the membership, then the licences, then the response.
@@ -236,14 +237,17 @@ def assign_seat(admin_membership, member_membership, tier):
 def give_seat_on_joining(membership, tier):
     """
     Someone has just joined with an invite or a join code that carries a tier:
-    give them a licence of that tier out of the organization's stock, and
-    return it.
+    give them the licence of that tier that was set aside for them, and return
+    it. Only the join calls this (through signals.py).
 
-    Returns None, and gives nothing, when the stock of that tier has none left
-    or when they already hold a licence they have not finished using (a
-    returning member keeps the one they had). It does not refuse: the person
-    has joined either way, and the Licences page tells the admins who joined
-    without a licence (enterprises.services.joined_without_licence).
+    The stock is not asked whether it has one left. The licence was set aside
+    when the invite or the code was made, and the join that calls this has
+    just used that promise up (the invite is now accepted, or the code has one
+    use fewer), so giving it leaves the number left where it was.
+
+    Returns None, and gives nothing, when they already hold a licence they have
+    not finished using: a member who comes back keeps the one they had, and
+    the one set aside for the invite returns to the stock.
 
     Nobody is acting at this moment. The admin chose the tier when they made
     the invite or the code, so `granted_by` is whoever made it.
@@ -251,13 +255,9 @@ def give_seat_on_joining(membership, tier):
     _check_seat_tier(tier)
     with transaction.atomic():
         # The same order as assign_seat: organization, membership, licences.
-        enterprise = Enterprise.objects.select_for_update().get(pk=membership.enterprise_id)
+        Enterprise.objects.select_for_update().get(pk=membership.enterprise_id)
         member = Membership.objects.select_for_update().filter(pk=membership.pk).first()
         if member is None or not member.is_active or _licence_in_hand(member):
-            return None
-        try:
-            _check_one_left(enterprise, tier)
-        except Refused:
             return None
         came_in_by = member.joined_via_invite or member.joined_via_code
         return _give_from_stock(member, tier, came_in_by.created_by if came_in_by else None)
