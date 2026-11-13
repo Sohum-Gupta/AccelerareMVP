@@ -93,5 +93,7 @@ def forget_match_hints(sender, account, **kwargs):
     An account is being erased. Anything still in the box under "Yes, I have
     taken this survey before" is an address or a number the person typed, so
     it goes, on the surveys that are kept as much as on those that are not.
+    Says how many boxes were emptied.
     """
-    account.responses.exclude(match_hint="").update(match_hint="")
+    emptied = account.responses.exclude(match_hint="").update(match_hint="")
+    return {"match_boxes_emptied": emptied}

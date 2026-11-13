@@ -366,12 +366,23 @@ class TestSavedTogether:
 
 @pytest.mark.django_db
 class TestErasure:
-    def test_erasing_writes_a_row_that_says_who_did_it_and_no_more(self, root):
+    def test_erasing_writes_a_row_that_says_who_did_it_and_what_went_in_numbers(self, root):
+        """The numbers themselves are held to account in tests/test_erasure_summary.py."""
         carol = verified_account(CAROL)
         number = carol.pk
         erasure.erase_account(carol, by=root)
         row = only("account.erased")
-        assert row.actor == root and row.detail == {"results_kept": False}
+        assert row.actor == root and row.detail == {
+            "results_kept": False,
+            "contacts_removed": 2,
+            "unfinished_surveys_removed": 0,
+            "surveys_kept": 0,
+            "licences_removed": 0,
+            "memberships_removed": 0,
+            "possible_duplicates_removed": 0,
+            "match_boxes_emptied": 0,
+            "invite_addresses_removed": 0,
+        }
         assert (row.target_type, row.target_id) == ("accounts.account", str(number))
         assert "carol" not in json.dumps(row.detail)
 

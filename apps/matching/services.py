@@ -225,9 +225,14 @@ def unlink(candidate, by):
 
 
 def forget(account):
-    """Remove every possible duplicate this account is part of (it is being erased)."""
-    MatchCandidate.objects.filter(account_a=account).delete()
-    MatchCandidate.objects.filter(account_b=account).delete()
+    """
+    Remove every possible duplicate this account is part of (it is being
+    erased). Returns how many there were.
+    """
+    pairs = MatchCandidate.objects.filter(Q(account_a=account) | Q(account_b=account))
+    removed = pairs.count()
+    pairs.delete()
+    return removed
 
 
 # --- helpers ----------------------------------------------------------------------------------

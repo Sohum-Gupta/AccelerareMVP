@@ -25,5 +25,6 @@ def forget_invited_addresses(sender, account, emails, **kwargs):
     # Invites sent to an address the account has proven is theirs, and any
     # invite it joined with (the address may since have left the profile).
     theirs = Q(email__in=emails) | Q(memberships__account=account)
-    ids = list(Invite.objects.filter(theirs).values_list("pk", flat=True))
-    Invite.objects.filter(pk__in=ids).update(email="")
+    # Says how many invites lost the address (one that is already empty is not counted).
+    ids = list(Invite.objects.filter(theirs).exclude(email="").values_list("pk", flat=True))
+    return {"invite_addresses_removed": Invite.objects.filter(pk__in=ids).update(email="")}
