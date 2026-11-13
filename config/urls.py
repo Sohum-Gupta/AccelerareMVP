@@ -3,6 +3,7 @@ from django.urls import include, path
 
 from apps.accounts import views as account_views
 from apps.enterprises import views as enterprise_views
+from apps.responses import organization_views
 
 from . import views
 
@@ -40,6 +41,19 @@ urlpatterns = [
     # (signup, login) are shadowed by our own views under the same names.
     path("accounts/", include("allauth.account.urls")),
     path("survey/", include("apps.responses.urls")),
+    # An organization's responses pages. They are served by the responses app
+    # (the enterprises app may not import it), so they are listed here, before
+    # the include, rather than in apps/enterprises/urls.py.
+    path(
+        "organizations/<slug:slug>/responses/",
+        organization_views.table,
+        name="organization_responses",
+    ),
+    path(
+        "organizations/<slug:slug>/responses/<int:pk>/",
+        organization_views.detail,
+        name="organization_response",
+    ),
     path("organizations/", include("apps.enterprises.urls")),
     # Joining an organization. Not under /organizations/: the person is not a member yet.
     path("join/code/", enterprise_views.join_code, name="join_code"),

@@ -24,6 +24,12 @@
       <a href="{% url 'enterprises:members' organization.slug %}">Manage members</a>
     </section>
 
+    <section class="mb-4 rounded-md border border-slate-300 bg-white p-4" aria-labelledby="responses-title">
+      <h2 id="responses-title" class="mb-1 text-base font-semibold">Responses</h2>
+      <p class="text-sm text-slate-700">Who has taken the survey for {{ organization.name }}, when, and whether it is finished. Never anyone's answers.</p>
+      <a href="{% url 'organization_responses' organization.slug %}">See responses</a>
+    </section>
+
     <section class="mb-4 rounded-md border border-slate-300 bg-white p-4" aria-labelledby="bring-title">
       <h2 id="bring-title" class="mb-1 text-base font-semibold">Bring people in</h2>
       <p class="text-sm text-slate-700">{{ places.left }} of {{ places.limit }} place{{ places.limit|pluralize }} left. Send an invite to one email address, or share a join code with a group.</p>

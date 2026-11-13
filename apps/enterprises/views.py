@@ -47,13 +47,8 @@ from apps.accounts.decorators import verified_email_required
 from . import scoping, services
 from .forms import EnterpriseForm, InviteForm, JoinCodeForm, JoinForm
 from .models import Invite, JoinCode, Membership
-
-ERASED = "Erased member"
-
-
-def _organization(membership):
-    """What a template may know about the organization itself."""
-    return {"name": membership.enterprise.name, "slug": membership.enterprise.slug}
+from .shown import member_email, member_name
+from .shown import organization as _organization
 
 
 def _places(enterprise):
@@ -114,25 +109,6 @@ def dashboard(request, slug):
     return render(request, "enterprises/dashboard.html", context)
 
 
-def _name(account):
-    """A member's name as an admin sees it. Blank for an account made before names were asked for."""
-    return ERASED if account.anonymised_at is not None else account.full_name
-
-
-def _email_for_admins(person):
-    """
-    The address an organization's admins see for a member: the one the invite
-    went to if they joined by invite (it is the address the organization knows
-    them by), otherwise the address they log in with. An erased member has none.
-    """
-    if person.account.anonymised_at is not None:
-        return ""
-    invite = person.joined_via_invite
-    if invite is not None and invite.email:
-        return invite.email
-    return person.account.email
-
-
 def _member_row(person, viewer, admin_count):
     """What an admin may see about one member. Plain values only; never the phone."""
     # Only licences for this organization hang off the membership; a personal
@@ -140,8 +116,8 @@ def _member_row(person, viewer, admin_count):
     tiers = [licence.tier for licence in person.entitlements.all() if licence.revoked_at is None]
     return {
         "id": person.pk,
-        "name": _name(person.account),
-        "email": _email_for_admins(person),
+        "name": member_name(person.account),
+        "email": member_email(person),
         "erased": person.account.anonymised_at is not None,
         "is_admin": person.is_admin,
         "active": person.is_active,
@@ -220,7 +196,7 @@ def deactivate_member(request, slug, pk):
     if request.method != "POST":
         context = {
             "organization": organization,
-            "member": {"id": target.pk, "name": _name(target.account)},
+            "member": {"id": target.pk, "name": member_name(target.account)},
             "yourself": yourself,
         }
         return render(request, "enterprises/deactivate.html", context)
@@ -465,7 +441,7 @@ def _confirmation(request, enterprise, *, email, code=""):
     """
     The page that tells the truth first. Plain values only. `email` is the
     address the organization's admins will see for this person (the invited
-    address for an invite, the login address for a code; see _email_for_admins).
+    address for an invite, the login address for a code; see shown.member_email).
     """
     context = {
         "organization_name": enterprise.name,

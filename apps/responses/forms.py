@@ -1,8 +1,14 @@
-"""The self-report form. The rules live in services.save_self_report; this form
+"""
+The self-report form. The rules live in services.save_self_report; this form
 turns radio buttons and a drop-down into the True/False and choice it expects,
-and gives a field-level error when "how" is missing after a "yes"."""
+and gives a field-level error when "how" is missing after a "yes".
+
+Also the filter form of an organization's responses table (organization_views.py).
+"""
 
 from django import forms
+
+from apps.entitlements.services import TIERS
 
 from .models import Response
 
@@ -42,3 +48,43 @@ class SelfReportForm(forms.Form):
                 "took_before_via": response.took_before_via,
             }
         )
+
+
+class ResponseFilterForm(forms.Form):
+    """
+    The filters above an organization's responses table. It travels in the
+    address (a GET form), so a filtered table can be bookmarked or shared with
+    another admin. Every field is optional; a value that is not on offer makes
+    the form invalid and the table then shows everything.
+    """
+
+    status = forms.ChoiceField(
+        label="Status",
+        required=False,
+        choices=[
+            ("", "All"),
+            (Response.Status.DRAFT, "In progress"),
+            (Response.Status.SUBMITTED, "Submitted"),
+        ],
+    )
+    tier = forms.ChoiceField(
+        label="Results level",
+        required=False,
+        # The same placeholder words as templates/responses/_tier.html.
+        choices=[("", "All"), *((str(tier), f"Tier {tier}") for tier in TIERS)],
+    )
+    repeat = forms.ChoiceField(
+        label="Possible repeats",
+        required=False,
+        choices=[("", "Everyone"), ("yes", "Only possible repeats")],
+    )
+    sort = forms.ChoiceField(
+        label="Order",
+        required=False,
+        choices=[
+            ("-started", "Started, newest first"),
+            ("started", "Started, oldest first"),
+            ("-submitted", "Submitted, newest first"),
+            ("member", "Member name, A to Z"),
+        ],
+    )
