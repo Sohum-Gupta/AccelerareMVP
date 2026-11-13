@@ -2,6 +2,10 @@
 // turns green (data-met="true") when its rule holds. Purely a guide; the
 // server checks everything again, and also rules this script cannot (a
 // password that is too common or too like the email).
+//
+// A list stays on the page for as long as its box has text in it. It must not
+// hide when the box loses focus: that moved everything below it up by a line
+// in the middle of a tap, so the first tap on "Sign up" missed the button.
 (function () {
   var RULES = {
     email: function (value) {
@@ -25,20 +29,14 @@
     var other = list.dataset.match && document.getElementById(list.dataset.match);
 
     function update() {
-      var allMet = true;
       list.querySelectorAll("[data-rule]").forEach(function (item) {
         var met = RULES[item.dataset.rule](input.value, list);
         item.dataset.met = met ? "true" : "false";
-        if (!met) allMet = false;
       });
-      // Show while there is something typed and either the field is in use or
-      // something is still unmet; hide again once it is empty.
-      list.hidden = !(input.value !== "" && (document.activeElement === input || !allMet));
+      list.hidden = input.value === "";
     }
 
-    ["input", "focus", "blur"].forEach(function (name) {
-      input.addEventListener(name, update);
-    });
+    input.addEventListener("input", update);
     // Editing the first password changes whether the second one matches.
     if (other) other.addEventListener("input", update);
     update();
