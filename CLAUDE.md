@@ -41,8 +41,9 @@ before doing any work:
    (root admin, CSV export, erasure). The founder asked on 2026-11-13 for it to be planned, as its PR 0,
    and built like Milestone 5: merging on green without waiting for a review applies to Milestone 6
    and to nothing after it, and pertinent product decisions are raised to the founder as they come up.
-   The build plan's Milestone 6 section is the October outline and predates much of the code; re-plan
-   from the code as it is. Product choices that come up are still asked of the founder first. `main` is
+   It was re-planned on 2026-11-13 (its PR 0): the build plan's Milestone 6 section has the founder's
+   four answers, the PR plan (0 to 6) and a status paragraph that says which PR is next. Nothing merges
+   after 7:00pm PST on 2026-11-13; after that, ask the founder how to go on. Product choices that come up are still asked of the founder first. `main` is
    protected on GitHub: every change goes through a pull request whose `test` check has passed. The site
    is built for the US first; India is deferred.**
    Do not build anything from a later milestone than the one in progress.

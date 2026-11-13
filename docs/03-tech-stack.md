@@ -61,13 +61,12 @@ survey-platform/
 │   ├── accounts/           # Person, Account, ContactPoint; allauth integration
 │   ├── enterprises/        # Enterprise, Membership, Invite, JoinCode, SeatPool
 │   ├── survey/             # SurveyVersion, Question; placeholder v1 in a data migration; load_questions
-│   ├── responses/          # Response; autosave and submit views; Support staff group (signals.py)
+│   ├── responses/          # Response; autosave and submit views; Support staff group (signals.py); the CSV downloads (exports.py, Milestone 6)
 │   ├── entitlements/       # Entitlement; giving licences from the stock; the organization's Licences page
 │   ├── payments/           # Price, Purchase, Refund; the one file that talks to Stripe (stripe_api.py)
 │   ├── funnel/             # FunnelEvent; admin funnel summary
 │   ├── matching/           # MatchCandidate (a possible duplicate); rules.py; run_for_account, confirm (link), reject, unlink; superusers' admin pages
 │   ├── results/            # Result; compute_result interface; tier filter
-│   ├── exports/            # CSV views per scope
 │   ├── audit/              # AuditLog, record() to write a row, and a copy of every Django admin history line; imports no other app
 │   └── jobs/               # Job (the queue), enqueue(), the run_worker command; each app's job_handlers.py registers what it can do
 ├── templates/              # base.html and one folder per app; templates/admin/ overrides for the Django admin
@@ -150,6 +149,7 @@ Tests: `uv run pytest`. They run in parallel, one worker per processor core, eac
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-13 | No `exports` app: the CSV downloads live in the responses app (`exports.py`) | An export reads responses, and `responses` must stay the last app in the dependency order; the organization's responses pages are there for the same reason |
 | 2026-10-09 | Support staff permissions are set in a `post_migrate` receiver, not a migration; the lists are two named lists (debugging, insights) | Permissions do not exist while migrations run on a fresh database; two lists make a later split into two groups a config change |
 | 2026-10-09 | `erasure.py` and the funnel reach other apps through reverse relations, not imports | `accounts` and `entitlements` are depended on by `responses`; importing back would be circular |
 | 2026-10-07 | Django 6.1 installed (current release, not 5.2 LTS); uses `MAILERS` setting instead of `EMAIL_BACKEND` | Already installed; 6.2 LTS lands April 2027 |

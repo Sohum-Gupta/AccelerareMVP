@@ -50,7 +50,7 @@ One codebase, split by domain so each part can be reasoned about alone. Each mod
 | `funnel` | FunnelEvent | Events carry no link to an account or person; written inside the transaction of the thing that happened; imports nothing from the apps that call it |
 | `matching` | MatchCandidate (a possible duplicate), the rules, link and undo | All rules in one file. Nothing links automatically: a superuser decides (built in Milestone 5) |
 | `results` | Result storage, `compute_result` interface, tier filtering | UI reads stored results only |
-| `exports` | CSV generation per scope | Scope comes from the caller's role, never from the request |
+| `exports` | CSV generation per scope | Scope comes from the caller's role, never from the request. Planned for Milestone 6 as part of the responses app, not an app of its own (`05-build-plan.md`) |
 | `audit` | AuditLog entries for every staff action in the Django admin, what organization admins do, and erasure | Append-only; numbers and plain facts, never a name or an email |
 | `jobs` | Job table, worker loop, retries | At-least-once; jobs must be idempotent |
 
