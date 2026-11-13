@@ -17,7 +17,7 @@ Every item has an ID (`T-` for tasks, `D-` for decisions, `L-` for later feature
 
 ## Where things stand (2026-11-13)
 
-Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-12. Milestone 3 (organizations) was built on 2026-11-12 and 2026-11-13 and is live; what is left of it is your checklist on the live site (T-16). Milestone 4 (licences for organizations) was built on 2026-11-13 and is live; what is left of it is your checklist on the live site (T-18). Nobody has yet tried Milestone 3 or Milestone 4 by hand on the live site. On 2026-11-13 you answered the choices made while building Milestone 4, the payments basics, and the two GitHub questions; the answers are in the build plan's decision log. What follows from them is built in this order: the licence changes (a licence is set aside when an invite or code promises one; built and live the same day, with two live checks added to T-18), then payments (T-17), then Milestone 5. The site is being built for the US first; the India items below are deferred. Every decision below was reviewed with the founder on 2026-11-12; the ones still listed were left here on purpose.
+Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-12. Milestone 3 (organizations) was built on 2026-11-12 and 2026-11-13 and is live; what is left of it is your checklist on the live site (T-16). Milestone 4 (licences for organizations) was built on 2026-11-13 and is live; what is left of it is your checklist on the live site (T-18). Nobody has yet tried Milestone 3 or Milestone 4 by hand on the live site. On 2026-11-13 you answered the choices made while building Milestone 4, the payments basics, and the two GitHub questions; the answers are in the build plan's decision log. What follows from them is built in this order: the licence changes (a licence is set aside when an invite or code promises one; built and live the same day, with two live checks added to T-18), then payments (planned as Milestone 4b; your part is T-21), then Milestone 5. The site is being built for the US first; the India items below are deferred. Every decision below was reviewed with the founder on 2026-11-12; the ones still listed were left here on purpose.
 
 ## Waiting on you now
 
@@ -25,6 +25,7 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | --- | --- | --- |
 | T-16 | Run the Milestone 3 live checklist (parts A to F in the build plan) | Six of Milestone 3's seven boxes can only be ticked on the live site |
 | T-18 | Run the Milestone 4 live checklist (parts A to D in the build plan, and parts E and F for its second part) | Four of Milestone 4's five boxes, and two of its second part's three, can only be ticked on the live site |
+| T-21 | Stripe: a test-mode account, its secret key and webhook secret in Parameter Store (five steps in the build plan, Milestone 4b) | Until the key is on the server, the buy pages say buying online is not open yet |
 | T-2 | Set up the uptime checker (Better Stack) once Outlook is back | Nobody is told if the site goes down |
 | T-3 | Confirm you did the second-email checks (part F) | Two Milestone 1 boxes can then be ticked |
 | T-4 | Check the AWS support case for SES production access | Until it is approved, strangers cannot get a sign-up email |
@@ -66,13 +67,13 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | T-16 | Run the Milestone 3 live checklist | Now |
 | T-18 | Run the Milestone 4 live checklist | Now |
 | T-19 | The interface points the founder raised on the live site (six small fixes and a design pass) | When the founder asks; each is a small PR |
-| T-17 | Plan the payments milestone (4b) | Next, after the licence changes; the basics are answered |
+| T-21 | Stripe test keys and webhook, in Stripe's dashboard and Parameter Store | Now; needed before payments can be tried on the live site |
 
 ## Later, not yet planned
 
 These are not in any milestone yet. The code is shaped so none of them needs a redesign.
 
-- **L-1** Payments: no longer here. Moved on 2026-11-13 to a milestone straight after Milestone 4 (T-17).
+- **L-1** Payments: no longer here. Moved on 2026-11-13 to a milestone straight after Milestone 4 (Milestone 4b in the build plan).
 - **L-2** Company single sign-on (SAML or OIDC).
 - **L-3** A helper-admin role for enterprises.
 - **L-4** Charts and dashboards.
@@ -89,7 +90,7 @@ These are not in any milestone yet. The code is shaped so none of them needs a r
 
 Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item below:
 
-- Do not build anything from a milestone later than the one in progress. As of 2026-11-13 Milestones 3 and 4 are both code-complete and live, each waiting only for the founder's live checklist (T-16, T-18). The work in progress is what the founder asked for on 2026-11-13, in this order: the licence changes that follow from their answers on Milestone 4's choices (built and live; "Milestone 4, second part" in the build plan), payments (Milestone 4b; its plan is its PR 0, T-17), then Milestone 5. Merging on green without waiting for review applies to those pieces of work (decision log, 2026-11-13) and to nothing else; ask before doing it for anything further. `main` is protected: every change goes through a pull request whose `test` check has passed. The site is built for the US first (2026-11-13): do not design anything India-specific unless the founder brings it back.
+- Do not build anything from a milestone later than the one in progress. As of 2026-11-13 Milestones 3 and 4 are both code-complete and live, each waiting only for the founder's live checklist (T-16, T-18). The work in progress is what the founder asked for on 2026-11-13, in this order: the licence changes that follow from their answers on Milestone 4's choices (built and live; "Milestone 4, second part" in the build plan), payments (Milestone 4b, planned in `05-build-plan.md`; the founder's Stripe steps are T-21), then Milestone 5. Merging on green without waiting for review applies to those pieces of work (decision log, 2026-11-13) and to nothing else; ask before doing it for anything further. `main` is protected: every change goes through a pull request whose `test` check has passed. The site is built for the US first (2026-11-13): do not design anything India-specific unless the founder brings it back.
 - An item marked **Decision** is the founder's to make. Do not pick an answer. Present the options, recommend one if asked, and wait.
 - The founder reviewed every decision on 2026-11-12. Those still here were deliberately left for later; do not re-ask them unprompted unless the milestone that needs them is being planned.
 - Never put survey statements, answers or a person's email into this file, a test or an admin history label.
@@ -164,12 +165,6 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Done when:** the founder reports each part. Then a docs-only PR ticks the boxes, records the date in the decision log, updates the status lines (build plan, `CLAUDE.md`, this file) and removes this item. Anything that did not behave as written is fixed first.
 - **Source:** `05-build-plan.md`, Milestone 3, "Done when" and "Live checklist".
 
-### T-17 Plan the payments milestone (4b)
-- **Status:** open, and next after the licence changes. The founder answered the basics on 2026-11-13: Stripe for now, on test keys; $1, $2 and $3 as placeholder prices, changeable without code; no volume price; an upgrade charges the difference; refunds for an unused licence within 30 days, by staff from the Django admin; no tax collected at first; Stripe's receipt, and a numbered invoice for an organization; merged on green. The full text is under Milestone 4b in `05-build-plan.md` and in its decision log. Nothing is planned in detail or built.
-- **What to do:** a plan in the build plan in the style of Milestones 3 and 4, as that milestone's PR 0, then the PRs. Product choices the basics do not settle are asked of the founder before building.
-- **The founder's part** **[console]**: a Stripe account, its test keys in Parameter Store and in the laptop's `.env`, and the address Stripe sends its messages to. The plan says exactly what goes where.
-- **When the plan is merged:** remove this item; the milestone's own section then carries the work.
-
 ### T-18 Run the Milestone 4 live checklist
 - **Status:** open, waiting on the founder since 2026-11-13. Milestone 4 is code-complete and deployed; four of its five "Done when" boxes can only be ticked by someone using the live site. Nothing of Milestone 4 has been tried by a person there yet: the "Licence stock" page of the Django admin, the Licences page and the tier drop-downs have only been exercised by tests and by browser runs against a local server.
 - **What to do:** work through "Live checklist (for the founder)" in `05-build-plan.md`, Milestone 4: parts A to D, one per box (staff set the stock, the admin gives a licence and the member takes the survey; change a tier and take a licence back; a join code that carries a tier; the people limit). It needs the superuser login, a private window and three accounts with verified email addresses, and nothing from SSH, the AWS console or GitHub. It is written for a new organization, so the numbers on the screen match the ones in the checklist. It can be run before or after T-16; accounts from one serve the other unless they were erased.
@@ -187,6 +182,14 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **6. Django admin: one action to make or unmake Support staff.** Today it is two steps (tick "Staff status", add to the "Support staff" group), and forgetting one gives a colleague an empty admin. Add two actions on the Accounts list that do both and leave a history line saying who did it.
 - **From Milestone 4, the same kind of thing** (the builder's suggestions, not the founder's requests): when an admin puts a tier on an invite or a code while the stock of that tier is empty, the page could say so at once instead of only after someone joins without a licence (settled on 2026-11-13 and built: making such an invite or code is refused); and "Give licence" could read "Give another licence" for a member whose last one is already used.
 - **Source:** the founder, on the live site, 2026-10-18 and 2026-10-25.
+
+### T-21 Stripe: test keys and the webhook
+- **Status:** open; the founder's, raised 2026-11-13 with the Milestone 4b plan. The founder was opening a Stripe account the same day. **[console]** (Stripe's dashboard and the AWS console; Claude has no access to either.)
+- **What to do:** the five steps under "What the founder does" in `05-build-plan.md`, Milestone 4b: a test-mode Stripe account; the secret key (`sk_test_…`) into Parameter Store as `/survey/prod/STRIPE_SECRET_KEY` and into the laptop's `.env`; a webhook in Stripe for `https://app.theaccelerare.com/payments/stripe/webhook/` with the events `checkout.session.completed` and `charge.refunded`, and its signing secret (`whsec_…`) into Parameter Store as `/survey/prod/STRIPE_WEBHOOK_SECRET`; then a deploy that is not docs-only; and receipts switched on in Stripe's email settings.
+- **Never** paste a key into a chat, a commit, a document or a screenshot. A key that has been shown anywhere is replaced in Stripe's dashboard ("roll key").
+- **Why the order does not matter:** both settings are optional. With no key the buy pages say buying online is not open yet; with a key and no webhook secret, buying works through the page the person returns to, and Stripe's own messages are answered "not set up" until the secret arrives (Stripe keeps retrying for days).
+- **Real keys later:** only after the founder has tried a purchase on test keys and says so (decision log, 2026-11-13), and after D-20. Going live means the same two parameters with `sk_live_…` and a new webhook secret, made in Stripe's live mode.
+- **When done:** remove this item, note the date in the decision log, and update `04-infrastructure.md` (the Secrets row and section 4) and NOTES.md's porting checklist if they do not already say so.
 
 ## Decisions
 
@@ -210,7 +213,7 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 
 ### D-7 The privacy lawyer's list
 - **Status:** reviewed 2026-11-12, left for later. not yet asked. Needed before the pilot (Milestone 7).
-- **Questions collected so far:** is "strip email, phone and name, keep results and demographics" anonymous enough in the US, UK and India (age, gender, company and exact dates can identify someone in a small company); what the privacy text and disclosure page must say (the wording now on the site is listed under D-17); how long erased data may stay in RDS backups (30 days today); enterprise data agreements; D-2 and the founder's "keep the membership link on erasure" choice; consent and verifiable parental consent for under-18s in India (minors do not take the survey); transfers to the US, a UK representative and ICO registration; India's DPDP Act (substantive duties from 2027-05-13); consent, an unsubscribe link and `List-Unsubscribe` for bulk email (for example a feedback request to everyone who took the survey), which would be sent in batches through the Milestone 5 queue; data minimisation (an age band, optional gender) before demographics are collected; an invite sent to someone who never made an account keeps their address on the invite row, and the erase page works on accounts, so there is no admin tool yet to remove it.
+- **Questions collected so far:** is "strip email, phone and name, keep results and demographics" anonymous enough in the US, UK and India (age, gender, company and exact dates can identify someone in a small company); what the privacy text and disclosure page must say (the wording now on the site is listed under D-17); how long erased data may stay in RDS backups (30 days today); enterprise data agreements; D-2 and the founder's "keep the membership link on erasure" choice; consent and verifiable parental consent for under-18s in India (minors do not take the survey); transfers to the US, a UK representative and ICO registration; India's DPDP Act (substantive duties from 2027-05-13); consent, an unsubscribe link and `List-Unsubscribe` for bulk email (for example a feedback request to everyone who took the survey), which would be sent in batches through the Milestone 5 queue; data minimisation (an age band, optional gender) before demographics are collected; an invite sent to someone who never made an account keeps their address on the invite row, and the erase page works on accounts, so there is no admin tool yet to remove it; Stripe keeps the email address a receipt was sent to, as the payment processor, after the person is erased here (Milestone 4b).
 - **Source:** `05-build-plan.md` open follow-ups and Milestone 7; `04-infrastructure.md` "Pending and future".
 
 ### D-8 A user-facing "delete my account" button
@@ -266,7 +269,7 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 
 None of these is in a milestone. Each has a seam in the current design (`02-architecture.md`, "Deferred extension points"); building one is a new plan, not a redesign.
 
-- **L-1 Payments.** Moved on 2026-11-13 to Milestone 4b, straight after Milestone 4; see T-17. What follows is the earlier note, kept for what it decided ("Likely Razorpay for India" is deferred with India). Writes licences through the same services the admin uses (`grant_individual` with source `purchase`, the seat-pool services). Already decided: licences do not expire, a retake needs another licence, upgrades happen in place. Needs a payment ledger (amount, currency, date, invoice number, provider reference, licence id and tier) with no personal identity, so an erasure never removes an accounting record; refunds revoke through the service; the funnel records `licence_granted` with source `purchase`; reminders for unused licences once the worker exists. See `05-build-plan.md`, "Phase 3 stub".
+- **L-1 Payments.** Moved on 2026-11-13 to Milestone 4b, straight after Milestone 4; see the build plan. What follows is the earlier note, kept for what it decided ("Likely Razorpay for India" is deferred with India). Writes licences through the same services the admin uses (`grant_individual` with source `purchase`, the seat-pool services). Already decided: licences do not expire, a retake needs another licence, upgrades happen in place. Needs a payment ledger (amount, currency, date, invoice number, provider reference, licence id and tier) with no personal identity, so an erasure never removes an accounting record; refunds revoke through the service; the funnel records `licence_granted` with source `purchase`; reminders for unused licences once the worker exists. See `05-build-plan.md`, "Phase 3 stub".
 - **L-2 SSO per enterprise** (SAML or OIDC), optional beside local accounts. FR-5. A second login method on the account; memberships unchanged.
 - **L-3 Helper admin.** Requirements undefined. A third value in `membership.role` or a platform role table.
 - **L-4 Dashboards and charts.** FR-21. Read-only queries over responses and results.
