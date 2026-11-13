@@ -62,6 +62,9 @@ INSTALLED_APPS = [
     # Who did what and when. It imports no other app either; the others tell
     # it what happened, and it copies the Django admin's own history lines.
     "apps.audit",
+    # Where the algorithm's output will go. Empty until there is an algorithm.
+    # It imports no other app; responses hands it a response to work out.
+    "apps.results",
     # Last on purpose: its post_migrate hook needs every other app's permissions.
     "apps.responses",
 ]

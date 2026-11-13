@@ -43,6 +43,8 @@ from apps.enterprises.models import Membership
 from apps.entitlements import services as licences
 from apps.entitlements.models import Entitlement
 from apps.funnel import services as funnel
+from apps.jobs import services as jobs
+from apps.results import services as results
 from apps.survey.models import Question
 from apps.survey.services import PAGE_SIZE, current_version
 
@@ -268,6 +270,9 @@ def submit(response):
         # Someone who has now taken the survey is worth checking against the
         # other accounts, in the background (it changes nothing for them).
         accounts.look_for_duplicates_later(response.account)
+        # And its result is worked out in the background too, so a slow or
+        # failing algorithm can never hold up or undo a submission.
+        jobs.enqueue(results.COMPUTE_RESULT, {"response_id": response.pk})
         return response
 
 

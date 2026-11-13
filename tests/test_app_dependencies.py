@@ -62,6 +62,13 @@ def test_the_audit_log_imports_no_other_app():
     assert imported_apps("audit") == set()
 
 
+def test_results_imports_no_other_app_and_only_responses_imports_it():
+    """The algorithm's home stays free-standing, so it can change without touching the rest."""
+    assert imported_apps("results") == set()
+    others = [app.name for app in APPS.iterdir() if (app / "__init__.py").exists()]
+    assert {app for app in others if "results" in imported_apps(app)} == {"responses"}
+
+
 def test_matching_keeps_to_accounts_and_licences():
     """It reaches memberships and surveys through an account's reverse names, never by import."""
     assert imported_apps("matching") == {"accounts", "entitlements", "audit", "jobs"}
