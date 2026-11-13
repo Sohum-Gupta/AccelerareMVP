@@ -1,0 +1,14 @@
+{% extends "admin/change_list.html" %}
+{% comment %}
+The Responses page: two downloads at the top right. Every submitted survey as a
+spreadsheet file without the answers, for anyone who may open this page; and
+the same with the answers, for superusers. Each leads to a page that says what
+the file holds before anything is downloaded.
+{% endcomment %}
+{% block object-tools-items %}
+  <li><a href="{{ export_url }}">Download as a spreadsheet…</a></li>
+  {% if export_answers_url %}
+    <li><a href="{{ export_answers_url }}">Download with answers…</a></li>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}

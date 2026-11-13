@@ -1,0 +1,37 @@
+{% extends "admin/base_site.html" %}
+{% comment %}
+The page that asks before a staff download: how many surveys, what is in the
+file and what is not, and that the download is recorded. Nothing is sent and
+nothing is recorded until the button is pressed.
+{% endcomment %}
+{% block breadcrumbs %}
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">Home</a></li>
+  <li><a href="{% url 'admin:responses_response_changelist' %}">Responses</a></li>
+  <li aria-current="page">Download</li>
+</ol>
+{% endblock %}
+{% block content %}
+<div id="content-main" style="max-width: 46rem;">
+  <p style="font-size: 1.1em;"><strong>A spreadsheet file (CSV) with one row for each of the {{ count }} submitted survey{{ count|pluralize }} on the site.</strong></p>
+  <ul>
+    <li>Each person is shown by their account number. The file holds no name and no email address.</li>
+    {% if answers %}
+      <li>It holds each person's answers (q1, q2 and so on, by the position of the statement, never its wording) and their answer to "have you taken this survey before".</li>
+      <li>Keep the file somewhere safe and delete it when you have finished with it. Erasing an account later does not reach a file that was already downloaded.</li>
+    {% else %}
+      <li>It does not hold anyone's answers, nor their answer to "have you taken this survey before".</li>
+    {% endif %}
+    <li>Surveys that are still in progress are not in it.</li>
+    <li>This download is recorded in the audit log: who downloaded, and how many rows.</li>
+  </ul>
+  <p>Columns: {{ columns|join:", " }}.</p>
+  <form method="post">
+    {% csrf_token %}
+    <div class="submit-row">
+      <input type="submit" value="Download the file" class="default">
+      <a href="{% url 'admin:responses_response_changelist' %}" class="closelink">No, go back</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
