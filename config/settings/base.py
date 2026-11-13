@@ -45,6 +45,9 @@ INSTALLED_APPS = [
     "apps.accounts.apps.AllauthAccountConfig",  # allauth.account, relabelled in the admin
     "apps.accounts",
     "apps.survey",
+    # Before entitlements and responses, which point at a membership. The
+    # dependencies run one way: accounts <- enterprises <- entitlements <- responses.
+    "apps.enterprises",
     "apps.entitlements",
     "apps.funnel",
     # Last on purpose: its post_migrate hook needs every other app's permissions.

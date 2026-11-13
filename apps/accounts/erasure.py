@@ -4,12 +4,15 @@ Erasing an account: the one place that decides what is deleted and what is kept.
 Two outcomes, chosen by the data and never by the caller:
 
 * No completed (submitted) survey: nothing here is worth keeping, so the account
-  is deleted outright, with its contacts, licences, unfinished attempt and
-  person.
+  is deleted outright, with its contacts, licences, unfinished attempt,
+  organization memberships and person.
 * A completed survey: the person is stripped and the survey kept. The email,
   phone, name and login are removed, the password is made unusable and the results stay
   with no link to a person. `anonymised_at` marks it, so reports can count
-  former members (historical totals) apart from current ones.
+  former members (historical totals) apart from current ones. Its organization
+  memberships are kept but deactivated (the founder's choice of 2026-11-12, for
+  the privacy lawyer to confirm): the organization still sees that a former
+  member took the survey, shown as "Erased member".
 
 An account that has acted in the admin is also stripped rather than deleted:
 deleting it would cascade away the admin history of what it did.
@@ -21,8 +24,10 @@ person alone.
 
 Both outcomes are irreversible, run in one transaction, and scrub the admin
 history of the person's email so it does not outlive the erasure. This module
-reaches responses and licences through their reverse relations ("responses",
-"entitlements") so accounts never imports the apps that depend on it.
+reaches responses, licences and memberships through their reverse relations
+("responses", "entitlements", "memberships") so accounts never imports the apps
+that depend on it. For the same reason a status is written here as plain text
+("draft", "active"), not as the other app's constant.
 """
 
 from dataclasses import dataclass
@@ -49,10 +54,12 @@ class Plan:
 
 def _explain(account: Account, action: str, submitted: int) -> str:
     licences = account.person.entitlements.count() if account.person_id else 0
+    memberships = account.memberships.count()
     if action == DELETE:
         return (
             "This account has no completed survey, so it will be permanently deleted: "
-            f"its email, phone and name, its {licences} licence(s) and any unfinished attempt. "
+            f"its email, phone and name, its {licences} licence(s), its membership of "
+            f"{memberships} organization(s) and any unfinished attempt. "
             "This cannot be undone."
         )
     why = (
@@ -64,7 +71,8 @@ def _explain(account: Account, action: str, submitted: int) -> str:
     return (
         f"{why} Its email, phone number, name and login will be removed and its results kept "
         "with no link to a person. Any unfinished attempt is deleted and unused licences "
-        "are revoked. This cannot be undone."
+        f"are revoked. Its membership of {memberships} organization(s) is deactivated and "
+        'shown there as "Erased member". This cannot be undone.'
     )
 
 
@@ -131,6 +139,9 @@ def _hard_delete(account: Account) -> None:
     account.responses.all().delete()  # before licences: a response protects its licence
     if person is not None and not shared:
         person.entitlements.all().delete()
+    # A membership protects its account, so it goes first. Nothing of this
+    # person is worth keeping, so the organization keeps no trace of them either.
+    account.memberships.all().delete()
     account.delete()  # takes the contacts and allauth's email rows with it
     if person is not None and not shared:
         person.delete()
@@ -146,6 +157,9 @@ def _anonymise(account: Account) -> None:
         account.person.entitlements.filter(revoked_at__isnull=True, response__isnull=True).update(
             revoked_at=now
         )
+    # The membership link is kept, deactivated: the person has left, and the
+    # organization keeps its count of who took the survey.
+    account.memberships.filter(status="active").update(status="deactivated", deactivated_at=now)
     account.contact_points.all().delete()
     EmailAddress.objects.filter(user=account).delete()
 
