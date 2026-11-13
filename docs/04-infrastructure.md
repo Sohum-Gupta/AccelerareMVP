@@ -43,7 +43,7 @@ flowchart LR
 | Static IP | Elastic IP `52.37.102.239` attached to the instance | DNS points here; survives instance replacement. Every public IPv4 address is billed (about $3.65 a month), attached or not |
 | Domain and DNS | `theaccelerare.com` registered and hosted at GoDaddy. A record `app` points at the Elastic IP, TTL 600 (GoDaddy's minimum) | `app` is a working name; rename before the pilot. The root, `www`, MX, SPF and verification records belong to the Wix site and Microsoft 365 mail and must not be touched |
 | TLS | Caddy obtains and renews Let's Encrypt certificates automatically | Zero configuration beyond the domain name |
-| Secrets | SSM Parameter Store, SecureString, under `/survey/prod/` | `DATABASE_URL`, `DB_PASSWORD`, `SECRET_KEY`, `EMAIL_*`, `DEFAULT_FROM_EMAIL`, `SENTRY_DSN`, `ALLOWED_HOSTS`. `deploy.sh` renders them to `/opt/survey/.env` through `deploy/render_env.py` |
+| Secrets | SSM Parameter Store, SecureString, under `/survey/prod/` | `DATABASE_URL`, `DB_PASSWORD`, `SECRET_KEY`, `EMAIL_*`, `DEFAULT_FROM_EMAIL`, `SENTRY_DSN`, `ALLOWED_HOSTS`, and the optional `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `STRIPE_AUTOMATIC_TAX`. `deploy.sh` renders them to `/opt/survey/.env` through `deploy/render_env.py` |
 | Container registry | GitHub Container Registry (ghcr.io) | Free for this use; avoids ECR setup |
 | CI/CD | GitHub Actions | Test and lint on every push; on `main` build, push, then deploy over SSH with a key used only for deploys |
 | Email | Amazon SES over SMTP from `app.theaccelerare.com`, set up 2026-10-09 | Test mail delivered; production access requested and pending (sandbox: verified recipients only). See "Email sending" |
@@ -120,6 +120,7 @@ Record anything you change from these steps directly in this section. Sections 1
 - `ALLOWED_HOSTS`: the domain (`app.theaccelerare.com`).
 - `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`: required (the app refuses to start without them). Set on 2026-10-09 to the SES SMTP endpoint, the SES SMTP username and password, and `Accelerare <noreply@app.theaccelerare.com>` (see "Email sending"). `EMAIL_PORT` is optional (587).
 - `SENTRY_DSN`: from the Sentry project (optional: empty turns reporting off). Created 2026-10-09.
+- `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`: optional (Milestone 4b). The secret key from Stripe's dashboard (Developers, API keys; `sk_test_…` until the founder says to go live) and the signing secret of the webhook made there for `https://<domain>/payments/stripe/webhook/` (`whsec_…`). Without the first the buy pages say buying online is not open yet; without the second Stripe's messages are answered "not set up". `STRIPE_AUTOMATIC_TAX` (`true` or absent) switches on Stripe's automatic sales tax. A new parameter reaches the server on the next deploy that is not docs-only. Not yet set as of 2026-11-13 (`06-backlog.md`, T-21).
 
 **5. Domain**
 1. The domain is `theaccelerare.com` at GoDaddy. In its DNS page, add exactly one record: type A, name `app`, value the Elastic IP, TTL 600. Do not edit or delete any other record (the root and `www` belong to the Wix site; the MX, SPF and verification TXT records keep Microsoft 365 mail working).

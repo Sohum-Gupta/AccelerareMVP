@@ -239,6 +239,10 @@ class TestSupportStaffGroup:
             # The organization's stock of licences: support may set it until payments do.
             "view_seatpool",
             "change_seatpool",
+            # Prices and payments: look only.
+            "view_price",
+            "view_purchase",
+            "view_refund",
             "view_surveyversion",
             "view_question",
             "view_funnelevent",

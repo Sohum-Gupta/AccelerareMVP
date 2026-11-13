@@ -705,7 +705,7 @@ When both parts pass, tell Claude: the two boxes are ticked in a docs-only PR.
 
 **Goal:** a person can buy a licence and pay to upgrade one, and an organization's admin can buy licences into its stock, without staff typing anything; staff can refund from the Django admin; and every payment leaves a record that holds no personal identity.
 
-**Status (2026-11-13).** Planned (PR 0, this section). Nothing is built.
+**Status (2026-11-13).** PR 0 (the plan, #78) and PR 1 (`m4b-payments-models`) are merged: the `payments` app with prices, the record of payments and refunds, the file that talks to Stripe, the three optional settings, and the read-only admin with editable prices. Nothing can be bought yet: the pages come in PRs 2 and 3.
 
 **How this milestone is run** (founder, 2026-11-13). As Milestones 3 and 4 were: each PR is merged once CI is green and checked on the live site, with a summary after each. The founder is away while it is built and asked for product choices to be sent to their phone. None was needed for this plan: the basics and the defaults below were all accepted beforehand ("those defaults are fine"), and the smaller calls are listed to be overruled.
 
