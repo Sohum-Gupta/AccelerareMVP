@@ -55,3 +55,31 @@
     });
   });
 })();
+
+// "Show password" under every password box: switches the dots to plain text
+// and back, so a person can check what they typed (on a phone above all). The
+// button is in the page hidden; this script reveals it. Just before the form
+// is sent the box goes back to dots, so the browser never remembers a
+// password as if it were ordinary text it could offer in another box.
+(function () {
+  document.querySelectorAll("[data-show-password]").forEach(function (button) {
+    var input = document.getElementById(button.dataset.showPassword);
+    if (!input) return;
+
+    function show(visible) {
+      input.type = visible ? "text" : "password";
+      button.textContent = visible ? "Hide password" : "Show password";
+      button.setAttribute("aria-pressed", visible ? "true" : "false");
+    }
+
+    button.hidden = false;
+    button.addEventListener("click", function () {
+      show(input.type === "password");
+    });
+    if (input.form) {
+      input.form.addEventListener("submit", function () {
+        show(false);
+      });
+    }
+  });
+})();
