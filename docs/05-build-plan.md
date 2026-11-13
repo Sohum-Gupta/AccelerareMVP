@@ -1,6 +1,6 @@
 # Build Plan — Survey Platform
 
-As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10
+As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded 2026-11-12
 
 ## How to read this document
 
@@ -172,7 +172,7 @@ Accounts come before the survey because every later feature asks "who is this." 
 
 **Goal:** a verified individual who holds a licence can read the disclosure, answer the self-report question, answer the 25 statements five to a page with autosave, leave and resume, submit, and see their survey history. A licence is one attempt. Submitted responses are immutable, and the person never sees their answers again after submitting. The statements are private: they are never committed to the public repository and are loaded from a file the founder keeps, through an admin page (PR 9).
 
-**Status (2026-10-10).** Code-complete and deployed. Merged: PR 1 survey models and `load_questions` (#31), PR 2 licences (#32), PR 3 the `Response` model and the two-level admin (#33), PR 3b erasing an account (#34), PR 3c the funnel (#35), PR 4 response services (#37), PR 5 the start page and the licence gate (#38), PR 6 statement pages with autosave (#39), PRs 7 and 8 combined: review, submit, history and result (#40), PR 9 the survey wording in the admin (#42), PR 10 docs and the last small fixes (#43). 457 tests. Left: PR 11, the founder's live checks (the tasklist at the top of "Open follow-ups"), then a docs-only change that ticks the "Done when" boxes they confirm. "All tests pass" is ticked; the other boxes are live checks. The PR plan below is the revised one agreed with the founder; the original ten-PR list is superseded.
+**Status (2026-10-10).** Code-complete and deployed. Merged: PR 1 survey models and `load_questions` (#31), PR 2 licences (#32), PR 3 the `Response` model and the two-level admin (#33), PR 3b erasing an account (#34), PR 3c the funnel (#35), PR 4 response services (#37), PR 5 the start page and the licence gate (#38), PR 6 statement pages with autosave (#39), PRs 7 and 8 combined: review, submit, history and result (#40), PR 9 the survey wording in the admin (#42), PR 10 docs and the last small fixes (#43), then two admin fixes: allauth's admin section renamed (#45) and its email addresses page made read-only (#46). 460 tests. **Status (2026-11-12).** The founder ran the live checks for Milestone 2 (tasklist parts A to D) and every "Done when" box below is ticked; PR 11 recorded it. Milestone 3 starts when the founder says so. The Milestone 1 browser checks and the uptime checker are still in "Open follow-ups". The PR plan below is the revised one agreed with the founder; the original ten-PR list is superseded.
 
 **The product rules, as specified by the founder**
 
@@ -245,19 +245,19 @@ Accounts come before the survey because every later feature asks "who is this." 
 9. `m2-survey-wording-in-admin` (#42; confirmed by the founder on 2026-10-09; replaces "deploy the private file"): a superuser-only "Load the survey wording…" button on the current survey version's admin page. Paste or upload the JSON, Check shows how many statements change (counts only, never the wording) and how many unfinished and submitted attempts are on the version, and Apply goes through `load_questions` (version row locked; refused if someone changed the wording since the preview; a submitted survey on the version needs an "I understand" tick). Plain-English errors (not JSON, wrong count, duplicate or missing position, empty text, over 200 KB or 1,000 characters a statement, values the database cannot store); the history entry records who did it and the counts. Support staff cannot see or reach it. Sentry no longer receives request bodies or local variables.
 10. `m2-docs` (#43): the docs synced with PR 9; NOTES entries; Caddy refuses request bodies over 5 MB and `deploy.sh` reloads Caddy on every deploy; the licence grant form searches for the account instead of listing every one; a test for a refused password-reset mail; the founder's remaining live checks collected into one tasklist.
 
-*Still to do:*
+After PR 10: `m2-admin-section-labels` (#45), allauth's admin section is called "Login (allauth)"; `m2-allauth-emails-read-only` (#46), its email addresses page is read-only apart from "mark verified".
 
-11. `m2-live-checks` (the founder, then a docs-only PR): work through the tasklist at the top of "Open follow-ups"; the PR ticks the Milestone 1 and 2 "Done when" boxes the results confirm and moves finished follow-ups to the decision log. Milestone 2 is closed when its boxes are ticked.
+11. `m2-live-checks` (the founder, then a docs-only PR): the founder worked through parts A to D of the tasklist on the live site (reported 2026-11-12); the PR ticks the Milestone 2 "Done when" boxes, moves the finished parts to the decision log and fixes the docs that had fallen behind.
 
-**Done when**
+**Done when** *(the live checks were run by the founder and reported on 2026-11-12)*
 
-- [ ] On the live site, a verified account without a licence sees the notice and cannot reach a statement; after root admin grants a licence in the admin, the same account can take the survey on a phone, close the browser mid-way, reopen, resume on the right page, and submit.
-- [ ] The live site shows the real statements, not placeholders, and the public repository contains none of them.
-- [ ] After submitting, the response appears in history with its tier, no page shows the answers, and a second attempt needs a second licence.
-- [ ] Root admin sees the response in the admin, read-only; a Support staff account sees which questions are answered but not the values.
-- [ ] On the live site, a test account is erased from the admin both ways (one with no completed survey, one with a completed survey) and the same email can sign up again.
-- [ ] The funnel page in the admin shows the live sign-ups, verifications, licences and survey events.
-- [x] All tests pass. *(457 passed, ruff, `check --fail-level WARNING` and `makemigrations --check` clean, 2026-10-10.)*
+- [x] On the live site, a verified account without a licence sees the notice and cannot reach a statement; after root admin grants a licence in the admin, the same account can take the survey on a phone, close the browser mid-way, reopen, resume on the right page, and submit.
+- [x] The live site shows the real statements, not placeholders, and the public repository contains none of them.
+- [x] After submitting, the response appears in history with its tier, no page shows the answers, and a second attempt needs a second licence.
+- [x] Root admin sees the response in the admin, read-only; a Support staff account sees which questions are answered but not the values.
+- [x] On the live site, a test account is erased from the admin both ways (one with no completed survey, one with a completed survey) and the same email can sign up again.
+- [x] The funnel page in the admin shows the live sign-ups, verifications, licences and survey events.
+- [x] All tests pass. *(457 passed, ruff, `check --fail-level WARNING` and `makemigrations --check` clean, 2026-10-10; 460 in CI after #46.)*
 
 **Why this order / what to understand**
 
@@ -344,7 +344,7 @@ This is where the project becomes multi-tenant, and multi-tenancy is where produ
 
 *Re-plan this section before starting it. On 2026-10-09 the founder decided that a licence is one survey attempt plus results at its tier, and Milestone 2 built the individual half of `Entitlement` with a one-to-one from `Response`. So a seat here is a licence an enterprise bought and assigned to a member, consumed by that member's one attempt, and upgradeable in place; the "joined without a seat" warning becomes "cannot take the survey until given a licence".*
 
-*State after Milestone 2.* `Entitlement` exists with a non-null `person`, source purchase or manual, and `grant_individual`, `revoke`, `change_tier`, `unused_licence` and `has_survey_access` are built, with an admin grant form (the account picker is a plain dropdown), a revoke action and an unused-licences filter. This milestone makes `person` nullable, adds the membership FK, the exactly-one check constraint and the source `seat`, and records the funnel event `licence_granted` with source `seat`. Licences do not expire. Staff manage `SeatPool` from the admin like everything else.
+*State after Milestone 2.* `Entitlement` exists with a non-null `person`, source purchase or manual, and `grant_individual`, `revoke`, `change_tier`, `unused_licence` and `has_survey_access` are built, with an admin grant form (the account is found with the admin's search box, by email or phone), a revoke action and an unused-licences filter. This milestone makes `person` nullable, adds the membership FK, the exactly-one check constraint and the source `seat`, and records the funnel event `licence_granted` with source `seat`. Licences do not expire. Staff manage `SeatPool` from the admin like everything else.
 
 **Goal:** root admin sets seat pools per tier for an enterprise; enterprise admins assign tiers to members within the pool; invites and codes that carry a tier consume a seat on join; an individual can hold an entitlement set manually by root admin.
 
@@ -548,7 +548,7 @@ Not a milestone. Self-serve purchase for individuals and enterprises (likely Raz
 | --- | --- | --- | --- |
 | 0 | Foundations and first deploy | — | Empty site on HTTPS with CI/CD |
 | 1 | Accounts | 0 | Sign up, verify, log in, reset |
-| 2 | Survey and responses | 1 | Individuals take and view the survey; licences, erasure and the funnel are built (PRs 1 to 8 merged; 9 and 10 left) |
+| 2 | Survey and responses | 1 | Individuals take and view the survey; licences, erasure and the funnel are built (all PRs merged; live checks done 2026-11-12) |
 | 3 | Enterprises, memberships, join | 2 | Enterprise admins onboard members and view responses |
 | 4 | Seat pools and entitlements | 3 | Tiers assigned and counted |
 | 5 | Jobs, matching, audit | 4 | Worker live; repeats flagged and linked; actions audited |
@@ -568,27 +568,7 @@ Ask for help (here, or anyone experienced) rather than pushing on when:
 
 Things agreed but not done, so they are not forgotten. Move a line to the decision log or delete it when it is finished.
 
-**Milestone 2 PR 11: the founder's tasklist** (live site, top to bottom. Report the results in a new chat; PR 11 then ticks the "Done when" boxes they confirm.)
-
-*A. Load the real survey wording (Done when 2)*
-- [ ] Save the master copy of `survey_v1.json` in a password manager or private drive. It is never committed.
-- [ ] Admin → Survey versions → Survey version 1 → "Load the survey wording…". Paste the JSON or choose the file and press Check: expect "changes the wording of 25". Press Apply. The version's History shows who did it and the counts, never the wording.
-- [ ] On the laptop, in the project folder, check the public repository holds none of the statements. This prints how many statements appear anywhere in the git history and must print 0: `uv run python -c "import json,subprocess;d=json.load(open('private/survey_v1.json'));print(sum(1 for e in d if subprocess.run(['git','log','--all','--format=%h','-S',e['text']],capture_output=True,text=True).stdout.strip()))"`
-
-*B. Take the survey on a phone (Done when 1 and 3)*
-- [ ] With a verified test account that has no licence (use `admin@theaccelerare.com`, which SES can deliver to): the start page shows the "you need a licence" notice and no statement page opens.
-- [ ] Grant it a licence: Entitlements → Add, type part of the email in the Account search box, tier 1, source manual.
-- [ ] On a real phone: start, answer page 1 and part of page 2, close the browser, reopen, and check it resumes on page 2 with the saved ticks and shows the real wording. Finish and submit.
-- [ ] My surveys shows the response with its tier, no page shows the answers, and Start asks for a second licence.
-- [ ] Revoke that licence in the admin; the result now shows "Free (licence withdrawn)".
-
-*C. The admin (Done when 4 and 6)*
-- [ ] As superuser, the response is read-only and shows the answers.
-- [ ] Make a Support staff account: sign up a second test account (its email need not be verified to use the admin), then in the admin tick "Staff status" and add it to the "Support staff" group. Logged in as it: licences, accounts, the funnel and the answered positions on a response are visible; the answers, Erase, delete and "Load the survey wording…" are not.
-- [ ] The funnel page shows the live sign-ups, verifications, licences and survey events.
-
-*D. Erase (Done when 5)*
-- [ ] Erase a test account with no submitted survey (it is deleted) and one with a submitted survey (it is stripped, results kept); read the confirmation page each time. Then sign up again with the same email.
+**Remaining live checks** (live site, top to bottom. Parts A to D, the Milestone 2 checks, were done by the founder and reported on 2026-11-12; see the decision log. Report results in a new chat and a docs-only PR ticks the boxes they confirm.)
 
 *E. Milestone 1 browser checks*
 - [ ] Live signup with an address SES has not verified: "check your inbox" plus a yellow warning, and the same warning on login. Use `admin@theaccelerare.com` for the live tests, in an incognito window.
@@ -608,8 +588,8 @@ Things agreed but not done, so they are not forgotten. Move a line to the decisi
 - [ ] Live signup by a stranger, verify, log in and out on a phone (Milestone 1, first "Done when" box).
 - [ ] Re-test every email flow with a real outside address once approved.
 
-**Carried over: open decisions that do not block Milestone 2**
-- [ ] Name the tiers. Today they show as "Tier 1/2/3" and "Free" (placeholder words in `templates/responses/_tier.html`, one file to change).
+**Carried over: open decisions**
+- [ ] Name the tiers. Today they show as "Tier 1/2/3" and "Free" (placeholder words in `templates/responses/_tier.html`, one file to change). Founder, 2026-11-12: keep the placeholders for now.
 - [ ] Before Milestone 3: do enterprise administrators see members' answers, or only results? (The founder ruled on 2026-10-09 that the person never sees their own answers after submitting; FR-19 is overridden for that scope only. Root admin keeps the read-only Django admin.) And what happens when a company asks for its members' data to be deleted (see the note in Milestone 3 on memberships).
 - [ ] For Milestone 5: what tier 0 (no licence) shows on the result page (sample insights from the paid tiers, a limited subset, or just the invitation to buy), and how the algorithm and the insights stay private (a second private repository installed as a package, which makes the ghcr.io image private and needs `docker login` on the server, or a file loaded at run time).
 - [ ] Privacy lawyer before launch: is "strip email, phone and name, keep the results and demographics" anonymous enough in the US, UK and India; what the privacy text must say; backup retention after an erasure; enterprise data agreements; and whether to offer a user-facing "delete my account" button and its wording (staff erase from the admin for now).
@@ -622,6 +602,8 @@ Things agreed but not done, so they are not forgotten. Move a line to the decisi
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-12 | Milestone 2's live checks (tasklist parts A to D: real wording loaded and none of it in git history; survey taken and resumed on a phone; second attempt needs a second licence; revoke shows "Free (licence withdrawn)"; superuser and Support staff views of the admin; the funnel; erasing both ways and signing up again) are done, and every Milestone 2 "Done when" box is ticked | Founder ran them on the live site; the Milestone 1 browser checks (E, F) and the uptime checker (G) stay open |
+| 2026-11-12 | Tier names stay "Tier 1/2/3" and "Free" for now | Founder's call; renaming is one template |
 | 2026-10-18 | allauth's "Email addresses" admin page (now under "Login (allauth)") is read-only; only its "mark verified" action stays | Each email lives in our table and allauth's, and only the services keep them in step; the action fires allauth's signal so our contact point is verified too, and while SES is sandboxed it is the only way to verify an address that cannot get mail |
 | 2026-10-10 | Milestone 2 ends with PR 11: the founder's live checks as one tasklist, then a docs-only PR that ticks the boxes | All the code is done; what remains needs the live site and a real phone |
 | 2026-10-10 | Caddy refuses request bodies over 5 MB, and `deploy.sh` reloads Caddy on every deploy | Without a limit Django streams a large upload to disk before any view can check it; the deploy never restarted Caddy, so a Caddyfile change would not have applied |
