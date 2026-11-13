@@ -11,7 +11,7 @@
     if (!select || !window.intlTelInput) return;
 
     var start = (select.value || "US").toLowerCase();
-    window.intlTelInput(phone, {
+    var picker = window.intlTelInput(phone, {
       initialCountry: start,
       // Same order as the form's select: US, India, UK, then A to Z.
       countryOrder: ["us", "in", "gb"],
@@ -20,6 +20,14 @@
       nationalMode: true,
     });
     holder.hidden = true;
+
+    // A number already in the box with its country code (the account page puts
+    // the saved one there) makes the picker choose that country as it starts,
+    // before anything is listening. So read the choice once here, or the
+    // hidden select would still say the default while the flag says another
+    // country, and a number retyped without its code would be read wrongly.
+    var chosen = picker.getSelectedCountryData();
+    if (chosen && chosen.iso2) select.value = chosen.iso2.toUpperCase();
 
     phone.addEventListener("countrychange", function (event) {
       var country = event.detail && event.detail.iso2;

@@ -430,7 +430,8 @@ class TestTheWaysIn:
         client.force_login(verified_account("carol@example.com"))
         assert f'href="{LIST}"' in html(client, "/survey/history/")
 
-    def test_the_profile_has_a_box_for_it(self, client, db):
+    def test_the_account_page_leads_there_through_the_header_only(self, client, db):
+        """It had a box of its own, which repeated the header (T-19, 2026-11-13)."""
         client.force_login(verified_account("carol@example.com"))
         text = html(client, reverse("account_profile"))
-        assert f'href="{LIST}"' in text and "Your organizations" in text
+        assert text.count(f'href="{LIST}"') == 1 and "Your organizations" not in text

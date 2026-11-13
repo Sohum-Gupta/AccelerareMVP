@@ -12,8 +12,9 @@ from allauth.account.adapter import DefaultAccountAdapter
 from allauth.core import context as allauth_context
 from django.contrib import messages
 from django.db import transaction
+from django.urls import reverse
 
-from . import arrival
+from . import arrival, services
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +51,21 @@ class AccountAdapter(DefaultAccountAdapter):
         """
         Where a login lands when the login page was given no "next" address.
         Someone who was on their way to join an organization (arrival.py) goes
-        back to that page, once; everyone else goes to their profile.
+        back to that page, once. Everyone else goes to "My surveys", the page
+        that says what they can do next (the founder's choice, 2026-11-13;
+        it used to be the profile). The exception is an account that still
+        has something to put right before it can do anything: no verified
+        email, or no name. That one goes to the account page, where both are.
         """
-        return arrival.take_next(request) or super().get_login_redirect_url(request)
+        on_the_way = arrival.take_next(request)
+        if on_the_way:
+            return on_the_way
+        account = request.user
+        if account.is_authenticated and (
+            not account.full_name or not services.has_verified_email(account)
+        ):
+            return reverse("account_profile")
+        return super().get_login_redirect_url(request)
 
     def confirm_email(self, request, email_address):
         """

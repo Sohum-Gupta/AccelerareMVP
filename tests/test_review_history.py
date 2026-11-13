@@ -143,9 +143,10 @@ class TestWhoGetsIn:
         for address in (HISTORY, url("result", done)):
             assert "no-store" in client.get(address)["Cache-Control"]
 
-    def test_the_header_and_profile_link_to_history(self, client, bob):
+    def test_the_header_links_to_history_from_the_account_page(self, client, bob):
+        """The account page had a second link in a box of its own (T-19, 2026-11-13)."""
         page = html(client, "/accounts/profile/")
-        assert page.count(f'href="{HISTORY}"') == 2 and "My surveys" in page
+        assert page.count(f'href="{HISTORY}"') == 1 and "My surveys" in page
 
 
 @pytest.mark.django_db
