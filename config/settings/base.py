@@ -53,6 +53,9 @@ INSTALLED_APPS = [
     # above; none of them, and not responses, imports it.
     "apps.payments",
     "apps.funnel",
+    # The queue of background jobs and the worker that does them. Like funnel,
+    # it imports no other app; the others hand it work by name.
+    "apps.jobs",
     # Last on purpose: its post_migrate hook needs every other app's permissions.
     "apps.responses",
 ]

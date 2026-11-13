@@ -51,6 +51,11 @@ def test_the_funnel_imports_no_other_app():
     assert imported_apps("funnel") == set()
 
 
+def test_the_job_queue_imports_no_other_app():
+    """Apps hand it work by name; the function that does the work lives in their own app."""
+    assert imported_apps("jobs") == set()
+
+
 def test_the_apps_are_installed_in_dependency_order_with_responses_last():
     installed = [name for name in settings.INSTALLED_APPS if name.startswith("apps.")]
     positions = [installed.index(f"apps.{app}") for app in ORDER]

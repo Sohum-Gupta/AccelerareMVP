@@ -42,7 +42,7 @@ Most of what you've built so far has been judged by "does it work when I run it.
 
 **Tests first on the risky parts, tests after on the rest.** Write the test before the code for anything involving permissions, money (seats), or data integrity. For templates and simple views, write the code and then a test that loads the page as each role.
 
-**Run the worker locally always.** Keep `run_worker` running in a second terminal from milestone 5 on. If you forget, jobs silently queue up and features look broken.
+**Run the worker locally always.** Keep `uv run python manage.py run_worker` running in a second terminal from milestone 5 on. If you forget, jobs silently queue up and features look broken: the Django admin's "Background jobs" page will say how many are waiting. `--once` does what is due and stops.
 
 **Keep a `NOTES.md`.** Every time you learn something non-obvious (a Django gotcha, a Docker quirk), write it there. It becomes the onboarding doc for the next developer, who may be you after a long break.
 
@@ -864,7 +864,7 @@ Do the five steps under "What the founder does" first (`06-backlog.md`, T-21). T
 
 **Goal:** work that is slow or may fail runs outside web requests, in a background worker; a member is emailed when they are given a licence; accounts that look like the same person are brought to a superuser, who links them or says they are different, and can undo a link; and what staff and organization admins do is kept in one audit log.
 
-**Status (2026-11-13).** Planned (PR 0, this section). Nothing is built.
+**Status (2026-11-13).** PR 0 (the re-plan, #84) and PR 1 (`m5-jobs`) are merged: the queue of background jobs, the `run_worker` command, the "Background jobs" page of the Django admin with "Queue a test job", `/health/worker`, and a `worker` container on the server. Nothing uses the queue yet except the test job; the licence email is PR 2.
 
 **How this milestone is run** (founder, 2026-11-13). As Milestones 3, 4 and 4b were: merged on green without waiting for review, a summary after each PR. The founder is away while it is built. The three defaults put to them beforehand were accepted ("those defaults are fine") and are the first three product rules below; the builder's further calls are listed to be overruled.
 

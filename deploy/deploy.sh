@@ -6,6 +6,7 @@
 # 3. Run database migrations *before* starting the new containers.
 # 4. Start (or restart) everything, then reload Caddy's configuration.
 # 5. Run Django's deployment check against the running container.
+# 6. Check that the background worker's container can do its job.
 #
 # Safe to run again at any time. To roll back, pin an older build first:
 #   APP_IMAGE=ghcr.io/<owner>/<repo>:<commit-sha> ./deploy.sh
@@ -67,6 +68,13 @@ printf '%s\n' "$reload_output"
 
 echo "==> Deployment check"
 docker compose exec -T web python manage.py check --deploy --fail-level WARNING
+
+echo "==> Worker check"
+# The worker runs the background jobs. Ask its container to do whatever is due
+# and stop: that proves the image, the command and the database connection all
+# work there. A failure here fails the deploy loudly instead of leaving a
+# worker that quietly restarts for ever. The website is already up either way.
+docker compose exec -T worker python manage.py run_worker --once
 
 # Old image layers pile up on a 20 GB disk. Remove only ones nothing uses.
 docker image prune -f > /dev/null
