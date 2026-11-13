@@ -13,6 +13,8 @@ from allauth.core import context as allauth_context
 from django.contrib import messages
 from django.db import transaction
 
+from . import arrival
+
 logger = logging.getLogger(__name__)
 
 
@@ -43,6 +45,14 @@ class AccountAdapter(DefaultAccountAdapter):
         (PR 4) calls register directly, so this stays False for good.
         """
         return False
+
+    def get_login_redirect_url(self, request):
+        """
+        Where a login lands when the login page was given no "next" address.
+        Someone who was on their way to join an organization (arrival.py) goes
+        back to that page, once; everyone else goes to their profile.
+        """
+        return arrival.take_next(request) or super().get_login_redirect_url(request)
 
     def confirm_email(self, request, email_address):
         """

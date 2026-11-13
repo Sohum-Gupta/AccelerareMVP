@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Join an organization · Accelerare{% endblock %}
+{% block content %}
+  <h1>Join an organization</h1>
+  <p class="text-sm text-slate-700">Enter the join code the organization gave you. Before you join, a page tells you what its admins will be able to see.</p>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}
+      <p class="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">{{ error }}</p>
+    {% endfor %}
+    {% include "includes/field.html" with field=form.code %}
+    <button type="submit">Continue</button>
+  </form>
+  <p class="mt-4 text-sm text-slate-700">Invited by email instead? Open the link in the invite.</p>
+{% endblock %}

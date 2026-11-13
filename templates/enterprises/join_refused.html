@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}This invite cannot be used · Accelerare{% endblock %}
+{% block content %}
+  {# An invite link that did not let this account in. The reason is the service's own plain words. #}
+  <h1>This invite cannot be used</h1>
+  <p class="rounded-md border border-slate-300 bg-white px-4 py-3" role="status">{{ reason }}</p>
+  {% if wrong_address %}
+    <p><a href="{% url 'account_profile' %}">Go to your profile</a> to add and verify that address, or log out and log in with it.</p>
+  {% endif %}
+  <p class="mt-4 text-sm"><a href="{% url 'enterprises:list' %}">Your organizations</a></p>
+{% endblock %}

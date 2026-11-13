@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Join {{ organization_name }}? · Accelerare{% endblock %}
+{% block content %}
+  {% comment %}
+  Joining tells the truth first. This page must say everything an organization's
+  admins can see of a member (the members page) and of a survey taken for the
+  organization (the same list as templates/responses/disclosure.html). If either
+  of those changes, change this page too. Nothing is joined until the button.
+  {% endcomment %}
+  <h1>Join {{ organization_name }}?</h1>
+  {% if by_invite %}
+    <p>You have been invited to join <strong>{{ organization_name }}</strong>.</p>
+  {% else %}
+    <p>The code <strong class="font-mono">{{ code }}</strong> is for <strong>{{ organization_name }}</strong>.</p>
+  {% endif %}
+  <p>You have not joined yet. First, here is what the admins of {{ organization_name }} will be able to see if you do.</p>
+
+  <section class="mb-5" aria-labelledby="about-you">
+    <h2 id="about-you" class="mb-2 text-lg font-semibold">About you</h2>
+    <p class="mb-1">As soon as you join, its admins can see:</p>
+    <ul class="mb-3 list-disc space-y-1 pl-5">
+      <li>your name{% if name %}: <strong>{{ name }}</strong>{% else %} (you have not added one yet; you can on your profile){% endif %};</li>
+      <li>your email address: <strong class="break-all">{{ email }}</strong> {% if by_invite %}(the address the invite was sent to){% else %}(the address you log in with){% endif %};</li>
+      <li>the date you joined, and whether you are a member, an admin or no longer active;</li>
+      <li>whether you have a licence to take the survey for {{ organization_name }}, and its level.</li>
+    </ul>
+  </section>
+
+  <section class="mb-5" aria-labelledby="about-survey">
+    <h2 id="about-survey" class="mb-2 text-lg font-semibold">If you take the survey for {{ organization_name }}</h2>
+    <p class="mb-1">Its admins can also see:</p>
+    <ul class="mb-3 list-disc space-y-1 pl-5">
+      <li>that you are taking the survey for them, and whether it is in progress or submitted;</li>
+      <li>the dates you started and submitted it;</li>
+      <li>its results level, and a mark if it looks as though you have taken the survey before;</li>
+      <li>your results for that survey, once results are available.</li>
+    </ul>
+  </section>
+
+  <section class="mb-5" aria-labelledby="never">
+    <h2 id="never" class="mb-2 text-lg font-semibold">What they never see</h2>
+    <ul class="mb-3 list-disc space-y-1 pl-5">
+      <li>your phone number;</li>
+      <li>your answers to the survey;</li>
+      <li>how far through a survey you are;</li>
+      <li>any survey you take personally, or for another organization.</li>
+    </ul>
+    <p>Members who are not admins see nothing about you.</p>
+  </section>
+
+  <p class="text-sm text-slate-700">Joining makes you a member. It does not by itself give you a licence to take the survey.</p>
+
+  <form method="post" class="mb-4">
+    {% csrf_token %}
+    {% if code %}
+      <input type="hidden" name="code" value="{{ code }}">
+      <input type="hidden" name="confirm" value="yes">
+    {% endif %}
+    <button type="submit">Join {{ organization_name }}</button>
+  </form>
+  <p class="text-sm"><a href="{% url 'enterprises:list' %}">Not now</a></p>
+{% endblock %}

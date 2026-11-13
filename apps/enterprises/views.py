@@ -1,6 +1,6 @@
 """
-The organization pages, under /organizations/. Thin views: read the form, call
-a service, show the result.
+The organization pages, under /organizations/, and the two pages for joining
+one, under /join/. Thin views: read the form, call a service, show the result.
 
 Who sees what (the founder's rules of 2026-11-12):
 
@@ -28,24 +28,24 @@ How that is kept true:
 Licences are read through `membership.entitlements`, the reverse relation:
 this app never imports the entitlements or responses apps (see models.py).
 
-The pages for joining an organization arrive in Milestone 3, PR 10. Until then
-the invite link has an address, so the invite email can be written and tested,
-but nothing behind it.
+The join pages are the exception to the scoping rule, because the person is
+not a member yet: see the notes above them at the bottom of this file.
 """
 
 from datetime import timedelta
 
 from django.contrib import messages
-from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 
+from apps.accounts import arrival
 from apps.accounts.decorators import verified_email_required
 
 from . import scoping, services
-from .forms import EnterpriseForm, InviteForm, JoinCodeForm
+from .forms import EnterpriseForm, InviteForm, JoinCodeForm, JoinForm
 from .models import Invite, JoinCode, Membership
 
 ERASED = "Erased member"
@@ -327,6 +327,7 @@ def codes(request, slug):
         "places": _places(membership.enterprise),
         "form": form,
         "rows": rows,
+        "join_address": request.build_absolute_uri(reverse("join_code")),
     }
     return render(request, "enterprises/codes.html", context)
 
@@ -431,8 +432,124 @@ def revoke_invite(request, slug, pk):
     return redirect("enterprises:invites", membership.enterprise.slug)
 
 
-# --- joining (Milestone 3, PR 10) ------------------------------------------------
+# --- joining ----------------------------------------------------------------------
+#
+# /join/code/ and /join/invite/<token>/. The person is not a member yet, so
+# there is no membership to scope by. What stands in for it is the code or the
+# link itself, and the services decide what it is good for.
+#
+# * Joining takes two steps. First a page that names the organization and says
+#   what its admins will be able to see (services.check_code or check_invite:
+#   every rule is checked and nothing is written). Then the button, a POST,
+#   which is the only thing that joins (services.redeem_code or accept_invite,
+#   which check everything again).
+# * All these pages ever show of the organization is its name. Never a member,
+#   a count or a licence: the person does not belong to it yet.
+# * Logged out, nothing is checked and nothing is revealed, not even whether
+#   the code or the link is real. The person is asked to log in or sign up, and
+#   a note in their session (apps/accounts/arrival.py) brings them back here
+#   afterwards and tells the funnel how they arrived. If the note is lost (the
+#   verification email was opened on another device), opening the link or
+#   typing the code again works.
+
+PENDING_CODE = "join_code"  # session key: a code typed while logged out
 
 
+def _log_in_first(request, channel, back_to):
+    """Logged out: remember where they were going, and ask them to log in or sign up."""
+    arrival.remember(request, channel, back_to)
+    return render(request, "enterprises/join_log_in.html", {"by_invite": channel == "invite"})
+
+
+def _confirmation(request, enterprise, *, email, code=""):
+    """
+    The page that tells the truth first. Plain values only. `email` is the
+    address the organization's admins will see for this person (the invited
+    address for an invite, the login address for a code; see _email_for_admins).
+    """
+    context = {
+        "organization_name": enterprise.name,
+        "name": request.user.full_name,
+        "email": email,
+        "by_invite": not code,
+        "code": code,
+    }
+    return render(request, "enterprises/join_confirm.html", context)
+
+
+def _joined(request, membership):
+    arrival.forget(request)
+    enterprise = membership.enterprise
+    messages.success(request, f"You have joined {enterprise.name}.")
+    return redirect("enterprises:dashboard", enterprise.slug)
+
+
+def _already_a_member(request, error):
+    arrival.forget(request)
+    messages.info(request, str(error))
+    return redirect("enterprises:dashboard", error.enterprise.slug)
+
+
+@never_cache
+@require_http_methods(["GET", "POST"])
+def join_code(request):
+    """
+    Join an organization with a code: type it, read what joining means, confirm.
+    A code typed while logged out is kept in the session and picked up again
+    after the login.
+    """
+    confirmed = False
+    if request.method == "POST":
+        form = JoinForm(request.POST)
+        confirmed = "confirm" in request.POST
+    elif request.user.is_authenticated and PENDING_CODE in request.session:
+        form = JoinForm({"code": request.session.pop(PENDING_CODE)})
+    else:
+        return render(request, "enterprises/join_code.html", {"form": JoinForm()})
+    if not form.is_valid():
+        return render(request, "enterprises/join_code.html", {"form": form})
+    code = form.cleaned_data["code"]
+    if not request.user.is_authenticated:
+        request.session[PENDING_CODE] = code
+        return _log_in_first(request, "code", reverse("join_code"))
+    try:
+        if confirmed:
+            return _joined(request, services.redeem_code(code, request.user))
+        found = services.check_code(code, request.user)
+    except services.AlreadyMember as error:
+        return _already_a_member(request, error)
+    except services.Refused as error:
+        form.add_error("code", str(error))
+        return render(request, "enterprises/join_code.html", {"form": form})
+    return _confirmation(
+        request,
+        found.enterprise,
+        email=request.user.email,
+        code=services.display_code(found.code),
+    )
+
+
+@never_cache
+@require_http_methods(["GET", "POST"])
 def join_invite(request, token):
-    raise Http404
+    """
+    Accept an invite: the link opens the page that says what joining means, and
+    its button joins. Only an account that has verified the invited address
+    gets that far; anyone else is told why not.
+    """
+    if not request.user.is_authenticated:
+        return _log_in_first(request, "invite", request.path)
+    try:
+        if request.method == "POST":
+            return _joined(request, services.accept_invite(token, request.user))
+        invite = services.check_invite(token, request.user)
+    except services.AlreadyMember as error:
+        return _already_a_member(request, error)
+    except services.Refused as error:
+        context = {
+            "reason": str(error),
+            # They can put this right themselves, on their profile.
+            "wrong_address": isinstance(error, services.WrongAddress),
+        }
+        return render(request, "enterprises/join_refused.html", context)
+    return _confirmation(request, invite.enterprise, email=invite.email)
