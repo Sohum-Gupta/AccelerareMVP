@@ -1,9 +1,11 @@
 """
 What an organization's admins see of the surveys taken for it:
-/organizations/<slug>/responses/ (the table) and
-/organizations/<slug>/responses/<id>/ (one response).
+/organizations/<slug>/responses/ (the table),
+/organizations/<slug>/responses/<id>/ (one response) and
+/organizations/<slug>/responses/export/ (the table's submitted surveys as a
+spreadsheet file, Milestone 6).
 
-These two pages live here, not with the other organization pages, because the
+These pages live here, not with the other organization pages, because the
 apps depend on each other one way (accounts <- enterprises <- entitlements <-
 responses): this app may use the organization's scoping, and the enterprises
 app must never import a response.
@@ -28,19 +30,24 @@ How that is kept true:
 * _taken_for also leaves the answers, the self-report and the progress out of
   the query altogether (`defer`), so they are not even read from the database.
 * The templates get plain values (_facts), never a Response.
+* The file is made from the same query and the same facts, so it can hold
+  nothing the table does not show.
 
 tests/test_tenant_isolation.py holds all of this to account.
 """
 
 from django.db.models import F
 from django.shortcuts import get_object_or_404, render
+from django.template.loader import render_to_string
+from django.utils import timezone
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from apps.accounts.decorators import verified_email_required
 from apps.enterprises import scoping
 from apps.enterprises.shown import member_email, member_name, organization
 
+from . import exports
 from .forms import ResponseFilterForm
 from .models import Response
 
@@ -54,6 +61,10 @@ _ORDERS = {
     # Unfinished ones have no submit date: they go last.
     "-submitted": (F("submitted_at").desc(nulls_last=True), "-id"),
 }
+
+# The columns of the file: the six things the table shows (the founder's choice
+# of 2026-11-13). Adding one is a product decision, not a code change.
+EXPORT_COLUMNS = ("name", "email", "started", "submitted", "results_level", "possible_repeat")
 
 
 def _taken_for(enterprise):
@@ -126,6 +137,8 @@ def table(request, slug):
         "form": form,
         "rows": rows,
         "total": everything.count(),
+        # The file holds submitted surveys only; with none there is no button.
+        "can_export": _submitted_for(membership.enterprise).exists(),
         "filtered": any(chosen.get(name) for name in ("status", "tier", "repeat")),
     }
     return render(request, "responses/organization_table.html", context)
@@ -140,3 +153,60 @@ def detail(request, slug, pk):
     response = get_object_or_404(_taken_for(membership.enterprise), pk=pk)
     context = {"organization": organization(membership), "row": _facts(response)}
     return render(request, "responses/organization_response.html", context)
+
+
+def _submitted_for(enterprise):
+    """The submitted surveys taken for this organization, newest first, as the table lists them."""
+    return (
+        _taken_for(enterprise)
+        .filter(status=Response.Status.SUBMITTED)
+        .order_by(*_ORDERS["-started"])
+    )
+
+
+def _day(moment):
+    """The day only, as 2026-11-13, so a spreadsheet sorts it. The pages show the day too."""
+    return timezone.localtime(moment).date().isoformat()
+
+
+def _level_words():
+    """How each results level is named, taken from the one template that names them."""
+    return {
+        tier: render_to_string("responses/_tier.html", {"tier": tier}).strip() for tier in range(4)
+    }
+
+
+def _export_rows(responses):
+    """One line of the file for each response: the table's facts, as plain text."""
+    words = _level_words()
+    for response in responses.iterator():
+        row = _facts(response)
+        level = words[row["tier"]]
+        yield (
+            row["name"],
+            row["email"],
+            _day(row["started_at"]),
+            _day(row["submitted_at"]),
+            f"{level} (licence withdrawn)" if row["withdrawn"] else level,
+            "yes" if row["possible_repeat"] else "no",
+        )
+
+
+@never_cache
+@require_POST
+@verified_email_required
+def export(request, slug):
+    """
+    The organization's submitted surveys as a spreadsheet file: every one of
+    them, whatever filter the table has on, with the six columns the table
+    shows and nothing else. A POST, so that only a deliberate press of the
+    button makes a file, and the download is noted in the audit log first.
+    """
+    membership = scoping.for_admin(request, slug)
+    enterprise = membership.enterprise
+    responses = _submitted_for(enterprise)
+    exports.record(
+        membership.account_id, rows=responses.count(), answers=False, organization=enterprise
+    )
+    filename = f"responses-{enterprise.slug}-{timezone.localdate().isoformat()}.csv"
+    return exports.download(filename, EXPORT_COLUMNS, _export_rows(responses))

@@ -23,12 +23,14 @@ What must hold on every organization page:
 Each PR that adds organization pages adds its addresses to the lists below
 (PR 8: the list, the dashboard and the members page; PR 9: codes and invites;
 PR 11: the responses table and the page of one response; Milestone 4, PR 3:
-the Licences page, its three actions and the "take back" confirmation page).
+the Licences page, its three actions and the "take back" confirmation page;
+Milestone 6, PR 1: the download of the responses table as a spreadsheet file).
 
 The responses pages are where a survey first appears on an organization page,
 so they get a class of their own at the bottom: an admin sees the surveys
 taken for their organization, never one taken personally or for anyone else,
 and of each one only who, when, its status and its level. Never an answer.
+The spreadsheet file of that table (Milestone 6) is held to the same.
 
 The Licences page (Milestone 4) is where an admin gives out the organization's
 stock, so it has a class too: the stock and the members are its own, and a
@@ -39,6 +41,8 @@ Each organization has bought three Tier 2 and two Tier 3 licences, and its
 second member holds an unused Tier 2 one from that stock.
 """
 
+import csv
+import io
 import re
 from types import SimpleNamespace
 
@@ -47,6 +51,7 @@ from django.db import models
 from django.test.utils import ContextList
 
 from apps.accounts import services as accounts
+from apps.audit.models import AuditLog
 from apps.enterprises import services as orgs
 from apps.enterprises.models import Membership
 from apps.entitlements import services as licences
@@ -77,6 +82,8 @@ ADMIN_FORMS = [
     ("invites/", {"email": "someone.new@example.com"}),
     # Buying into the stock: writes a payment row and would open Stripe's page.
     ("licences/buy/", {"tier": "2", "quantity": "3"}),
+    # The responses table as a spreadsheet file: sends data out and writes an audit row.
+    ("responses/export/", {}),
 ]
 
 
@@ -135,6 +142,23 @@ def licences_of(org):
     return Entitlement.objects.filter(membership__enterprise=org.enterprise)
 
 
+def downloads_of(org):
+    """The audit log's rows for downloads of the organization's surveys."""
+    return AuditLog.objects.filter(
+        action="responses.exported",
+        target_type="enterprises.enterprise",
+        target_id=str(org.enterprise.pk),
+    )
+
+
+def exported(client, org):
+    """Press "Download" on an organization's responses page. Returns (the text, its rows)."""
+    answer = client.post(address(org, "responses/export/"))
+    assert answer.status_code == 200, answer.status_code
+    text = b"".join(answer.streaming_content).decode()
+    return text, list(csv.reader(io.StringIO(text.lstrip("\ufeff"))))[1:]
+
+
 def same_invite(invite):
     """True if the invite still goes to the same address, by the same link, emailed as often."""
     now = fresh(invite)
@@ -161,6 +185,7 @@ def untouched(org):
         and seat.tier == STOCK_TIER
         and licences_of(org).count() == 3  # one each from staff, and the one from the stock
         and not org.enterprise.purchases.exists()  # nothing was bought for it
+        and not downloads_of(org).exists()  # nobody took its surveys away as a file
     )
 
 
@@ -653,6 +678,52 @@ class TestTheResponsesPages:
             for sql in about_responses:
                 for column in ("answers", "took_before", "took_before_via", "pages_completed"):
                     assert f'"{column}"' not in sql, f"{url} reads {column}"
+
+    def test_the_file_lists_exactly_the_surveys_taken_for_the_organization(
+        self, client, world, admin
+    ):
+        """Two members, one survey each for Acme. Their personal surveys add no row."""
+        text, lines = exported(client, world.acme)
+        assert sorted(line[:2] for line in lines) == sorted(
+            [member.account.full_name, member.account.email] for member in world.acme.members
+        )
+        for word in everything_about(world.globex):
+            assert word not in text, word
+        assert downloads_of(world.acme).get().detail["rows"] == 2
+        assert not downloads_of(world.globex).exists()
+
+    def test_the_file_never_holds_an_unfinished_or_a_personal_survey(self, client, world, admin):
+        member = new_member(world.acme.enterprise, "three@acme.example.com")
+        accounts.set_full_name(member.account, "Acme MemberThree")
+        grant(member, 2)
+        surveys.start_response(member.account, member)
+        grant_personal(member.account, PERSONAL_TIER)
+        finish(surveys.start_response(member.account))
+        text, lines = exported(client, world.acme)
+        assert len(lines) == 2
+        assert "MemberThree" not in text and "three@acme" not in text
+
+    def test_the_file_holds_only_the_agreed_columns_and_no_phone_number(self, client, world, admin):
+        text, lines = exported(client, world.acme)
+        assert text.splitlines()[0].lstrip("\ufeff") == (
+            "name,email,started,submitted,results_level,possible_repeat"
+        )
+        assert all(len(line) == 6 for line in lines)
+        assert PHONE_DIGITS not in text
+
+    def test_the_file_is_made_without_reading_the_answers_from_the_database(
+        self, client, world, admin
+    ):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as queries:
+            exported(client, world.acme)
+        about_responses = [q["sql"] for q in queries if "responses_response" in q["sql"]]
+        assert about_responses
+        for sql in about_responses:
+            for column in ("answers", "took_before", "took_before_via", "pages_completed"):
+                assert f'"{column}"' not in sql, f"the file reads {column}"
 
     def test_a_deactivated_members_survey_stays_and_an_erased_member_has_no_name(
         self, client, world, admin

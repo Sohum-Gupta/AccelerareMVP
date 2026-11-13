@@ -48,4 +48,12 @@
   {% else %}
     <p class="text-sm text-slate-700">Nobody has started the survey for {{ organization.name }} yet. A member needs a licence for {{ organization.name }} before they can take it.</p>
   {% endif %}
+
+  {% if can_export %}
+    <form method="post" action="{% url 'organization_responses_export' organization.slug %}" class="mt-4">
+      {% csrf_token %}
+      <button type="submit" class="button-secondary">Download as a spreadsheet (CSV)</button>
+      <p class="mt-1 text-sm text-slate-600">The file lists every submitted survey for {{ organization.name }}, whatever filter is chosen above: who took it, when, its results level and whether it is a possible repeat. It never holds anyone's answers. Each download is recorded.</p>
+    </form>
+  {% endif %}
 {% endblock %}
