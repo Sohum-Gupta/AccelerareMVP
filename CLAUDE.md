@@ -23,9 +23,10 @@ before doing any work:
    log). The licence changes that follow from those answers ("Milestone 4, second part": a licence is set
    aside when an invite or a join code promises one) are code-complete and live (1,315 tests); their two
    live checks are part of T-18. Payments (Milestone 4b, Stripe) are code-complete and deployed: PRs 0
-   to 5 (1,547 tests). Buying is closed on the live site until the founder adds the Stripe test key
-   (T-21), and nothing has been run against Stripe itself: every test uses a stand-in, and the founder's
-   live checklist (T-22) is the first real run. Never let a test reach Stripe (`tests/conftest.py`), and
+   to 5 (1,547 tests). The founder put Stripe's test keys in Parameter Store on 2026-11-13 and they have
+   reached the server, so buying is open on the live site on test keys. Nothing has been run against
+   Stripe itself: every test uses a stand-in, and the founder's live checklist (T-22) is the first real
+   run. Real keys only when the founder says so. Never let a test reach Stripe (`tests/conftest.py`), and
    never print or commit a key. Milestone 5 (background jobs and the worker, the licence email, the
    audit log, possible duplicates and linking two logins, the match box, the results seam) is
    code-complete and deployed: PRs 0 to 7 (1,786 tests). The server runs a third container, the worker.
