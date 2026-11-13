@@ -18,11 +18,14 @@ before doing any work:
    Its remaining "Done when" boxes are the founder's live checks (task T-16 in `docs/06-backlog.md`; the
    checklist is in the build plan). Milestone 4 (Licences for organizations) is code-complete and live:
    PRs 0 to 5 merged and deployed (1,259 tests). Its remaining "Done when" boxes are the founder's live
-   checks (task T-18 in `docs/06-backlog.md`; the checklist is in the build plan), and the choices made
-   while building it wait for the founder's word (D-18). Merging on green without waiting for a review
-   was granted for Milestones 3 and 4 only and has ended: ask before doing it again. Payments
-   (Milestone 4b) come next and must be planned with the founder first (T-17). The site is built for the US first; India is
-   deferred.**
+   checks (task T-18 in `docs/06-backlog.md`; the checklist is in the build plan). The founder answered
+   the choices made while building it, and the payments basics, on 2026-11-13 (the build plan's decision
+   log). The work in progress, in this order: the licence changes that follow from those answers, payments
+   (Milestone 4b, on Stripe test keys; its plan is its PR 0), then Milestone 5. Merging on green without
+   waiting for a review applies to those pieces of work and nothing else: ask before doing it for
+   anything further. Product choices that come up are still asked of the founder first. `main` is
+   protected on GitHub: every change goes through a pull request whose `test` check has passed. The site
+   is built for the US first; India is deferred.**
    Do not build anything from a later milestone than the one in progress.
 2. `docs/06-backlog.md` — every open task and parked decision, with full detail in Part 2.
    Add new follow-ups there; remove an item and log the outcome when it is finished.

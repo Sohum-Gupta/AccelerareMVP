@@ -17,7 +17,7 @@ Every item has an ID (`T-` for tasks, `D-` for decisions, `L-` for later feature
 
 ## Where things stand (2026-11-13)
 
-Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-12. Milestone 3 (organizations) was built on 2026-11-12 and 2026-11-13 and is live; what is left of it is your checklist on the live site (T-16). Milestone 4 (licences for organizations) was built on 2026-11-13 and is live; what is left of it is your checklist on the live site (T-18) and your word on the choices made while building it (D-18). Nobody has yet tried Milestone 3 or Milestone 4 by hand on the live site. Payments come next and need planning with you first (T-17). The site is being built for the US first; the India items below are deferred. Every decision below was reviewed with the founder on 2026-11-12; the ones still listed were left here on purpose.
+Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-12. Milestone 3 (organizations) was built on 2026-11-12 and 2026-11-13 and is live; what is left of it is your checklist on the live site (T-16). Milestone 4 (licences for organizations) was built on 2026-11-13 and is live; what is left of it is your checklist on the live site (T-18). Nobody has yet tried Milestone 3 or Milestone 4 by hand on the live site. On 2026-11-13 you answered the choices made while building Milestone 4, the payments basics, and the two GitHub questions; the answers are in the build plan's decision log. What follows from them is built next, in this order: the licence changes (a licence is set aside when an invite or code promises one), then payments (T-17), then Milestone 5. The site is being built for the US first; the India items below are deferred. Every decision below was reviewed with the founder on 2026-11-12; the ones still listed were left here on purpose.
 
 ## Waiting on you now
 
@@ -25,10 +25,6 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | --- | --- | --- |
 | T-16 | Run the Milestone 3 live checklist (parts A to F in the build plan) | Six of Milestone 3's seven boxes can only be ticked on the live site |
 | T-18 | Run the Milestone 4 live checklist (parts A to D in the build plan) | Four of Milestone 4's five boxes can only be ticked on the live site |
-| D-18 | Say yes or no to the choices made while building Milestone 4 | They are live now; each is easy to change today and harder once customers rely on it |
-| T-20 | Protect the `main` branch on GitHub (five minutes, in the repository's settings) | Today nothing stops a change reaching the live site without its pull request's checks passing |
-| D-19 | Confirm the GitHub repository is meant to be public | Anyone can read the code, the plans and the infrastructure runbook |
-| T-17 | Decide the payments basics: provider and test keys, prices in dollars, refund rule, tax | Payments are the milestone after Milestone 4 and cannot be planned without them |
 | T-2 | Set up the uptime checker (Better Stack) once Outlook is back | Nobody is told if the site goes down |
 | T-3 | Confirm you did the second-email checks (part F) | Two Milestone 1 boxes can then be ticked |
 | T-4 | Check the AWS support case for SES production access | Until it is approved, strangers cannot get a sign-up email |
@@ -48,8 +44,7 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | D-10 | Show dates in each person's time zone? | If people complain | Day only, in UTC |
 | D-11 | Keep `app.theaccelerare.com` or rename it? | Before the pilot, ideally before T-4 and T-10 | `app.` is a placeholder |
 | D-15 | Hide whether an email has an account (sign-up timing, reset warning) | If it becomes a concern | Accepted for now (2026-11-12) |
-| D-18 | The choices made while building Milestone 4 (seven, listed in Part 2) | Now: they are live | As built |
-| D-19 | Should the GitHub repository be public? | Now | It is public |
+| D-20 | Review sales tax and invoices with an accountant | Before real prices are set | No tax collected; Stripe's receipt, and a numbered invoice for an organization |
 | D-17 | Review the wording that tells a member what an organization's admins can see | With D-7, before the pilot | The wording as built; "fine for now" (2026-11-13) |
 
 ## Tasks still open
@@ -71,8 +66,7 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | T-16 | Run the Milestone 3 live checklist | Now |
 | T-18 | Run the Milestone 4 live checklist | Now |
 | T-19 | The interface points the founder raised on the live site (six small fixes and a design pass) | When the founder asks; each is a small PR |
-| T-20 | Protect the `main` branch on GitHub | Now; five minutes |
-| T-17 | Plan the payments milestone (4b) | After Milestone 4 |
+| T-17 | Plan the payments milestone (4b) | Next, after the licence changes; the basics are answered |
 
 ## Later, not yet planned
 
@@ -95,7 +89,7 @@ These are not in any milestone yet. The code is shaped so none of them needs a r
 
 Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item below:
 
-- Do not build anything from a milestone later than the one in progress. As of 2026-11-13 Milestones 3 and 4 are both code-complete and live, each waiting only for the founder's live checklist (T-16, T-18). No milestone is in progress: payments (Milestone 4b) are next and must be planned with the founder before any code (T-17). Merging on green without waiting for review was granted for Milestones 3 and 4 only; ask before doing it again. The site is built for the US first (2026-11-13): do not design anything India-specific unless the founder brings it back.
+- Do not build anything from a milestone later than the one in progress. As of 2026-11-13 Milestones 3 and 4 are both code-complete and live, each waiting only for the founder's live checklist (T-16, T-18). The work in progress is what the founder asked for on 2026-11-13, in this order: the licence changes that follow from their answers on Milestone 4's choices, payments (Milestone 4b; its plan is its PR 0, T-17), then Milestone 5. Merging on green without waiting for review applies to those pieces of work (decision log, 2026-11-13) and to nothing else; ask before doing it for anything further. `main` is protected: every change goes through a pull request whose `test` check has passed. The site is built for the US first (2026-11-13): do not design anything India-specific unless the founder brings it back.
 - An item marked **Decision** is the founder's to make. Do not pick an answer. Present the options, recommend one if asked, and wait.
 - The founder reviewed every decision on 2026-11-12. Those still here were deliberately left for later; do not re-ask them unprompted unless the milestone that needs them is being planned.
 - Never put survey statements, answers or a person's email into this file, a test or an admin history label.
@@ -170,11 +164,11 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Done when:** the founder reports each part. Then a docs-only PR ticks the boxes, records the date in the decision log, updates the status lines (build plan, `CLAUDE.md`, this file) and removes this item. Anything that did not behave as written is fixed first.
 - **Source:** `05-build-plan.md`, Milestone 3, "Done when" and "Live checklist".
 
-### T-17 Plan the payments milestone (4b) with the founder
-- **Status:** open, and next: Milestone 4 is code-complete (2026-11-13). The founder moved payments forward on 2026-11-13 (`05-build-plan.md`, Milestone 4b, and the decision log). Nothing is planned or built.
-- **The founder decides first:** the provider (Stripe was suggested for the US, not chosen) and an account with test keys; prices in dollars for Tier 1, 2 and 3, and whether organizations get a volume price; the refund rule (for example, only while the licence is unused); whether sales tax and numbered invoices are needed; whether merging on green applies to this milestone.
-- **Then:** a plan in the build plan in the style of Milestones 3 and 4, as that milestone's PR 0. The provider's keys go in Parameter Store **[console]**.
-- **Already decided:** see "What is already decided" under Milestone 4b. This replaces L-1.
+### T-17 Plan the payments milestone (4b)
+- **Status:** open, and next after the licence changes. The founder answered the basics on 2026-11-13: Stripe for now, on test keys; $1, $2 and $3 as placeholder prices, changeable without code; no volume price; an upgrade charges the difference; refunds for an unused licence within 30 days, by staff from the Django admin; no tax collected at first; Stripe's receipt, and a numbered invoice for an organization; merged on green. The full text is under Milestone 4b in `05-build-plan.md` and in its decision log. Nothing is planned in detail or built.
+- **What to do:** a plan in the build plan in the style of Milestones 3 and 4, as that milestone's PR 0, then the PRs. Product choices the basics do not settle are asked of the founder before building.
+- **The founder's part** **[console]**: a Stripe account, its test keys in Parameter Store and in the laptop's `.env`, and the address Stripe sends its messages to. The plan says exactly what goes where.
+- **When the plan is merged:** remove this item; the milestone's own section then carries the work.
 
 ### T-18 Run the Milestone 4 live checklist
 - **Status:** open, waiting on the founder since 2026-11-13. Milestone 4 is code-complete and deployed; four of its five "Done when" boxes can only be ticked by someone using the live site. Nothing of Milestone 4 has been tried by a person there yet: the "Licence stock" page of the Django admin, the Licences page and the tier drop-downs have only been exercised by tests and by browser runs against a local server.
@@ -190,15 +184,8 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **4. A "show password" control on every password field** (sign-up's two, login, the reset page's two, change password): a button that switches the dots to plain text while it is on. No server change; `static/js/live-hints.js` is the natural home.
 - **5. Django admin: hide the password-hash block on an account's page** ("Raw passwords are not stored…" with the hash's parameters). Nontechnical staff read it as a fault or a leak. Keep only a "set a new password" link for superusers.
 - **6. Django admin: one action to make or unmake Support staff.** Today it is two steps (tick "Staff status", add to the "Support staff" group), and forgetting one gives a colleague an empty admin. Add two actions on the Accounts list that do both and leave a history line saying who did it.
-- **From Milestone 4, the same kind of thing** (the builder's suggestions, not the founder's requests): when an admin puts a tier on an invite or a code while the stock of that tier is empty, the page could say so at once instead of only after someone joins without a licence; and "Give licence" could read "Give another licence" for a member whose last one is already used.
+- **From Milestone 4, the same kind of thing** (the builder's suggestions, not the founder's requests): when an admin puts a tier on an invite or a code while the stock of that tier is empty, the page could say so at once instead of only after someone joins without a licence (settled on 2026-11-13: making such an invite or code will be refused, as part of the licence changes); and "Give licence" could read "Give another licence" for a member whose last one is already used.
 - **Source:** the founder, on the live site, 2026-10-18 and 2026-10-25.
-
-### T-20 Protect the `main` branch on GitHub
-- **Status:** open; found on 2026-11-13 while looking at why the pipeline had slowed. `main` has no branch protection and the repository has no rulesets. Every merge so far has waited for green checks by habit only.
-- **Why it matters:** a push straight to `main`, or a merge pressed while the checks are still red, would not be stopped by GitHub. The second line of defence does hold: `deploy.yml` runs the whole test job again on `main` and builds nothing if it fails, so a broken change would not reach the server. But it would sit on `main`, and every later change would be built on top of it.
-- **What to do** **[console]** (GitHub, not AWS; about five minutes): repository Settings, Branches, add a rule for `main`: require a pull request before merging; require status checks to pass, and pick the check named `test`; do not allow bypassing. Leave "require branches to be up to date" off unless merges start to collide: it adds a re-run to every merge. Claude can set this through the GitHub API if the founder says so; it changes who can do what in the repository, so it is the founder's call.
-- **One thing to keep true afterwards:** `ci.yml` must have no path filters. A required check that is skipped blocks a merge for ever, and docs-only pull requests must still be able to merge (NOTES.md 2026-11-13; `tests/test_deploy_workflow.py` checks it).
-- **Source:** `.github/workflows/deploy.yml`; found while building #72.
 
 ## Decisions
 
@@ -250,33 +237,21 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
   3. "Accelerare keeps your answers to produce your results and to improve the diagnostic" (disclosure page only): a statement of how Accelerare uses the data; the line a lawyer most needs to read.
   4. "results level" and "its level" stand in for the tier names, which are still placeholders (D-4).
   5. The join page says nothing about Accelerare itself seeing the answers; only the survey's page does.
+- **To change again (founder, 2026-11-13):** that last sentence will say plainly whether a licence comes with the invite or the code, as part of the licence changes; the new wording is in the build plan, Milestone 4, "Smaller rules". Include it in the later review.
 - **When the wording changes:** the four "admins can also see" survey lines must stay the same on both pages (the join page says "that survey" where the other says "this survey"); `tests/test_join_pages.py` compares the two files and fails if they drift. `tests/test_survey_context_pages.py` and `tests/test_join_pages.py` also quote the wording.
 - **Changed since the founder read it (Milestone 4 PR 4, 2026-11-13):** the last sentence of the join confirmation page. It said "Joining makes you a member. It does not by itself give you a licence to take the survey", which stopped being true once an invite or a join code could carry a licence. It now says "Joining makes you a member. To take the survey for <organization> you also need a licence from it. It may give you one as you join, or later." The lists of what admins can and cannot see are unchanged. Include this sentence in the later review.
 - **Source:** raised with the founder on 2026-11-13 after Milestone 3 PRs 7 and 10.
 
-### D-18 The choices made while building Milestone 4
-- **Status:** raised 2026-11-13 in the summaries of PRs 2, 3 and 4; the founder has not yet answered any. All are live as built. Each is small to change now. **Decision:** the founder's; say "fine" to keep one or say what it should be instead.
-- **1. One licence in hand at a time, whoever it came from.** A member with a licence they have not used, or part-way through the survey on one, cannot be given another until they submit; a licence staff granted by hand counts for this too. The alternative: let a member hold several.
-- **2. What the Licences page lists.** Every active member; a member who has left only while they still hold a licence; never a licence that was taken back. A licence staff granted by hand is shown, marked "Granted by Accelerare, not from your stock", with no buttons. The drop-downs offer only tiers that have a licence left.
-- **3. The page a person reads before joining says nothing about a licence.** It shows nothing of the organization but its name, so it does not say "this invite comes with a licence". The alternative: say so when the invite or code carries a tier (it could still turn out that none is left).
-- **4. The reworded sentence on that page** (see D-17): "To take the survey for (the organization) you also need a licence from it. It may give you one as you join, or later."
-- **5. A member who comes back with an invite keeps an unused licence they already hold and gets no second one.**
-- **6. A tier can be chosen for an invite or a code while the stock has none.** The stock is checked when the person joins. The alternative: refuse to make such an invite or code.
-- **7. When the "joined without a licence" warning stops counting someone:** as soon as they have had any licence for the organization, from an admin or from staff, and not again if it is later taken back. An admin who decides not to give one keeps seeing the warning; there is no "dismiss".
-- **Also decided by the builder, less visible:** the licence given on joining records whoever made the invite or code as its giver; "a member holds at most one unused licence for an organization" itself (in the Milestone 4 plan since PR 0, never asked directly).
-- **When answered:** change what was overruled in a small PR each, move the list out of "Smaller rules" in `05-build-plan.md` into the decision log as the founder's decisions, and remove this item.
-- **Source:** `05-build-plan.md`, Milestone 4, "Smaller rules"; the descriptions of #69, #70 and #71.
-
-### D-19 Should the GitHub repository be public?
-- **Status:** not yet asked; noticed on 2026-11-13. The repository is public: anyone on the internet can read the code, these planning documents, `NOTES.md` and the infrastructure runbook (`04-infrastructure.md`), which names the AWS region, the parameter paths, the roles and how the server is reached. **Decision:** the founder's.
-- **What is not exposed:** no secret is in the repository (they live in AWS Parameter Store and GitHub's secrets), and the real survey statements were never committed (checked during the Milestone 2 live checks).
-- **If it should be private:** one switch in the repository's settings **[console]** (GitHub). Two things then need attention: the container image on ghcr.io would need its own visibility checked and the server given a login to pull it (`deploy.sh` pulls without one today), and GitHub's free Actions minutes are limited on a private repository (CI and the deploy use about five minutes a merge).
-- **If it stays public:** nothing to do; say so and this item is removed. Worth a read-through of `04-infrastructure.md` for anything the founder would rather not publish.
-- **Source:** GitHub's repository settings, read on 2026-11-13.
+### D-20 Sales tax and invoices, reviewed with an accountant
+- **Status:** raised by the founder on 2026-11-13 while answering the payments basics: "do whatever makes sense for now, mark it as something to review later". **Decision:** the founder's, with an accountant. Needed before real prices are set, which is before real Stripe keys.
+- **Today's default (Milestone 4b builds this):** no sales tax is collected. The checkout is built so that Stripe's tax setting can be switched on without a code change. A person gets Stripe's emailed receipt; an organization gets a numbered invoice as well.
+- **Questions for the accountant:** does the founder's home state, or any state where customers are, tax this kind of sale (an online assessment and its results); at what volume of sales in another state does a duty to collect begin; what an invoice to a business must show; whether the $1, $2, $3 placeholder prices are before or after tax once real prices are chosen.
+- **If tax must be collected:** switch on Stripe's tax setting **[console]** (Stripe's dashboard, not AWS) and register where required; no code change is planned for it. Record the answer in the decision log of `05-build-plan.md`.
+- **Source:** the founder's answers of 2026-11-13; `05-build-plan.md`, Milestone 4b.
 
 ### Small things to revisit only if they come up
 - **A stock licence's tier changed by staff:** in the Django admin, staff changing the tier of a licence that came from an organization's stock goes through the older `change_tier`, which does not check the stock, so staff can push a tier over what was bought. The page then says "12 of 10 given" and no more can be given at that tier, the same end state as lowering a stock below what is given (NOTES.md 2026-11-13). Add the check if staff ever do this by mistake.
-- **The "joined without a licence" warning has no dismiss:** an admin who decides not to give that member a licence keeps seeing it (D-18, point 7).
+- **The "joined without a licence" warning has no dismiss:** an admin who decides not to give that member a licence keeps seeing it. It goes away with the licence changes, which remove the warning altogether (decision log, 2026-11-13).
 - **Spelling:** the site says "licence" (British) and "organization" (US, the founder's choice on 2026-11-12). Pick one spelling for the whole site if anyone notices.
 - SES **Mail Manager** (managed credential rotation) was not chosen; revisit if rotating the SMTP credential by hand becomes a chore.
 - **allauth** was chosen for verification and later SSO; revisit if it fights the Milestone 3 join flows (`03-tech-stack.md` decision log).
