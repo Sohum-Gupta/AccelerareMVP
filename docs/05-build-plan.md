@@ -1148,8 +1148,8 @@ Not a milestone. Self-serve purchase for individuals and enterprises (likely Raz
 | 3 | Organizations, memberships, join | 2 | Organization admins onboard members and see who took the survey; licences per membership (built 2026-11-13; the founder's live checks remain) |
 | 4 | Licences for organizations (seat pools) | 3 | An organization's admins give out the licences it has bought; counts are right (built 2026-11-13; the founder's live checks remain) |
 | 4, part 2 | Licences set aside for invites and codes | 4 | A licence promised by an invite or a code is really there; an invite can be sent again or moved (built 2026-11-13; the founder's live checks remain) |
-| 4b | Payments | 4 | A purchase adds licences without staff typing (built 2026-11-13; closed until the founder adds the Stripe test key, then their live checks) |
-| 5 | Jobs, possible duplicates, audit | 4b | Worker live; a member is emailed their licence; possible duplicates reviewed and linked by a superuser; actions audited (re-planned 2026-11-13) |
+| 4b | Payments | 4 | A purchase adds licences without staff typing (built 2026-11-13; Stripe's test keys reached the server the same day; the founder's live checks remain) |
+| 5 | Jobs, possible duplicates, audit | 4b | Worker live; a member is emailed their licence; possible duplicates reviewed and linked by a superuser; actions audited (built 2026-11-13; the founder's live checks remain) |
 | 6 | Root admin, export, erasure audit | 5 | Root console complete; CSV; erasure audited and documented |
 | 7 | Hardening and pilot | 6 | First customer |
 

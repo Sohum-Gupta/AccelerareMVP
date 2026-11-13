@@ -28,7 +28,7 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | T-22 | Run the Milestone 4b live checklist with Stripe's test card (parts A to C in the build plan). The keys are on the server, so it can be run now | Nothing has been run against Stripe itself yet; three of its four boxes can only be ticked on the live site |
 | T-24 | Run the Milestone 5 live checklist (parts A to D in the build plan, and E if you like) | Four of Milestone 5's five boxes can only be ticked on the live site; the worker has never sent a real email |
 | T-3 | Confirm you did the second-email checks (part F) | Two Milestone 1 boxes can then be ticked |
-| T-4 | Check the new AWS case for SES production access from 2026-11-14 (the October request was refused; you asked again on 2026-11-13), and confirm the suppression list is switched on | Until it is approved, strangers cannot get a sign-up email |
+| T-4 | Check the new AWS case for SES production access from 2026-11-14 (the October request was refused; you asked again on 2026-11-13) | Until it is approved, strangers cannot get a sign-up email |
 | T-14 | Pick the inbox that replies to site emails should reach | Then a small PR adds the Reply-To |
 
 ## Decisions you have parked
@@ -37,8 +37,8 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | --- | --- | --- | --- |
 | D-2 | If a company asks us to delete all its members' data, what happens? | With D-7, before the pilot | Undecided; ask the privacy lawyer |
 | D-4 | Names for the tiers | Any time | Keep "Tier 1/2/3" and "Free" for now (2026-11-12) |
-| D-5 | What a free account (no licence) sees on its result page | Milestone 5 | Just the tier name; no results |
-| D-6 | How the scoring algorithm and insights stay private | Milestone 5 | Undecided |
+| D-5 | What a free account (no licence) sees on its result page | When results are built (Phase 2) | Just the tier name; no results |
+| D-6 | How the scoring algorithm and insights stay private | When the algorithm is built (Phase 2) | Undecided |
 | D-7 | The privacy lawyer's list (what is anonymous enough, privacy text, backups, company agreements, consent) | Before the pilot | Not yet asked |
 | D-8 | Should people get their own "delete my account" button? | With D-7 | No; staff erase from the admin |
 | D-9 | Split Support staff into two groups, and should they read the statements? | When the team grows | One group; they can read the statements |
@@ -112,7 +112,7 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 ### T-4 SES production access
 - **Status:** asked for a second time on 2026-11-13; awaiting AWS. **[console]** The first request (2026-10-09) was **refused on 2026-10-10**, with no reason given, and AWS closed the case. Nobody looked at it again until 2026-11-13, so these docs said "awaiting AWS" for five weeks while the answer was no. On 2026-11-13 the SES dashboard still said sandbox in US West (Oregon), 200 emails a day. The founder made a new request from the SES dashboard and answered AWS's six questions on the new case the same day.
 - **What the founder told AWS (as reported to Claude):** the application's address and the company's main site; transactional mail only (sign-up confirmation, password reset and its notice, organization invites, and notices such as a licence being given); fewer than 100 emails a day; no mailing list and no bought or imported addresses; the account-level suppression list is enabled for bounces and complaints; recording of bounces and complaints through SNS is "being added" (that is T-23, which is not built); Easy DKIM on the verified domain.
-- **To confirm [console]:** that the account-level suppression list really is switched on for both bounces and complaints (SES, Configuration, Suppression list, Account-level settings). The answer to AWS said so before it was checked, and the founder had not reported the result when this was written. If it is off, switch it on: the answer must be true.
+- **Suppression list:** the founder confirmed on 2026-11-13 that the account-level suppression list is switched on (SES, Configuration, Suppression list, Account-level settings), as the answer to AWS says.
 - **Next:** look at the case from 2026-11-14. AWS's reply goes to the AWS account's email and shows in the Support Center.
 - **Why it matters:** in the sandbox SES delivers only to verified addresses and at most 200 a day, so a stranger signing up never gets a verification email. Milestone 1 box 1 ("A stranger can sign up on the live site, receive the email, verify, log in and log out on a phone") waits on it. So does anyone receiving the licence email (Milestone 5) at an address SES has not verified.
 - **Side effects that end with approval:** the yellow "we could not send the email" warning on signup and login; the reset page's warning that reveals whether an account exists (NOTES.md 2026-10-10 entry; see D-15).
@@ -206,7 +206,7 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 
 ### T-26 Uptime checker: four small follow-ups
 - **Status:** open, the founder's, since 2026-11-13. **[console]** (Better Stack's site; nothing in AWS.) The uptime checker itself is done: a Better Stack account on the free plan under the founder's Accelerare address, one monitor on `https://app.theaccelerare.com/health` every 3 minutes, email alerts, and a test alert that arrived (this was task T-2, now removed).
-- **1. Watch the worker too.** Add a second monitor on `https://app.theaccelerare.com/health/worker`, "URL becomes unavailable". That address answers "ok", or "behind" with status 503 when a background job has waited more than ten minutes, which means the worker has stopped. Without it nobody is told if the worker dies; the site carries on and emails quietly stop.
+- **1. Watch the worker too.** The founder agreed to this on 2026-11-13; it is theirs to add. Add a second monitor on `https://app.theaccelerare.com/health/worker`, "URL becomes unavailable". That address answers "ok", or "behind" with status 503 when a background job has waited more than ten minutes, which means the worker has stopped. Without it nobody is told if the worker dies; the site carries on and emails quietly stop.
 - **2. False alarms during a deploy.** The monitor's confirmation period is "Immediate start", so a check that lands in the few seconds a deploy restarts the site could raise an alarm. Setting it to 1 minute fixes that. Do the same on the worker's monitor.
 - **3. One address gets the alerts.** The second recipient T-2 suggested (a personal address, so an Outlook outage cannot hide an alert) needs a paid Responder seat, and the founder skipped it and the free phone push notification. Alerts therefore go to one Microsoft 365 address only. The free push notification in Better Stack's phone app is the cheapest second channel.
 - **4. The free plan's terms.** The pricing page calls the tier "Free for personal projects", while the choice of Better Stack was recorded as "commercial use allowed". Nobody has read the terms. Read them, or accept the small risk; UptimeRobot is the fallback the runbook first named.
