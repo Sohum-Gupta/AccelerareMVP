@@ -1,6 +1,6 @@
 """
 Every write to an organization goes through here: creating one, join codes,
-roles, deactivating and reactivating. Views and the staff admin stay thin: they
+invites, roles, deactivating and reactivating. Views and the staff admin stay thin: they
 call one of these functions and show the result, so a web page, an admin action
 and a test all enforce the same rules.
 
@@ -18,6 +18,11 @@ The rules (decided by the founder on 2026-11-12):
   resending does not get round it. The creator does not count.
 * A join code works until it is revoked, expires or runs out of uses. A
   deactivated member cannot come back with a code; an admin reactivates them.
+* An invite goes to one email address, works once and lasts 14 days. Only an
+  account that has verified that address can accept it; the link by itself
+  proves nothing, so a forwarded link is useless to anyone else. An invite
+  brings a deactivated member back. If the email cannot be sent, the invite is
+  kept and the admin can copy the link.
 
 Who is acting: a function that an organization's admin can call takes `by`, the
 acting admin's own Membership, and checks again that it is an active admin of
@@ -32,18 +37,29 @@ single-table reads; a lock on a join is unreliable (see NOTES.md).
 A refused action raises Refused, whose message is plain words for the page.
 """
 
+import logging
 import secrets
 from datetime import timedelta
+from smtplib import SMTPException
 
+from allauth.account.adapter import get_adapter
+from allauth.core import context as allauth_context
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
 from django.db.models import Sum
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 
 from apps.accounts import services as accounts
-from apps.accounts.models import Account
+from apps.accounts.adapter import describe_mail_error
+from apps.accounts.models import Account, ContactPoint
+from apps.accounts.normalisers import normalise_email
 
-from .models import Enterprise, JoinCode, Membership
+from .models import Enterprise, Invite, JoinCode, Membership
+
+logger = logging.getLogger(__name__)
 
 # How many organizations one account may create by itself. Each one can send
 # its own invites, so this is what keeps the people limit meaningful.
@@ -58,6 +74,7 @@ CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 CODE_LENGTH = 10
 DEFAULT_CODE_DAYS = 30
 MAX_CODE_USES = 10_000
+INVITE_DAYS = 14
 TIERS = (1, 2, 3)
 
 
@@ -67,6 +84,10 @@ class Refused(Exception):
 
 class AlreadyMember(Refused):
     """The account already belongs to the organization (the page can simply take them there)."""
+
+
+class WrongAddress(Refused):
+    """The invite went to an address this account has not verified (the page links to the profile)."""
 
 
 # --- reads ---------------------------------------------------------------------
@@ -251,6 +272,154 @@ def redeem_code(code, account):
         )
 
 
+# --- invites -------------------------------------------------------------------
+
+
+def invite_by_email(admin_membership, email, tier=None, *, request=None):
+    """
+    Invite one email address to the admin's organization. Returns (invite, sent).
+
+    Refused when the address is not an address, already belongs to an active
+    member, or already has an open invite, and when the organization has no
+    places left. The invite uses a place from the moment it exists, whatever
+    becomes of it.
+
+    The email goes out after the invite is saved, and only when a request is
+    given (a view passes it; it is what the link's address is built from).
+    `sent` is False if the mail server refused or nothing was sent; the invite
+    is kept either way, and the admin can copy its link (`invite_link`).
+    """
+    typed = str(email or "").strip()
+    try:
+        validate_email(typed)
+    except ValidationError:
+        raise Refused("Enter a valid email address.") from None
+    address = normalise_email(typed)
+    _check_tier(tier)
+    with transaction.atomic():
+        # The organization's lock makes two invites take turns, so the count of
+        # places and the "one open invite per address" check see settled data.
+        enterprise = Enterprise.objects.select_for_update().get(pk=admin_membership.enterprise_id)
+        admin = _acting_admin(admin_membership, enterprise.pk)
+        now = timezone.now()
+        if _active_member_has_verified(enterprise, address):
+            raise Refused("Someone with that address is already a member.")
+        if _open_invites(enterprise, now).filter(email=address).exists():
+            raise Refused(
+                "There is already an open invite to that address. "
+                "Revoke it first if you want to send a new one."
+            )
+        if places_left(enterprise) < 1:
+            raise Refused(f"{enterprise.name} has no places left. Contact us to add more.")
+        invite = Invite.objects.create(
+            enterprise=enterprise,
+            email=address,
+            token=secrets.token_urlsafe(32),
+            tier=tier,
+            expires_at=now + timedelta(days=INVITE_DAYS),
+            created_by_id=admin.account_id,
+        )
+    sent = send_invite_email(invite, request) if request is not None else False
+    return invite, sent
+
+
+def invite_link(invite, request):
+    """The full address of the page where this invite is accepted."""
+    return request.build_absolute_uri(reverse("join_invite", args=[invite.token]))
+
+
+def send_invite_email(invite, request):
+    """
+    Email the invite's link to its address. True if the mail server took it.
+    A refusal (Amazon SES refuses unverified addresses while it is in its
+    sandbox) or an outage is logged without the address and reported as False,
+    never raised: the invite is already saved.
+    """
+    context = {
+        "enterprise_name": invite.enterprise.name,
+        "invite_url": invite_link(invite, request),
+        "days": INVITE_DAYS,
+    }
+    # allauth's adapter renders the mail, so the subject prefix and the From
+    # address are the same as on every other email the site sends.
+    with allauth_context.request_context(request):
+        message = get_adapter().render_mail("enterprises/email/invite", invite.email, context)
+        try:
+            message.send()
+        except (SMTPException, OSError) as error:
+            logger.error("Could not send an invite email (%s)", describe_mail_error(error))
+            return False
+    return True
+
+
+def revoke_invite(invite, by=None):
+    """
+    Withdraw an invite that has not been accepted. Revoking twice keeps the
+    first date. It still counts towards the people limit.
+    """
+    with transaction.atomic():
+        invite = Invite.objects.select_for_update().get(pk=invite.pk)
+        if by is not None:
+            _acting_admin(by, invite.enterprise_id)
+        if invite.accepted_at is not None:
+            raise Refused("That invite has already been accepted.")
+        if invite.revoked_at is None:
+            invite.revoked_at = timezone.now()
+            invite.save(update_fields=["revoked_at"])
+        return invite
+
+
+def accept_invite(token, account):
+    """
+    Join an organization with an invite link, and return the membership.
+
+    Refused, in this order, when: the link is unknown; the account already
+    belongs (AlreadyMember); the invite was withdrawn, already used or has
+    expired; or the account has not verified the address the invite was sent to
+    (WrongAddress). A deactivated member is brought back, as an ordinary member.
+    Accepting needs no free place: the invite took its place when it was sent.
+    """
+    found = Invite.objects.filter(token=str(token or "")).first()
+    if found is None:
+        raise Refused("That invite link is not valid.")
+    with transaction.atomic():
+        _check_can_join(account)
+        enterprise = Enterprise.objects.select_for_update().get(pk=found.enterprise_id)
+        invite = Invite.objects.select_for_update().get(pk=found.pk)
+        existing = Membership.objects.filter(account=account, enterprise=enterprise).first()
+        if existing is not None and existing.is_active:
+            raise AlreadyMember(f"You are already a member of {enterprise.name}.")
+        if invite.revoked_at is not None:
+            raise Refused("That invite has been withdrawn. Ask the organization to send a new one.")
+        if invite.accepted_at is not None:
+            raise Refused("That invite has already been used.")
+        if invite.expires_at <= timezone.now():
+            raise Refused("That invite has expired. Ask the organization to send a new one.")
+        if not invite.email:
+            # The person it was sent to has been erased, and the address with them.
+            raise Refused("That invite link is not valid.")
+        if not _has_verified(account, invite.email):
+            raise WrongAddress(
+                f"This invite was sent to {invite.email}. Log in with that address, "
+                "or add and verify it on your profile, then open the link again."
+            )
+        invite.accepted_at = timezone.now()
+        invite.save(update_fields=["accepted_at"])
+        if existing is None:
+            return Membership.objects.create(
+                account=account, enterprise=enterprise, joined_via_invite=invite
+            )
+        # A deactivated member coming back. The invite is now how they got in.
+        existing.status = Membership.Status.ACTIVE
+        existing.deactivated_at = None
+        existing.joined_via_invite = invite
+        existing.joined_via_code = None
+        existing.save(
+            update_fields=["status", "deactivated_at", "joined_via_invite", "joined_via_code"]
+        )
+        return existing
+
+
 # --- members -------------------------------------------------------------------
 
 
@@ -319,6 +488,31 @@ def _check_can_join(account):
         raise Refused("This account cannot join an organization.")
     if not accounts.has_verified_email(account):
         raise Refused("Verify your email address before joining an organization.")
+
+
+def _has_verified(account, address):
+    return account.contact_points.filter(
+        kind=ContactPoint.Kind.EMAIL, value_normalised=address, verified_at__isnull=False
+    ).exists()
+
+
+def _active_member_has_verified(enterprise, address):
+    """True if an active member of this organization has proven the address is theirs."""
+    return ContactPoint.objects.filter(
+        kind=ContactPoint.Kind.EMAIL,
+        value_normalised=address,
+        verified_at__isnull=False,
+        # One filter call, so both conditions are about the same membership.
+        account__memberships__enterprise=enterprise,
+        account__memberships__status=Membership.Status.ACTIVE,
+    ).exists()
+
+
+def _open_invites(enterprise, now):
+    """Invites that could still be accepted: not used, not withdrawn, not expired."""
+    return enterprise.invites.filter(
+        accepted_at__isnull=True, revoked_at__isnull=True, expires_at__gt=now
+    )
 
 
 def _acting_admin(by, enterprise_id):

@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 from apps.accounts import views as account_views
+from apps.enterprises import views as enterprise_views
 
 from . import views
 
@@ -39,4 +40,5 @@ urlpatterns = [
     # (signup, login) are shadowed by our own views under the same names.
     path("accounts/", include("allauth.account.urls")),
     path("survey/", include("apps.responses.urls")),
+    path("join/invite/<str:token>/", enterprise_views.join_invite, name="join_invite"),
 ]

@@ -73,3 +73,26 @@ def test_the_login_resend_cooldown_matches_the_profile_page():
         settings.ACCOUNT_RATE_LIMITS["confirm_email"]
         == f"1/{services.RESEND_COOLDOWN_SECONDS}s/key"
     )
+
+
+@pytest.mark.django_db
+def test_a_refused_mail_is_logged_without_the_address(client, caplog):
+    # The mail server's refusal quotes the address; the log line must not.
+    from smtplib import SMTPDataError, SMTPRecipientsRefused
+
+    refusals = [
+        SMTPRecipientsRefused({"bob@example.com": (554, b"not verified: bob@example.com")}),
+        SMTPDataError(554, b"Message rejected: Email address is not verified: bob@example.com"),
+        ConnectionRefusedError("could not reach the server for bob@example.com"),
+    ]
+    for number, refusal in enumerate(refusals):
+        with mock.patch("django.core.mail.EmailMessage.send", side_effect=refusal):
+            client.post(reverse("account_signup"), signup_data(email=f"bob{number}@example.com"))
+    lines = [record.getMessage() for record in caplog.records if "Could not send" in record.msg]
+    assert lines == [
+        "Could not send an email (SMTPRecipientsRefused 554)",
+        "Could not send an email (SMTPDataError 554)",
+        "Could not send an email (ConnectionRefusedError)",
+    ]
+    assert "example.com" not in caplog.text
+    assert all(record.exc_info is None for record in caplog.records)
