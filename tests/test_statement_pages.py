@@ -311,11 +311,62 @@ class TestNext:
         draft = fresh(draft)
         assert draft.pages_completed == 0 and draft.answers == {}
 
-    def test_five_pages_through_the_buttons_reach_the_review(self, client, draft):
+    def test_five_pages_through_the_buttons_finish_the_survey(self, client, draft):
+        """The last page's button is Submit: there is no page in between (T-19, 2026-11-13)."""
         FunnelEvent.objects.all().delete()
-        for page in range(1, 6):
+        for page in range(1, 5):
             assert client.get(url("resume", draft)).url == url("page", draft, page)
-            press_next(client, draft, page, [2] * 5)
-        assert client.get(url("resume", draft)).url == url("review", draft)
+            assert press_next(client, draft, page, [2] * 5).url == url("resume", draft)
+            assert fresh(draft).status == "draft"
+            landed = client.get(url("resume", draft), follow=True)
+            assert not list(landed.context["messages"])  # nothing tried to submit early
+        assert client.get(url("resume", draft)).url == url("page", draft, 5)
+        last = press_next(client, draft, 5, [2] * 5)
+        assert last.url == url("result", draft)
+        assert fresh(draft).status == "submitted" and fresh(draft).pages_completed == 5
         assert FunnelEvent.objects.filter(kind="page_locked").count() == 5
-        assert fresh(draft).status == "draft"  # submitting is PR 7
+        assert FunnelEvent.objects.filter(kind="survey_submitted").count() == 1
+        assert "Submitted." in client.get(last.url).content.decode()
+
+    def test_the_button_says_next_until_the_last_page_and_submit_on_it(self, client, draft):
+        first = client.get(url("page", draft, 1)).content.decode()
+        assert "data-next>Next</button>" in first and "data-next>Submit</button>" not in first
+        draft = lock(draft, 4)
+        last = client.get(url("page", draft, 5)).content.decode()
+        assert "data-next>Submit</button>" in last and "data-next>Next</button>" not in last
+        assert "finishes the survey" in last and "nothing can be changed" in last
+
+    def test_an_unfinished_last_page_is_not_submitted(self, client, draft):
+        draft = lock(draft, 4)
+        response = press_next(client, draft, 5, [2] * 4)  # one statement short
+        assert response.url == url("resume", draft)
+        assert fresh(draft).status == "draft" and fresh(draft).pages_completed == 4
+
+    def test_a_double_click_on_submit_lands_on_the_result_once(self, client, draft):
+        draft = lock(draft, 4)
+        press_next(client, draft, 5, [2] * 5)
+        again = press_next(client, draft, 5, [2] * 5)
+        assert again.url == url("result", draft)
+        assert FunnelEvent.objects.filter(kind="survey_submitted").count() == 1
+
+    def test_if_submitting_cannot_finish_the_person_lands_on_the_page_that_can(
+        self, client, draft, monkeypatch
+    ):
+        """The page is locked but the submit was refused: the review page is the way back."""
+        draft = lock(draft, 4)
+        real = services.submit
+
+        def refuse(response):
+            raise services.Incomplete("Something is still missing.")
+
+        monkeypatch.setattr(services, "submit", refuse)
+        stopped = press_next(client, draft, 5, [2] * 5)
+        assert stopped.url == url("resume", draft)
+        assert fresh(draft).status == "draft" and fresh(draft).pages_completed == 5
+        assert client.get(stopped.url).url == url("review", draft)
+        page = client.get(url("review", draft)).content.decode()
+        assert "Something is still missing." in page
+        assert "has not been submitted yet" in page and url("submit", draft) in page
+        monkeypatch.setattr(services, "submit", real)
+        assert client.post(url("submit", draft)).url == url("result", draft)
+        assert fresh(draft).status == "submitted"

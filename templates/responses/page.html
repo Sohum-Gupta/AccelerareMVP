@@ -18,7 +18,13 @@
     {% for item in statements %}
       {% include "responses/_statement.html" with question=item.question saved=item.saved %}
     {% endfor %}
-    <p class="text-sm text-slate-700"><strong>Next</strong> locks this page for good. You cannot come back to it.</p>
-    <button type="submit" class="w-full disabled:cursor-not-allowed disabled:opacity-50" data-next>Next</button>
+    {% if is_last %}
+      {# The last page: its button finishes the survey. There is no page in between. #}
+      <p class="text-sm text-slate-700"><strong>Submit</strong> locks this page and finishes the survey. You will then see your results, not your answers, and nothing can be changed.</p>
+      <button type="submit" class="w-full disabled:cursor-not-allowed disabled:opacity-50" data-next>Submit</button>
+    {% else %}
+      <p class="text-sm text-slate-700"><strong>Next</strong> locks this page for good. You cannot come back to it.</p>
+      <button type="submit" class="w-full disabled:cursor-not-allowed disabled:opacity-50" data-next>Next</button>
+    {% endif %}
   </form>
 {% endblock %}

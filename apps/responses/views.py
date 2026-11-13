@@ -144,7 +144,8 @@ def _own_draft_required(view):
         if not licences.has_survey_access(request.user, membership):
             if membership is not None:
                 raise Http404
-            messages.warning(request, "You need a licence to take the survey.")
+            # No message here: the start page says a licence is needed, in
+            # its own box, and saying it twice was noise.
             return redirect("responses:start")
         if response is None or response.entitlement.revoked_at is not None:
             raise Http404
@@ -234,6 +235,7 @@ def page(request, response, number):
         "response": response,
         "number": number,
         "page_count": services.page_count(response),
+        "is_last": number >= services.page_count(response),
         "statements": statements,
         "organization": _organization(response.membership),
     }
@@ -286,7 +288,12 @@ def save_answer(request, response):
 @_own_draft_required
 def next_page(request, response):
     """
-    The Next button: save the choices the page showed and lock it, then carry on.
+    The button under a page of statements: save the choices the page showed
+    and lock it, then carry on. On every page but the last it reads "Next". On
+    the last it reads "Submit", and locking that page also submits the survey:
+    nothing is left to answer and no page can be reopened, so a separate
+    "ready to submit" page would only be one more click.
+
     A page that is already locked is a double click, so carry on quietly.
     """
     if request.method != "POST":
@@ -297,20 +304,28 @@ def next_page(request, response):
         if key.startswith("answer-")
     }
     try:
-        services.complete_page(response, request.POST.get("page"), shown)
+        response = services.complete_page(response, request.POST.get("page"), shown)
     except services.Locked:
         pass
     except services.Refused as error:
         messages.error(request, str(error))
     except Response.DoesNotExist:
         return _gone(response)
+    else:
+        if response.pages_completed >= services.page_count(response):
+            return _finish(request, response)
     return redirect("responses:resume", response.pk)
 
 
 @never_cache
 @_own_draft_required
 def review(request, response):
-    """Every page is locked: how many are answered (never which or what), and Submit."""
+    """
+    Every page is locked and the survey is not submitted yet: how many are
+    answered (never which or what), and Submit. The last page's own button
+    submits, so a person only lands here if that could not finish (they lost
+    the connection at that moment, say) and they have come back.
+    """
     here = reverse("responses:review", args=[response.pk])
     if _where_now(response) != here:
         return redirect(_where_now(response))
@@ -333,6 +348,11 @@ def submit(request, response):
     """
     if request.method != "POST":
         return redirect("responses:review", response.pk)
+    return _finish(request, response)
+
+
+def _finish(request, response):
+    """Submit a response whose pages are all locked, and go to its result."""
     try:
         services.submit(response)
     except services.Locked:
