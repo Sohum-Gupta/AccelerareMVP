@@ -11,15 +11,16 @@ before doing any work:
 
 1. `docs/05-build-plan.md` — the milestone order and the "Done when" checklists.
    **Milestone 0 is done. Milestone 1 (Accounts) is code-complete and live; its remaining "Done when" boxes
-   are live checks (tasklist parts E and F in "Open follow-ups", and SES production access). Milestone 2
+   are live checks (tasks T-3, T-4 and T-5 in `docs/06-backlog.md`). Milestone 2
    (Survey) is done: all PRs merged and deployed (460 tests), and the founder's live checks ticked every
-   "Done when" box on 2026-11-12 (PR 11). Milestone 3 starts only when the founder says so; settle the
-   "do enterprise admins see answers" question in "Open follow-ups" first. Check which PRs are merged
-   before starting the next.**
+   "Done when" box on 2026-11-12 (PR 11), and the founder closed Milestone 2 the same day.
+   Milestone 3 starts only when the founder says so. Check which PRs are merged before starting the next.**
    Do not build anything from a later milestone than the one in progress.
-2. `docs/03-tech-stack.md` — repository layout, conventions, local dev steps.
-3. `docs/04-infrastructure.md` — the AWS runbook (what exists, and what is pending).
-4. `docs/02-architecture.md` and `docs/01-requirements.md` — background.
+2. `docs/06-backlog.md` — every open task and parked decision, with full detail in Part 2.
+   Add new follow-ups there; remove an item and log the outcome when it is finished.
+3. `docs/03-tech-stack.md` — repository layout, conventions, local dev steps.
+4. `docs/04-infrastructure.md` — the AWS runbook (what exists, and what is pending).
+5. `docs/02-architecture.md` and `docs/01-requirements.md` — background.
 
 ## Project facts
 

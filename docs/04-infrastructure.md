@@ -141,7 +141,7 @@ The server files live in the repository under `deploy/` and the pipeline copies 
 **8. First run**
 1. `docker compose run --rm web python manage.py createsuperuser` for the root admin (use an address that is not the AWS root email).
 2. Open `https://<domain>/admin/` and confirm login. (Survey v1's 25 questions appear from Milestone 2, not before.)
-3. Register a test individual account and confirm the verification email arrives. *Sign-up exists since Milestone 1. Still to do by hand: a live sign-up with `admin@theaccelerare.com`, the only address SES can deliver to until production access is approved (see `05-build-plan.md`, "Open follow-ups"). SES delivery itself was tested on 2026-10-09 with a test message.*
+3. Register a test individual account and confirm the verification email arrives. *Sign-up exists since Milestone 1. Still to do by hand: a live sign-up with `admin@theaccelerare.com`, the only address SES can deliver to until production access is approved (see `06-backlog.md`, T-4). SES delivery itself was tested on 2026-10-09 with a test message.*
 4. Confirm `/health` returns 200 and register it with the uptime checker. *Uptime checker not yet registered.*
 5. Trigger a deliberate error once and confirm it appears in Sentry. Until the site has a page that can fail, use `docker compose run --rm web python manage.py shell -c "1/0"`; a failing web request is checked in Milestone 7.
 
@@ -177,10 +177,10 @@ The reply promised: keep the account-level suppression list on, check the SES re
 Tradeoffs accepted: the sandbox wait; setup in AWS and GoDaddy; a send-only credential on the server; bounce and complaint rates must be watched (AWS can pause sending if they get too high); `noreply@` gets no answers.
 
 Future changes and open questions:
-- **Replies and feedback:** set a `Reply-To` header pointing at a monitored Microsoft 365 mailbox such as `feedback@theaccelerare.com`. Alternatively send From a real address on a verified root domain, after looking at SPF and DMARC.
+- **Replies and feedback:** decided 2026-11-12 to set a `Reply-To` header (address still to be chosen; `06-backlog.md`, T-14). Original note: set a `Reply-To` header pointing at a monitored Microsoft 365 mailbox such as `feedback@theaccelerare.com`. Alternatively send From a real address on a verified root domain, after looking at SPF and DMARC.
 - **Bulk mail** (for example a feedback request to everyone who took the survey) is closer to marketing than transactional mail. It needs a consent basis, an unsubscribe link and `List-Unsubscribe` header, and sending through the Milestone 5 job queue in small batches. Take it to the lawyers with the other privacy items.
 - **DMARC:** add a record for the sending domain before real volume, starting in monitoring mode.
-- **Bounce and complaint handling:** SES can publish these events; decide in Milestone 5 whether to record them and stop sending to bad addresses.
+- **Bounce and complaint handling:** decided 2026-11-12: Milestone 5 records SES bounce and complaint events and stops sending to those addresses.
 - **Mumbai move:** SES is per region; repeat the identity, credentials and production-access request in `ap-south-1` first.
 - **Switching to Graph later** needs no redesign: write a small backend class, point `MAILERS["default"]["BACKEND"]` at it, and add the Entra setup.
 
@@ -237,7 +237,7 @@ Writing Terraform at this point is worthwhile; by then every setting is understo
 - **PostgreSQL major version:** upgrade the local, CI and RDS databases together to a newer major version before the pilot, while the database is still empty. Check the end-of-standard-support date for 16.
 - **MFA on `founder`**, an uptime checker and the CloudWatch alarms are not yet set up.
 - **The `app.` subdomain is a placeholder:** rename before the pilot.
-- **SSH exposure:** consider Session Manager and removing the open port 22 during Milestone 7.
+- **SSH exposure:** consider Session Manager and removing the open port 22 during Milestone 7 (confirmed 2026-11-12; in the Milestone 7 plan).
 - **Editor warning:** VS Code flags `env.IMAGE` in `deploy.yml` as "might be invalid" because it is set at run time through `$GITHUB_ENV`. It is a false positive; switching to a step output would silence it.
 
 ## Decision log

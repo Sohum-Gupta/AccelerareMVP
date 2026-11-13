@@ -1,6 +1,6 @@
 # Build Plan — Survey Platform
 
-As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded 2026-11-12
+As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs; open items live in `06-backlog.md` · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded and Milestone 2 closed 2026-11-12
 
 ## How to read this document
 
@@ -146,8 +146,8 @@ A few concepts worth understanding here rather than copying:
 
 **Done when**
 
-- [ ] A stranger can sign up on the live site, receive the email, verify, log in and log out on a phone. *(Waiting on SES production access; until then only verified addresses receive mail. See "Open follow-ups".)*
-- [ ] Password reset works on the live site, from a second verified email too. *(Needs a second address SES can deliver to; see "Open follow-ups".)*
+- [ ] A stranger can sign up on the live site, receive the email, verify, log in and log out on a phone. *(Waiting on SES production access; until then only verified addresses receive mail. See `06-backlog.md`.)*
+- [ ] Password reset works on the live site, from a second verified email too. *(Needs a second address SES can deliver to; see `06-backlog.md`.)*
 - [ ] A user can make a second email primary, log in with it, and remove the old one. *(Same: needs a second deliverable address.)*
 - [x] All tests above pass. *(158 passed, ruff and `check --fail-level WARNING` clean, 2026-10-09.)*
 - [ ] Root admin can find an account by email or phone in the admin.
@@ -172,7 +172,7 @@ Accounts come before the survey because every later feature asks "who is this." 
 
 **Goal:** a verified individual who holds a licence can read the disclosure, answer the self-report question, answer the 25 statements five to a page with autosave, leave and resume, submit, and see their survey history. A licence is one attempt. Submitted responses are immutable, and the person never sees their answers again after submitting. The statements are private: they are never committed to the public repository and are loaded from a file the founder keeps, through an admin page (PR 9).
 
-**Status (2026-10-10).** Code-complete and deployed. Merged: PR 1 survey models and `load_questions` (#31), PR 2 licences (#32), PR 3 the `Response` model and the two-level admin (#33), PR 3b erasing an account (#34), PR 3c the funnel (#35), PR 4 response services (#37), PR 5 the start page and the licence gate (#38), PR 6 statement pages with autosave (#39), PRs 7 and 8 combined: review, submit, history and result (#40), PR 9 the survey wording in the admin (#42), PR 10 docs and the last small fixes (#43), then two admin fixes: allauth's admin section renamed (#45) and its email addresses page made read-only (#46). 460 tests. **Status (2026-11-12).** The founder ran the live checks for Milestone 2 (tasklist parts A to D) and every "Done when" box below is ticked; PR 11 recorded it. Milestone 3 starts when the founder says so. The Milestone 1 browser checks and the uptime checker are still in "Open follow-ups". The PR plan below is the revised one agreed with the founder; the original ten-PR list is superseded.
+**Status (2026-10-10).** Code-complete and deployed. Merged: PR 1 survey models and `load_questions` (#31), PR 2 licences (#32), PR 3 the `Response` model and the two-level admin (#33), PR 3b erasing an account (#34), PR 3c the funnel (#35), PR 4 response services (#37), PR 5 the start page and the licence gate (#38), PR 6 statement pages with autosave (#39), PRs 7 and 8 combined: review, submit, history and result (#40), PR 9 the survey wording in the admin (#42), PR 10 docs and the last small fixes (#43), then two admin fixes: allauth's admin section renamed (#45) and its email addresses page made read-only (#46). 460 tests. **Status (2026-11-12).** The founder ran the live checks for Milestone 2 (tasklist parts A to D) and every "Done when" box below is ticked; PR 11 recorded it. The founder closed Milestone 2 on 2026-11-12. Milestone 3 starts when the founder says so. The Milestone 1 browser checks and the uptime checker are still in `06-backlog.md`. The PR plan below is the revised one agreed with the founder; the original ten-PR list is superseded.
 
 **The product rules, as specified by the founder**
 
@@ -181,7 +181,7 @@ Accounts come before the survey because every later feature asks "who is this." 
 - Progress is saved on the server: every click is saved as it happens, and the response remembers how many pages are locked. Closing the browser, an outage or a new device resumes on the first unlocked page with the saved clicks selected.
 - **Licences.** Registering is free, but the statements sit behind a paywall. A licence (the `Entitlement` row from the architecture doc) is one survey attempt plus the results at its tier. Any tier (1–3) unlocks the survey. Upgrading a licence raises its tier in place, so the same response shows more results. A retake needs another licence. Until payments exist (Phase 3), root admin grants licences by hand in the Django admin after invoicing. Enterprises buying licences in assorted tiers for their members is Milestone 4.
 - **Tier 0.** An account with no active licence is at "tier 0", the free tier. That is a display state, not a licence row: the history and result pages show what a free account gets. The founder's suggestion for Milestone 5 is sample or limited insights from the purchasable tiers; the content is undecided.
-- **What a person sees.** With or without a licence: their account, their survey history (each response with date, status and tier) and, from Milestone 5, the results and insights their tier allows. Never, at any tier: the statements outside an attempt in progress, or their own answers once submitted. Root admin keeps the read-only Django admin view of answers. Whether enterprise administrators see answers is undecided; see "Open follow-ups".
+- **What a person sees.** With or without a licence: their account, their survey history (each response with date, status and tier) and, from Milestone 5, the results and insights their tier allows. Never, at any tier: the statements outside an attempt in progress, or their own answers once submitted. Root admin keeps the read-only Django admin view of answers. Whether enterprise administrators see answers is undecided; see `06-backlog.md`.
 - **Erasing an account** (built, PR 3b). An account with no completed (submitted) survey is hard-deleted outright, with its contacts, licences, unfinished attempt and person. An account with a completed survey is stripped, not deleted: email, phone, name and login are removed and the results are kept, with `Account.anonymised_at` marking it so enterprise reports can show current members apart from the historical total. The same email can then sign up again as a fresh account. The strip list lives in one place (`apps/accounts/erasure.py`, `_anonymise`). Demographics (age, gender, company) belong on `Person`, never on the account, so erasing leaves them alone. Whether the kept data is anonymous enough is a question for a privacy lawyer before launch.
 - **Self-report.** The survey asks "Have you taken this survey before?" (Yes or No, required). If yes, "How did you take it?" is a required drop-down: Individual, Company or Other. An optional free-text box for information that would help match the old account arrives in Milestone 5 with the matching that uses it; it is cleared once matching has been attempted, unless it produced a link. No free text is collected in Milestone 2.
 - **Funnel** (built, PR 3c). Sign-up, first verified email, licence granted, licence upgraded, survey started, page finished and survey submitted are recorded as events with no link to any account, so erasing someone never changes the counts. The admin shows a summary with conversion percentages.
@@ -212,7 +212,7 @@ Accounts come before the survey because every later feature asks "who is this." 
 - Concurrency: a person with two tabs open can race `save_answer`. Use `select_for_update()` on the response row inside the service so the JSON update is serialised. `complete_page`, `submit` and `start_response` (which must not consume one licence twice) use the same lock.
 - Access: every response view is behind `verified_email_required`. The pages of one attempt use `_own_draft_required` (in `apps/responses/views.py`): a submitted response goes to its result first (so a double click on Submit never meets the licence gate), then `survey_access_required` (login, verified email, licence), then ownership: your own draft on a licence that is not revoked, or a 404. History and result need only a verified email, and their templates get a summary (date, status, tier), never the response, so no template can print the answers.
 - The results tier of a response is read live from `response.entitlement.tier`, so an upgrade shows more without touching the response.
-- The disclosure text names the viewer: "your answers will be visible to you and to Accelerare" for individuals; milestone 3 adds "and to <enterprise name>'s administrators."
+- The disclosure text names the viewer: "your answers will be visible to you and to Accelerare" for individuals; milestone 3 adds that <enterprise name>'s administrators see the response's status, date and tier (and later its results), never the answers (decided 2026-11-12).
 
 **Tests**
 
@@ -281,15 +281,15 @@ This is the first milestone that delivers the product's core, and it does so bef
 
 ## Milestone 3 — Enterprises, memberships, invites and codes
 
-**Goal:** anyone can create an enterprise and become its admin; admins can invite by email or issue codes; people join through either; admins see a table of their members' responses and each response in full; nothing from one enterprise is ever visible to another.
+**Goal:** anyone can create an enterprise and become its admin; admins can invite by email or issue codes; people join through either; admins see a table of their members' responses (who, when, status and tier; results from Milestone 5; never the answers, decided 2026-11-12); nothing from one enterprise is ever visible to another.
 
 **What you build**
 
 - `apps/enterprises/models.py`: `Enterprise` (name, slug unique, created_by FK, created_at), `Membership` (account FK, enterprise FK, role member/admin, status active/deactivated, joined_at, joined_via_invite FK nullable, joined_via_code FK nullable; unique on account+enterprise), `Invite` (enterprise FK, email, token unique, tier nullable, expires_at, accepted_at nullable, revoked_at nullable, created_by FK), `JoinCode` (enterprise FK, code unique, tier nullable, max_uses, uses, expires_at, revoked_at nullable, created_by FK).
 - `apps/enterprises/services.py`: `create_enterprise(account, name)`, `invite_by_email(admin_membership, email, tier=None)`, `accept_invite(token, account)`, `create_code(admin_membership, max_uses, expires_at, tier=None)`, `redeem_code(code, account)`, `revoke_invite`, `revoke_code`, `deactivate_membership`.
 - `apps/enterprises/scoping.py`: `for_admin(request, slug) -> Membership` which loads the active admin membership for the logged-in account and that slug, or raises `PermissionDenied`. Every enterprise view starts by calling it.
-- Views and templates under `/enterprise/`: `create.html`, `dashboard.html`, `members.html` (list with status, tier, joined date; deactivate button), `invites.html` (list, create, revoke), `codes.html` (list with uses/max, create, revoke), `responses.html` (filterable, sortable table: member, status, date, tier, possible_repeat flag), `response_detail.html`.
-- Join pages: `/join/invite/<token>/` and `/join/code/` (enter code; if not logged in, sign up first then redeem). After joining, the member's survey start page reads "visible to you, to <enterprise> administrators, and to <platform>."
+- Views and templates under `/enterprise/`: `create.html`, `dashboard.html`, `members.html` (list with status, tier, joined date; deactivate button), `invites.html` (list, create, revoke), `codes.html` (list with uses/max, create, revoke), `responses.html` (filterable, sortable table: member, status, date, tier, possible_repeat flag), `response_detail.html` (one response: member, status, dates, tier, and results from Milestone 5; never the answers or the self-report, decided 2026-11-12).
+- Join pages: `/join/invite/<token>/` and `/join/code/` (enter code; if not logged in, sign up first then redeem). After joining, the member's survey start page tells them that <enterprise>'s administrators will see that they took the survey, when, and their tier (and later their results), but not their answers.
 - `Response.membership` now set when the survey is started from the enterprise context; the member's own list shows context per response.
 - Email: the invite email, sent via a job in milestone 5; until then sent synchronously.
 - Django admin (the hub): `Enterprise`, `Membership`, `Invite` and `JoinCode` registered for staff, with a "deactivate membership" action that calls the service, so support never needs the shell.
@@ -297,7 +297,7 @@ This is the first milestone that delivers the product's core, and it does so bef
 **Technical detail**
 
 - *Carried over from Milestone 2.* The database rule "one open draft per account" (`response_one_open_draft_per_account`) becomes one per account and membership, in a new migration. Sign-up events from invites and codes record the funnel channel `invite` or `code` (it is `direct` until then). Enterprise reports show two views: current members (active memberships) and the historical total (including deactivated members and accounts erased with `anonymised_at`).
-- *Erasure and memberships (open).* `erase_account` strips the identity and keeps the person, but a membership links a person to a workplace, which can identify them. Decide with the privacy lawyer whether erasing a person also cuts their membership link, and how an enterprise's own request to delete its members' data works. The strip list is one function (`erasure._anonymise`), so the answer is a small change.
+- *Erasure and memberships.* The founder decided on 2026-11-12 that erasing a person **keeps** their membership link: the enterprise still sees the former member's response (with the identity stripped) and it counts in the historical total. A membership links a person to a workplace, which can identify them in a small company, so the privacy lawyer must confirm this (`06-backlog.md`, D-7). How an enterprise's own request to delete its members' data works is still open (D-2). The strip list is one function (`erasure._anonymise`), so a change of answer is small.
 
 - Tokens and codes: generate with `secrets.token_urlsafe(32)` for invite tokens; for human-entered codes use a 10-character alphabet without ambiguous characters (no `0/O`, `1/I/l`), uppercase, grouped as `XXXXX-XXXXX`. Store uppercase; compare case-insensitively.
 - `accept_invite` and `redeem_code` run inside `transaction.atomic()` and lock the invite/code row with `select_for_update()` so a shared code cannot exceed `max_uses` under concurrent redemptions. Check: not revoked, not expired, uses < max_uses, account has no existing membership in that enterprise (if deactivated, reactivate rather than duplicate).
@@ -401,6 +401,7 @@ Nothing in the MVP *shows* a tier-filtered result yet, so it's fair to ask why b
 - `apps/matching/models.py`: `MatchCandidate` (account_a, account_b, signals JSON, status auto_linked/flagged/confirmed/rejected, resolved_by nullable, resolved_at nullable; unique on the unordered pair). `apps/matching/services.py`: `run_for_account`, `auto_link(a, b)` (moves `b.person` to `a.person`, marks the old person `merged_into`), `confirm(candidate, actor)`, `reject(candidate, actor)`, `unlink(candidate, actor)` (reverses: creates or restores a separate person for b).
 - `apps/audit/models.py`: `AuditLog` (actor FK nullable, action, target_type, target_id, detail JSON, at). `audit.record(actor, action, target, detail)` called from every admin-facing service in the same transaction.
 - The self-report match box. Milestone 2 asks only Yes or No and how the survey was taken (individual, company, other). This milestone adds the optional box "anything that would help us find your earlier results" (an email or phone number), shown after a Yes and skippable with no consequence. It is used by the matching attempt and then cleared, unless it led to a link; erasing a person clears it too; only superusers can see it. A Yes with nothing to match is simply left alone: matching stays automatic on verified data, and no one is hassled.
+- Email bounces and complaints (decided 2026-11-12): SES publishes bounce and complaint events (through SNS); record them and stop sending to an address that hard-bounced or complained, with the list visible to staff in the admin. Until then, SES's account-level suppression list and a weekly look at the SES reputation page cover it.
 - Root admin: a `MatchCandidate` admin list filtered to flagged by default, with actions confirm/reject/unlink, each writing audit rows. Enterprise admin responses table shows the `possible_repeat` flag.
 - `submit` now enqueues `run_matching` and `compute_result`; verification now enqueues `run_matching`; invite emails go through `send_email`.
 
@@ -451,7 +452,7 @@ Nothing in the MVP *shows* a tier-filtered result yet, so it's fair to ask why b
 **What you build**
 
 - Django admin polish: list displays, search fields and filters on every model; `Response` read-only after submit; inline `ContactPoint` under `Account`; inline `Membership` under `Enterprise`; links between related objects.
-- `apps/exports/views.py`: `enterprise_export(request, slug)` (via `for_admin`) and `root_export(request)` (staff only). Both stream a CSV with `StreamingHttpResponse` and a generator: one row per submitted response with columns `response_id, submitted_at, survey_version, enterprise, member_email, tier, took_before, possible_repeat, q1..q25`.
+- `apps/exports/views.py`: `enterprise_export(request, slug)` (via `for_admin`) and `root_export(request)` (staff only). Both stream a CSV with `StreamingHttpResponse` and a generator: one row per submitted response. The root export has columns `response_id, submitted_at, survey_version, enterprise, member_email, tier, took_before, possible_repeat, q1..q25`. The enterprise export leaves out `took_before` and `q1..q25` (enterprise admins never see answers, decided 2026-11-12) and gains result columns once results exist.
 - Erasure. *Built in Milestone 2, PR 3b* as `apps/accounts/erasure.erase_account` with an admin button and confirmation page: hard delete when there is no completed survey, otherwise strip the identity and keep the results. This milestone adds what remains: the `AuditLog` row with a summary of what was removed, the handling of memberships and enterprise-level requests (see Milestone 3), results rows once they exist, and a written compliance procedure (who may request, the response deadline, what is kept and why, and how long hard-deleted data stays in database backups).
 - A root dashboard page (or admin index customisation) with counts: accounts, enterprises, responses submitted this week, flagged candidates awaiting review, failed jobs.
 
@@ -495,6 +496,7 @@ Nothing in the MVP *shows* a tier-filtered result yet, so it's fair to ask why b
 - `python manage.py check --deploy` passes with no warnings in production.
 - Custom `404.html` and `500.html` in the site's design; `500.html` must not use anything that could itself fail (no database queries in the template context).
 - Sentry: confirm both `web` and `worker` report; add the account id as user context; set `send_default_pii = False`.
+- SSH (decided 2026-11-12 to revisit here): port 22 is open to anywhere with key-only login. Consider AWS Session Manager and closing the port; the deploy pipeline then needs another way to reach the server.
 - Rate limiting on the join-code endpoint (brute-force protection): limit attempts per IP and per account; allauth's limiter pattern or `django-ratelimit`.
 - Backup restore test from the infrastructure runbook, with the date recorded.
 - Uptime monitor on `/health`; CloudWatch alarms; billing alert confirmed.
@@ -548,7 +550,7 @@ Not a milestone. Self-serve purchase for individuals and enterprises (likely Raz
 | --- | --- | --- | --- |
 | 0 | Foundations and first deploy | — | Empty site on HTTPS with CI/CD |
 | 1 | Accounts | 0 | Sign up, verify, log in, reset |
-| 2 | Survey and responses | 1 | Individuals take and view the survey; licences, erasure and the funnel are built (all PRs merged; live checks done 2026-11-12) |
+| 2 | Survey and responses | 1 | Individuals take and view the survey; licences, erasure and the funnel are built (closed 2026-11-12) |
 | 3 | Enterprises, memberships, join | 2 | Enterprise admins onboard members and view responses |
 | 4 | Seat pools and entitlements | 3 | Tiers assigned and counted |
 | 5 | Jobs, matching, audit | 4 | Worker live; repeats flagged and linked; actions audited |
@@ -566,42 +568,18 @@ Ask for help (here, or anyone experienced) rather than pushing on when:
 
 ## Open follow-ups
 
-Things agreed but not done, so they are not forgotten. Move a line to the decision log or delete it when it is finished.
-
-**Remaining live checks** (live site, top to bottom. Parts A to D, the Milestone 2 checks, were done by the founder and reported on 2026-11-12; see the decision log. Report results in a new chat and a docs-only PR ticks the boxes they confirm.)
-
-*E. Milestone 1 browser checks*
-- [ ] Live signup with an address SES has not verified: "check your inbox" plus a yellow warning, and the same warning on login. Use `admin@theaccelerare.com` for the live tests, in an incognito window.
-- [ ] Signup: submit empty, type in a box, its red error vanishes.
-- [ ] Admin: search an account by phone; make-primary and remove on a secondary email; removing a primary shows a red refusal. Then tick "Root admin can find an account by email or phone".
-- [ ] Profile page: stored `+number` picks the right flag; "Not now" banner. *(Phone box width and spacing at phone width were checked by headless screenshots in #27; the open flag dropdown was not.)*
-- [ ] Live add-email, signup to login, and the reset pages in a real browser.
-
-*F. A second email address (Milestone 1 boxes 2 and 3)*
-- [ ] Verify one or two of the new business addresses as SES email identities (AWS console). While SES is sandboxed they are the only way to receive mail on a second address.
-- [ ] Use them: password reset from a second verified email; make a second email primary, log in with it and remove the old one.
-
-*G. Setup*
-- [ ] Register `/health` with an uptime checker (`04-infrastructure.md`, step 8.4).
-
-**Waiting on SES production access** (a pending AWS support case; see `04-infrastructure.md`, "Email sending")
-- [ ] Live signup by a stranger, verify, log in and out on a phone (Milestone 1, first "Done when" box).
-- [ ] Re-test every email flow with a real outside address once approved.
-
-**Carried over: open decisions**
-- [ ] Name the tiers. Today they show as "Tier 1/2/3" and "Free" (placeholder words in `templates/responses/_tier.html`, one file to change). Founder, 2026-11-12: keep the placeholders for now.
-- [ ] Before Milestone 3: do enterprise administrators see members' answers, or only results? (The founder ruled on 2026-10-09 that the person never sees their own answers after submitting; FR-19 is overridden for that scope only. Root admin keeps the read-only Django admin.) And what happens when a company asks for its members' data to be deleted (see the note in Milestone 3 on memberships).
-- [ ] For Milestone 5: what tier 0 (no licence) shows on the result page (sample insights from the paid tiers, a limited subset, or just the invitation to buy), and how the algorithm and the insights stay private (a second private repository installed as a package, which makes the ghcr.io image private and needs `docker login` on the server, or a file loaded at run time).
-- [ ] Privacy lawyer before launch: is "strip email, phone and name, keep the results and demographics" anonymous enough in the US, UK and India; what the privacy text must say; backup retention after an erasure; enterprise data agreements; and whether to offer a user-facing "delete my account" button and its wording (staff erase from the admin for now).
-- [ ] Later, when needed: split "Support staff" into a debugging group and a business-insights group (already two named lists in `apps/responses/signals.py`), and decide then whether they should read the statements (today they can, through the read-only Questions and Survey versions pages; the founder is fine with that for now); the payment ledger without identity and the refund path (Phase 3); and revisit the UTC, day-only dates on history and result if people far from UTC are confused.
-
-**Small code and docs follow-ups**
-- [ ] The README is being written by the founder separately.
+Moved on 2026-11-12 to `06-backlog.md`, the one list of open tasks and parked decisions: the remaining live checks (Milestone 1 parts E, F and the uptime checker G), the wait on SES production access, and every open decision that used to be listed here. Add new follow-ups there, not here.
 
 ## Decision log
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-12 | Milestone 2 is closed. Milestone 3 starts when the founder says so | Every "Done when" box is ticked; the open Milestone 1 checks do not block it |
+| 2026-11-12 | Enterprise admins see a member's response status, dates and tier (and results from Milestone 5), never the answers or the self-report; the enterprise CSV export has no answer columns | Consistent with members never seeing their own answers; safest for the privacy review; easy to widen later. Settles FR-19's enterprise scope |
+| 2026-11-12 | Erasing a person keeps their membership link; the stripped response stays visible to the enterprise and counts in its historical total | Founder's choice, for the privacy lawyer to confirm; enterprise-wide deletion requests are still open |
+| 2026-11-12 | Replies to site emails go to a monitored inbox through a Reply-To header; the address is still to be chosen | People reply to verification and reset emails when they are stuck |
+| 2026-11-12 | Milestone 5 records SES bounces and complaints and stops sending to those addresses | AWS can pause sending if the rates get too high |
+| 2026-11-12 | SSH exposure is revisited in Milestone 7 | Key-only SSH is an acceptable risk for the trial |
 | 2026-11-12 | Milestone 2's live checks (tasklist parts A to D: real wording loaded and none of it in git history; survey taken and resumed on a phone; second attempt needs a second licence; revoke shows "Free (licence withdrawn)"; superuser and Support staff views of the admin; the funnel; erasing both ways and signing up again) are done, and every Milestone 2 "Done when" box is ticked | Founder ran them on the live site; the Milestone 1 browser checks (E, F) and the uptime checker (G) stay open |
 | 2026-11-12 | Tier names stay "Tier 1/2/3" and "Free" for now | Founder's call; renaming is one template |
 | 2026-10-18 | allauth's "Email addresses" admin page (now under "Login (allauth)") is read-only; only its "mark verified" action stays | Each email lives in our table and allauth's, and only the services keep them in step; the action fires allauth's signal so our contact point is verified too, and while SES is sandboxed it is the only way to verify an address that cannot get mail |
