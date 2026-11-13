@@ -63,6 +63,7 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | T-12 | Re-plan Milestone 4 before starting it | Before Milestone 4 |
 | T-13 | Silence a harmless VS Code warning in `deploy.yml` | Whenever |
 | T-14 | Reply-To on site emails: pick the inbox, then a small PR | When the address is chosen |
+| T-15 | The site has no page at `/`; logging out lands on "Not Found" | Before the walkthrough, your call |
 
 ## Later, not yet planned
 
@@ -162,6 +163,11 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Status:** decided 2026-11-12 (was D-12): replies to site emails go to a monitored inbox. The address is not chosen yet; candidates offered were a new support address (needs a mailbox or alias in Microsoft 365) or the existing admin address.
 - **Build (small PR, once the address exists):** an optional `REPLY_TO_EMAIL` environment variable in `config/settings/production.py` (empty means no header, so local and tests are unchanged); `AccountAdapter.send_mail` in `apps/accounts/` adds `reply_to=[...]` to the message, and the other sends (`services.send_reset_notice` and friends) do the same, ideally through one helper. A test that a sent mail carries the header when the setting is set. Add the variable to `.env.example`, to Parameter Store **[console]** under `/survey/prod/`, and to NOTES.md's porting checklist.
 - **Not part of this:** bulk email (consent, unsubscribe, `List-Unsubscribe`, batching through the Milestone 5 queue) stays with the lawyer, D-7.
+
+### T-15 No page at `/`
+- **Status:** found 2026-11-12 during the Milestone 3 PR 10 browser check. Nothing answers at `/`: the "Accelerare" link in the header goes there, and so does logging out (`LOGOUT_REDIRECT_URL = "/"`), so both show Django's "Not Found". It has been so since Milestone 1.
+- **Smallest fix (one small PR):** `/` sends a logged-in person to their profile and anyone else to the login page. A real landing page is a separate, later question.
+- **Needs the founder:** whether to do the redirect now or wait for a landing page.
 
 ## Decisions
 
