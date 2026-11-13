@@ -10,7 +10,6 @@ database itself refuses.
 from datetime import timedelta
 
 import pytest
-from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
@@ -19,7 +18,6 @@ from django.utils import timezone
 from apps.accounts import erasure, services
 from apps.accounts.models import Account
 from apps.enterprises.models import Enterprise, Invite, JoinCode, Membership
-from apps.responses.signals import GROUP_NAME
 
 from .orgs import add_member, make_enterprise
 from .test_erasure import complete
@@ -323,11 +321,15 @@ class TestAdmin:
         html = client.get("/admin/").content.decode()
         assert "Organizations" in html
 
-    def test_nothing_can_be_added_changed_or_deleted_there(self, client, root, things):
-        for page in PAGES:
+    def test_nothing_can_be_added_changed_or_deleted_by_hand(self, client, root, things):
+        # Organizations are the exception for adding and changing: staff create one
+        # for a customer and set its people limit (tests/test_enterprise_admin.py).
+        for page in ("membership", "invite", "joincode"):
             pk = things[page].pk
             assert client.get(f"/admin/enterprises/{page}/add/").status_code == 403
             assert client.post(f"/admin/enterprises/{page}/{pk}/change/", {}).status_code == 403
+        for page in PAGES:
+            pk = things[page].pk
             assert client.get(f"/admin/enterprises/{page}/{pk}/delete/").status_code == 403
         assert Membership.objects.count() == 1
 
@@ -340,17 +342,3 @@ class TestAdmin:
 
     def test_a_working_code_is_not_on_the_list_page(self, client, root, things):
         assert "ABCDEFGHJK" not in client.get("/admin/enterprises/joincode/").content.decode()
-
-    def test_support_staff_see_memberships_only_for_now(self, client, things):
-        # They need memberships to grant one a licence (PR 5). Their view of the
-        # rest arrives with the staff tools (PR 12).
-        support = Account.objects.create_user("support@example.com", PASSWORD)
-        support.is_staff = True
-        support.save()
-        support.groups.add(Group.objects.get(name=GROUP_NAME))
-        client.force_login(support)
-        assert client.get("/admin/enterprises/membership/").status_code == 200
-        for page in ("enterprise", "invite", "joincode"):
-            assert client.get(f"/admin/enterprises/{page}/").status_code == 403
-        pk = things["membership"].pk
-        assert client.post(f"/admin/enterprises/membership/{pk}/change/", {}).status_code == 403

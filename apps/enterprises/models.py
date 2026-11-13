@@ -75,7 +75,12 @@ class Membership(models.Model):
     account = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="memberships"
     )
-    enterprise = models.ForeignKey(Enterprise, on_delete=models.PROTECT, related_name="memberships")
+    enterprise = models.ForeignKey(
+        Enterprise,
+        on_delete=models.PROTECT,
+        related_name="memberships",
+        verbose_name="organization",  # the word staff see in the admin
+    )
     role = models.CharField(max_length=10, choices=Role, default=Role.MEMBER)
     status = models.CharField(max_length=15, choices=Status, default=Status.ACTIVE)
     joined_at = models.DateTimeField(auto_now_add=True)
@@ -91,6 +96,9 @@ class Membership(models.Model):
 
     class Meta:
         ordering = ["joined_at", "id"]
+        # What Support staff are given in the staff admin: they may deactivate a
+        # membership, and change nothing else about one (apps/responses/signals.py).
+        permissions = [("deactivate_membership", "Can deactivate a membership")]
         constraints = [
             models.UniqueConstraint(
                 fields=["account", "enterprise"], name="membership_one_per_account_and_enterprise"
@@ -143,7 +151,12 @@ class Invite(models.Model):
     proves nothing by itself.
     """
 
-    enterprise = models.ForeignKey(Enterprise, on_delete=models.PROTECT, related_name="invites")
+    enterprise = models.ForeignKey(
+        Enterprise,
+        on_delete=models.PROTECT,
+        related_name="invites",
+        verbose_name="organization",  # the word staff see in the admin
+    )
     # Lowercased, like ContactPoint.value_normalised. Emptied when the person
     # it was sent to is erased; the row stays because it still counts towards
     # the organization's people limit.
@@ -187,7 +200,12 @@ class JoinCode(models.Model):
     until it runs out of uses, expires or is revoked.
     """
 
-    enterprise = models.ForeignKey(Enterprise, on_delete=models.PROTECT, related_name="join_codes")
+    enterprise = models.ForeignKey(
+        Enterprise,
+        on_delete=models.PROTECT,
+        related_name="join_codes",
+        verbose_name="organization",  # the word staff see in the admin
+    )
     # Ten characters, uppercase, no hyphen; shown as XXXXX-XXXXX.
     code = models.CharField(max_length=10, unique=True)
     tier = models.PositiveSmallIntegerField(null=True, blank=True)

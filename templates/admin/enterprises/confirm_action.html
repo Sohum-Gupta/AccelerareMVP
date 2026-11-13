@@ -1,0 +1,36 @@
+{% extends "admin/base_site.html" %}
+{% load admin_urls l10n %}
+{% comment %}
+The "are you sure?" page for every staff action on organizations (deactivate a
+membership, withdraw an invite, and so on). It lists the selected rows and says
+in plain words what will happen. Nothing changes until the button is pressed,
+which posts the same action and the same rows back to the list page with
+`confirm` added. See ReadOnlyAdmin.ask_first in apps/enterprises/admin.py.
+{% endcomment %}
+{% block breadcrumbs %}
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">Home</a></li>
+  <li><a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a></li>
+  <li><a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a></li>
+  <li aria-current="page">{{ title }}</li>
+</ol>
+{% endblock %}
+{% block content %}
+<div id="content-main" style="max-width: 50rem;">
+  <p style="font-size: 1.1em;"><strong>{{ question }}</strong></p>
+  <ul>
+    {% for row in rows %}<li>{{ row }}</li>{% endfor %}
+  </ul>
+  {% for note in notes %}<p>{{ note }}</p>{% endfor %}
+  <form method="post">
+    {% csrf_token %}
+    {% for pk in selected %}<input type="hidden" name="{{ action_checkbox_name }}" value="{{ pk|unlocalize }}">{% endfor %}
+    <input type="hidden" name="action" value="{{ action }}">
+    <input type="hidden" name="confirm" value="yes">
+    <div class="submit-row">
+      <input type="submit" value="{{ button }}" class="default">
+      <a href="{% url opts|admin_urlname:'changelist' %}" class="closelink">No, go back</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

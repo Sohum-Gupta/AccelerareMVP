@@ -230,7 +230,12 @@ class TestSupportStaffGroup:
             "view_account",
             "view_person",
             "view_contactpoint",
-            "view_membership",  # to find a membership when granting it a licence
+            # Organizations: look at all four, and deactivate a membership.
+            "view_enterprise",
+            "view_membership",  # also to find a membership when granting it a licence
+            "deactivate_membership",
+            "view_invite",
+            "view_joincode",
             "view_surveyversion",
             "view_question",
             "view_funnelevent",
