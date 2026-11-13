@@ -1,6 +1,6 @@
 # Build Plan — Survey Platform
 
-As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs; open items live in `06-backlog.md` · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded and Milestone 2 closed 2026-11-12 · Milestone 3 re-planned 2026-11-12
+As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs; open items live in `06-backlog.md` · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded and Milestone 2 closed 2026-11-12 · Milestone 3 re-planned 2026-11-12 · Milestone 3 built and status synced 2026-11-13
 
 ## How to read this document
 
@@ -285,7 +285,7 @@ This is the first milestone that delivers the product's core, and it does so bef
 
 **Goal:** anyone can create an organization and become its admin; admins invite by email or issue join codes; people join through either; a licence tied to a membership lets a member take the survey for the organization; admins see who took it, when, its status and tier, never the answers; nothing from one organization is ever visible to another.
 
-**Status (2026-11-12).** Planned, not started. Fourteen PRs, listed under "PR plan" below. PR 0 is this re-plan.
+**Status (2026-11-13).** Code-complete and deployed. Merged: PR 0 the re-plan (#50), PR 1 the full name (#51), PR 2 the models (#52), PR 3 the services (#53), PR 4 invites (#54), PR 5 membership licences (#55), PR 6 the context of a response (#56), PR 7 the survey pages per context (#57), PR 8 the organization pages (#58), PR 9 the codes and invites pages (#59), PR 10 the join pages (#60), PR 11 the responses pages (#61), PR 12 the staff admin (#65), and PR 13, these docs. Three small PRs outside the plan, asked for by the founder on 2026-11-13: #62 removed screenshots committed by mistake, #63 made the test suite about six times faster, #64 gave the site a page at `/`. 1,020 tests. An end-to-end run in a real browser passed on 2026-11-13 ("Checks at the end", below). What remains is the founder's live checklist (below, and `06-backlog.md` T-16): the first six "Done when" boxes stay unticked until it has been run on the live site. Merging on green without review ended with this milestone.
 
 **How this milestone is run** (founder, 2026-11-12). Each PR is built, tested, opened, merged once CI is green and checked on the live site without waiting for the founder's review. Anything that is the founder's decision (a product rule, a privacy question, anything not settled below) is raised with them and waits for their answer. Every PR ends with a short summary of what was done and which small calls were made. The milestone ends with automated checks and a hand-run checklist for the founder.
 
@@ -313,10 +313,20 @@ This is the first milestone that delivers the product's core, and it does so bef
 - `apps/entitlements`: `Entitlement.person` becomes nullable, `Entitlement.membership` (FK, nullable) is added, with a check that exactly one of the two is set. `grant_for_membership(membership, tier, source, granted_by)`; `unused_licence` and `has_survey_access` take the context (a membership, or none for personal). The admin grant form takes an account (personal) or a membership.
 - `apps/responses`: `Response.membership` (FK, nullable; null means personal), always equal to its licence's membership (the service enforces it). "One open draft per account" becomes one per account and context, in a new migration. `start_response(account, membership=None)` consumes that context's oldest unused licence.
 - Survey pages per context: `/survey/start/` (personal) and `/survey/start/<slug>/` (for an organization, through `for_member`); the disclosure text has an organization version; "My surveys" lists each response with its context and offers Start or Continue per context; the result page names the context.
-- Organization pages under `/organizations/`: the list of the account's organizations with "Create an organization", `new/`, and per organization (`<slug>/`) the dashboard, `members/` (name, email, role, status, joined date, licence; deactivate, reactivate, make admin, make member), `codes/` (list with uses, create, revoke), `invites/` (list, send, revoke, copy link, "18 of 25 places left"), `responses/` (filterable, sortable table) and `responses/<id>/` (one response; 404 for any other organization's id). A header link and a box on the profile lead there.
+- Organization pages under `/organizations/`: the list of the account's organizations with "Create an organization", `new/`, and per organization (`<slug>/`) the dashboard, `members/` (name, email, role, status, joined date, licence; deactivate, reactivate, make admin, make member), `codes/` (list with uses, create, revoke), `invites/` (list, send, revoke, copy link, "18 of 25 places left"), `responses/` (a list with filters and a choice of order) and `responses/<id>/` (one response; 404 for any other organization's id). A header link and a box on the profile lead there.
 - Join pages: `/join/code/` and `/join/invite/<token>/`. Logged out, the person signs up or logs in first and is brought back (the pending join is kept in the session; if it is lost, entering the code or opening the link again works). The sign-up funnel event records the channel `invite` or `code`.
 - Email: the invite email, sent synchronously until the Milestone 5 worker exists, through the same failure handling as the other mails.
-- Django admin (the hub): `Enterprise` (search, the people limit editable, create one for a customer with a first admin), `Membership` (actions that call the services: deactivate, reactivate, make admin, make member), `Invite` and `JoinCode` (read-only, with a revoke action). Support staff can view all four and deactivate a membership.
+- Django admin (the hub): `Enterprise` (search, the people limit editable, create one for a customer with a first admin), `Membership` (actions that call the services: deactivate, reactivate, make admin, make member), `Invite` and `JoinCode` (read-only, with a revoke action). Support staff can view all four and deactivate a membership. Every action shows a confirmation page first and writes a history line.
+
+**Built as planned, with these differences** (each is also in its PR's description)
+
+- *Founder decisions taken during the build (2026-11-12).* An account can create three organizations itself; staff can create more for it. Erasing an account that is the only active admin of an organization with other active members is refused until someone else is made admin; with nobody else active it goes ahead and the organization is left empty. Deactivating an admin also makes them an ordinary member, so someone who comes back is promoted again on purpose. The email an organization's admins see for a member is the address the invite went to if they joined by invite, otherwise the one they log in with.
+- *The responses page is a list, not a wide table, and has no HTMX.* The site's layout is one narrow column for phones. A small form (status, results level, possible repeats, order) reloads the page with query parameters; an unknown value shows everything. These two pages are served by the responses app (`apps/responses/organization_views.py`), because `enterprises` may not import a response.
+- *Joining is two steps.* `services.check_code` and `check_invite` only read; the confirmation page is shown; only its button joins (`redeem_code`, `accept_invite`, which check everything again under their locks). Logged out, the join pages reveal nothing, not even whether a code or link is real; the typed code and where to come back to are kept in the session.
+- *Organization pages hand their templates plain values, never database objects,* so a template cannot reach a phone number or an answer by accident; a test enforces it.
+- *The staff admin asks "are you sure?" before every action* and writes a history line. Support staff get one new permission, `enterprises.deactivate_membership`, rather than the general change permission. A join code is shown only to superusers, an invite's link secret to nobody.
+- *Words on the site.* A code is "switched off" and an invite "withdrawn"; a code's life is asked in days (1 to 365, 30 by default). The join and "Before you begin" pages say "results level" where the tier names will go (D-4); lists say "Tier 2".
+- *Not built, on purpose:* an organization admin cannot rename the organization; staff cannot put a person into an organization directly (an invite or a code is the only way in); `Response.possible_repeat` is shown but nothing sets it until matching exists (Milestone 5).
 
 **Technical detail**
 
@@ -328,7 +338,7 @@ This is the first milestone that delivers the product's core, and it does so bef
 - One open draft per context: two partial unique constraints, one on `account` where the status is draft and the membership is null, one on `account, membership` where the status is draft and the membership is set. The pages of one attempt also check that its membership is still active.
 - Erasure stays correct in every PR that adds something an account can own: memberships (PR 2), invites holding an address (PR 4), membership licences (PR 5), organization drafts (PR 6). `created_by` on the three models is set to null when that account is deleted.
 - Scoping: the slug is in the URL for navigation only. `for_admin()` verifies that *this account* has an *active admin* membership for *that slug*; the returned membership's `enterprise` is then the only enterprise id used in any query in that view. The response detail page looks the id up inside that enterprise, so another organization's id is a 404.
-- Table filtering and sorting through query parameters (`?status=submitted&sort=-submitted_at`), rendered by HTMX into the table body; the sort field is checked against an allow-list.
+- Filtering and sorting of the responses list through query parameters (`?status=submitted&sort=-submitted`), sent by an ordinary form that reloads the page; every value is checked against an allow-list (`apps/responses/forms.py`, `ResponseFilterForm`).
 - Carried over from Milestone 2: organization reports show two views, current members (active memberships) and the historical total (including deactivated and erased members).
 - Brute-forcing join codes is limited in Milestone 7 (rate limit on the join page); the code space is about 10^15.
 
@@ -345,22 +355,26 @@ This is the first milestone that delivers the product's core, and it does so bef
 
 **PR plan** (one branch and one pull request each, in this order)
 
-0. `m3-replan`: this section, and the requirements, architecture and backlog brought in line with the decisions. Docs only.
-1. `m3-full-name`: `Account.full_name`, sign-up, profile, staff admin, erasure.
-2. `m3-enterprise-models`: the `enterprises` app, its four models and database rules, a minimal read-only admin, erasure handling for memberships.
-3. `m3-enterprise-services`: `create_enterprise`, join codes, deactivate, reactivate, `set_role`, the people limit, `scoping.py`; the concurrency tests.
-4. `m3-invite-services`: `invite_by_email`, `revoke_invite`, `accept_invite`, the invite email, erasure handling for invites.
-5. `m3-membership-licences`: `Entitlement.membership`, the exactly-one rule, `grant_for_membership`, context-aware `unused_licence` and `has_survey_access`, the admin grant form, erasure handling.
-6. `m3-response-context`: `Response.membership`, one open draft per context, `start_response(account, membership)`, deactivation deletes the organization draft.
-7. `m3-survey-context-pages`: start, disclosure, "My surveys" and result per context.
-8. `m3-organization-pages`: create, list, dashboard, members; the header and profile links; isolation tests first.
-9. `m3-codes-invites-pages`: the codes and invites pages with the places-left count; isolation tests first.
-10. `m3-join-flows`: join by code and by invite link, sign up then join, the confirmation page, the funnel channel.
-11. `m3-responses-table`: the admin's responses table and response page; isolation tests first.
-12. `m3-enterprise-admin`: the Django admin for the four models, the Support staff permissions.
+0. `m3-replan` (#50): this section, and the requirements, architecture and backlog brought in line with the decisions. Docs only.
+1. `m3-full-name` (#51): `Account.full_name`, sign-up, profile, staff admin, erasure.
+2. `m3-enterprise-models` (#52): the `enterprises` app, its four models and database rules, a minimal read-only admin, erasure handling for memberships.
+3. `m3-enterprise-services` (#53): `create_enterprise`, join codes, deactivate, reactivate, `set_role`, the people limit, `scoping.py`; the concurrency tests.
+4. `m3-invite-services` (#54): `invite_by_email`, `revoke_invite`, `accept_invite`, the invite email, erasure handling for invites.
+5. `m3-membership-licences` (#55): `Entitlement.membership`, the exactly-one rule, `grant_for_membership`, context-aware `unused_licence` and `has_survey_access`, the admin grant form, erasure handling.
+6. `m3-response-context` (#56): `Response.membership`, one open draft per context, `start_response(account, membership)`, deactivation deletes the organization draft.
+7. `m3-survey-context-pages` (#57): start, disclosure, "My surveys" and result per context.
+8. `m3-organization-pages` (#58): create, list, dashboard, members; the header and profile links; isolation tests first.
+9. `m3-codes-invites-pages` (#59): the codes and invites pages with the places-left count; isolation tests first.
+10. `m3-join-flows` (#60): join by code and by invite link, sign up then join, the confirmation page, the funnel channel.
+11. `m3-responses-table` (#61): the admin's responses table and response page; isolation tests first.
+12. `m3-enterprise-admin` (#65): the Django admin for the four models, the Support staff permissions.
 13. `m3-docs-live-checks`: docs synced with what was built, NOTES, an end-to-end automated run, and the founder's live checklist.
 
+Outside the plan, at the founder's request on 2026-11-13: #62 (screenshots committed by mistake in PR 10 removed), #63 (the test suite made about six times faster), #64 (a page at `/`, and backlog updates).
+
 **Done when**
+
+*The first six boxes are the founder's live checks (the checklist is below). Tick each only after it has been seen working on the live site.*
 
 - [ ] On the live site: create an organization, make a join code, open an incognito window, sign up and join with the code, have staff grant that membership a licence, take the survey for the organization, and see the response in the admin's table and response page, with no answers anywhere.
 - [ ] The same with an email invite (to an address SES can deliver to while it is sandboxed).
@@ -368,7 +382,58 @@ This is the first milestone that delivers the product's core, and it does so bef
 - [ ] Make a second admin; the last admin cannot be demoted or deactivated.
 - [ ] With the people limit lowered to a small number in the Django admin, the next invite and the next code join are refused.
 - [ ] Erase a member with a completed survey and one without: the first shows as "Erased member" and still counts in the historical total, the second is gone.
-- [ ] All tests pass, including every tenant isolation test.
+- [x] All tests pass, including every tenant isolation test. *(1,020 tests, in CI and locally, 2026-11-13.)*
+
+**Checks at the end (2026-11-13)**
+
+*Automated, all passing.* The full suite: 1,020 tests, including every tenant isolation test (`tests/test_tenant_isolation.py`), on the laptop and in CI. `ruff check`, `ruff format --check`, `manage.py check --fail-level WARNING` and `makemigrations --check`. One end-to-end run in a real browser at phone width, against a local server, in eleven steps: an admin creates an organization and a join code; a stranger enters the code, signs up, verifies their email from the link in the mail, logs in, is brought back and joins (the funnel records the channel `code`); before a licence they are told they need one; staff grant the membership a licence in the Django admin; the member takes all 25 statements for the organization and submits; the admin sees the response with name, email, status, dates and tier, and no statement, answer or phone number on the table, the response page or the members page; the admin of a second organization sees none of it on any of their pages and gets a 404 for every address of the first; and the member, who is not an admin, gets a 404 on the admin pages.
+
+*Not covered by that run* (covered by the automated tests, and by the live checklist below): the invite-by-email journey, deactivating and reactivating, the people limit, a second admin, and erasure. *Not covered by anything automated:* real email delivery through SES, and the live site itself beyond `/health` answering 200 after each deploy. The checklist below is what proves those.
+
+**Live checklist (for the founder)**
+
+Run this on the live site. Each part matches one "Done when" box; tick the box when the part has been seen working. You need: your superuser login (window 1, also used for the Django admin at `/admin/`), and a private or incognito window (window 2) for the second person. Use three email addresses of your own for the second, third and fourth person. Your own account needs a verified email to create an organization; if the site asks for it, verify it the same way as below. While SES is in its sandbox, mail only reaches addresses verified in SES; for any other address, mark it verified by hand: Django admin, "Login (allauth)", "Email addresses", tick the address, action "Mark selected email addresses as verified", Run. Nothing here needs SSH, the AWS console or GitHub.
+
+*Part A: join by code and take the survey (box 1).*
+1. Window 1: "Organizations" in the header, "Create an organization", type a name, create. You land on its page, "You are an admin of this organization."
+2. "Join codes", "Create code". A code like `ABCDE-FGH23` appears.
+3. Window 2: go to `/join/code/`, type the code, Continue. The page asks you to log in or sign up and does not name the organization. Press "Sign up" and fill in the form with the second person's details.
+4. Verify that address (the link in the email, or the admin action above), then log in in window 2. You are brought back to a page headed "Join (your organization)?" that lists what its admins will see. Press the Join button. You land on the organization's page as a member. (If you are not brought back, enter the code again at `/join/code/`.)
+5. Window 2: "My surveys" says there is no unused licence for the organization.
+6. Window 1: Django admin, "Entitlements", "Add entitlement". Leave "Account" empty; in "Membership" search for the second person's email and pick "Membership N in (your organization)"; tier 2; source Manual; Save.
+7. Window 2: "My surveys" now offers the survey for the organization. Start it; the "Before you begin" page says what the organization's admins will see. Answer all five pages and submit. The result page says "For (your organization)".
+8. Window 1: the organization's page, "See responses". One row: the person's name and email, "Submitted", the dates, "Tier 2". Open it. No statement and no answer appears on either page. "Manage members" shows the person with no phone number.
+
+*Part B: the same by email invite (box 2).*
+1. Window 1: the organization's page, "Invites", type the third person's address, "Send invite". If the page warns that the email could not be sent (the SES sandbox), press "Copy link" beside the invite instead.
+2. Window 2 (log out first): open the link from the email, or paste the copied one. Sign up or log in with that same address and verify it. You are brought back to the "Join ...?" page; join.
+3. Repeat steps 6 to 8 of Part A for this person.
+
+*Part C: deactivate and reactivate (box 3).*
+1. Window 1: "Manage members", "Deactivate" beside the second person, confirm.
+2. Window 2, logged in as the second person: "My surveys" still lists their submitted survey and its result still opens. The organization's page is now "Not found" for them.
+3. Window 1: "See responses" still shows their response, marked as no longer a member.
+4. Window 2: `/join/code/` with the same code is refused: the membership was deactivated, ask an admin.
+5. Window 1: "Manage members", "Reactivate". Window 2: the organization's page opens again.
+
+*Part D: a second admin (box 4).*
+1. Window 1: "Manage members". Your own row, the only admin, has no buttons.
+2. "Make admin" beside the second person. Both rows now have buttons. "Make member" beside the second person puts it back, and your row again has none.
+3. In the Django admin, "Organizations" section, "Memberships": tick your own membership, action "Deactivate the selected memberships", Run, confirm. It is refused: "An organization needs at least one admin."
+
+*Part E: the people limit (box 5).*
+1. Django admin, "Organizations", open yours. "Places" says how many are left: 23 of 25 if you have sent one invite and one person has joined by code.
+2. Set "People limit" to the number already used (2 in that case) and save. "Places" now says 0 left.
+3. Window 1: "Invites", send one to any other address: refused, no places left.
+4. Window 2: sign up the fourth person, verify the address, and enter the join code at `/join/code/`: refused, the organization cannot take more people at the moment.
+5. Set the limit back to 25.
+
+*Part F: erasure (box 6).*
+1. The second person has a submitted survey. Django admin, "Accounts", open that account, "Erase this account…", type the email and a reason, erase. The summary says the person is removed and the results kept.
+2. Window 1: "Manage members" shows "Erased member" with no email, deactivated; "See responses" still shows the response under "Erased member"; the organization's page still counts them under "Everyone who has ever been a member".
+3. Window 2, as the fourth person: enter the join code again and join, and do not take the survey. Then erase that account the same way. The summary says the account will be permanently deleted. Afterwards they are gone from "Manage members", and "Everyone who has ever been a member" is one lower.
+
+When every part passes, tell Claude: the six boxes are then ticked in a docs-only PR and the milestone is closed.
 
 **Why this order / what to understand**
 
@@ -392,7 +457,7 @@ This is where the project becomes multi-tenant, and multi-tenancy is where produ
 
 *Re-plan this section before starting it. On 2026-10-09 the founder decided that a licence is one survey attempt plus results at its tier, and Milestone 2 built the individual half of `Entitlement` with a one-to-one from `Response`. So a seat here is a licence an enterprise bought and assigned to a member, consumed by that member's one attempt, and upgradeable in place; the "joined without a seat" warning becomes "cannot take the survey until given a licence".*
 
-*State after Milestone 3 (as planned 2026-11-12).* Milestone 3 pulls the model half of this milestone forward: `Entitlement.person` becomes nullable, the membership FK and the exactly-one check constraint are added, and staff grant a membership licence by hand with source `manual` (`grant_for_membership`). `Response.membership` follows the licence. Each organization has a people limit of 25 until it has bought licences. What is left for this milestone: `SeatPool`, the source `seat`, organization admins assigning licences within the pool, invites and codes that carry a tier consuming a seat, and how seats raise the people limit (`06-backlog.md`, D-16).
+*State after Milestone 3 (as built, 2026-11-13).* Milestone 3 pulled the model half of this milestone forward: `Entitlement.person` becomes nullable, the membership FK and the exactly-one check constraint are added, and staff grant a membership licence by hand with source `manual` (`grant_for_membership`). `Response.membership` follows the licence. Each organization has a people limit of 25 until it has bought licences. What is left for this milestone: `SeatPool`, the source `seat`, organization admins assigning licences within the pool, invites and codes that carry a tier consuming a seat, and how seats raise the people limit (`06-backlog.md`, D-16).
 
 *State after Milestone 2.* `Entitlement` exists with a non-null `person`, source purchase or manual, and `grant_individual`, `revoke`, `change_tier`, `unused_licence` and `has_survey_access` are built, with an admin grant form (the account is found with the admin's search box, by email or phone), a revoke action and an unused-licences filter. This milestone makes `person` nullable, adds the membership FK, the exactly-one check constraint and the source `seat`, and records the funnel event `licence_granted` with source `seat`. Licences do not expire. Staff manage `SeatPool` from the admin like everything else.
 
@@ -601,7 +666,7 @@ Not a milestone. Self-serve purchase for individuals and enterprises (likely Raz
 | 0 | Foundations and first deploy | — | Empty site on HTTPS with CI/CD |
 | 1 | Accounts | 0 | Sign up, verify, log in, reset |
 | 2 | Survey and responses | 1 | Individuals take and view the survey; licences, erasure and the funnel are built (closed 2026-11-12) |
-| 3 | Organizations, memberships, join | 2 | Organization admins onboard members and see who took the survey; licences per membership (re-planned 2026-11-12, in progress) |
+| 3 | Organizations, memberships, join | 2 | Organization admins onboard members and see who took the survey; licences per membership (built 2026-11-13; the founder's live checks remain) |
 | 4 | Seat pools and entitlements | 3 | Tiers assigned and counted |
 | 5 | Jobs, matching, audit | 4 | Worker live; repeats flagged and linked; actions audited |
 | 6 | Root admin, export, erasure audit | 5 | Root console complete; CSV; erasure audited and documented |
@@ -624,6 +689,14 @@ Moved on 2026-11-12 to `06-backlog.md`, the one list of open tasks and parked de
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-13 | Milestone 3 is code-complete and deployed: PRs 0 to 13, plus #62 to #64. Its six live checks wait for the founder (`06-backlog.md`, T-16). Merging on green without review ended with the milestone; whether it applies to Milestone 4 is asked when that milestone is re-planned | The arrangement was given for Milestone 3 only |
+| 2026-11-13 | In the staff admin every action on an organization (deactivate, reactivate, make admin, make member, withdraw an invite, switch off a code) shows a confirmation page first and writes a history line with no email or name in it. Support staff can look at the four pages and hold one extra permission, `deactivate_membership`. A join code is shown only to superusers; an invite's link secret to nobody | Two of the actions cannot be undone and a wrong pick in a dropdown is easy; its own permission makes "deactivate only" exact; a code and a link are ways in |
+| 2026-11-13 | The wording that tells a member what an organization's admins can see (the join confirmation and the organization "Before you begin" page) stays as built for now and is reviewed with the privacy lawyer's list (`06-backlog.md`, D-17) | The founder read both and said "fine for now" |
+| 2026-11-12 | An account can create at most three organizations itself; staff can create more for it in the Django admin | Founder's decision during the build: each organization can send its own 25 invites, so without a cap the people limit means little |
+| 2026-11-12 | Erasing an account that is the only active admin of an organization with other active members is refused until another member is made admin. With nobody else active it goes ahead and the organization is left empty | Founder's decision during the build: an organization people still use must not lose its only admin as a side effect |
+| 2026-11-12 | Deactivating an admin also makes them an ordinary member; someone who comes back stays a member until promoted again | Founder's decision during the build: being an admin again should be done on purpose |
+| 2026-11-12 | The email an organization's admins see for a member is the address the invite was sent to if they joined by invite, otherwise the address they log in with; the join confirmation page says which | Founder's decision during the build: it is the address the organization already knows the person by |
+| 2026-11-12 | Builder's calls in Milestone 3, each recorded in its PR: the responses page is a list with a plain filter form (no HTMX, no wide table); those pages live in the responses app; joining is check, confirm, then join, and reveals nothing while logged out; organization pages give templates plain values only; membership foreign keys are `PROTECT`; an invite email names the organization, not the admin; refusals say why in plain words; `new` is a reserved slug and a name with no usable letters gets the slug `organization` | The plan left these to the builder; listed so nobody has to rediscover them |
 | 2026-11-12 | Milestone 3 re-planned into fourteen PRs (0 to 13); PRs are merged on green without waiting for the founder's review, decisions are still raised, each PR ends with a summary, and the milestone ends with automated checks and a founder checklist | Founder's instruction, to move quickly towards the walkthrough on 2026-11-13 without giving up the decisions |
 | 2026-11-12 | A licence belongs to a person or to a membership, never both, and decides the context of the response that uses it; staff grant membership licences by hand until seats exist. The model half of Milestone 4 moves into Milestone 3 | One fact instead of two that could disagree; Milestone 4 needed the same schema change |
 | 2026-11-12 | The site says "organization" (US spelling, the founder's choice); code, tables and docs keep "enterprise" | Covers companies and schools; renaming the code buys nothing |

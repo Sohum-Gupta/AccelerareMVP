@@ -14,10 +14,11 @@ before doing any work:
    are live checks (tasks T-3, T-4 and T-5 in `docs/06-backlog.md`). Milestone 2
    (Survey) is done: all PRs merged and deployed (460 tests), and the founder's live checks ticked every
    "Done when" box on 2026-11-12 (PR 11), and the founder closed Milestone 2 the same day.
-   Milestone 3 (Organizations) is in progress: PRs 0 to 13 under "PR plan" in its section of the build plan.
-   For this milestone the founder asked for each PR to be merged once CI is green, without waiting for a
-   review, while every product decision is still raised with them. Check which PRs are merged before
-   starting the next.**
+   Milestone 3 (Organizations) is code-complete and live: PRs 0 to 13 merged and deployed (1,020 tests).
+   Its remaining "Done when" boxes are the founder's live checks (task T-16 in `docs/06-backlog.md`; the
+   checklist is in the build plan). Merging on green without a review was granted for Milestone 3 only:
+   ask before doing it again. Milestone 4 (Seat pools) is next and must be re-planned with the founder
+   before any code is written (T-12 and D-16).**
    Do not build anything from a later milestone than the one in progress.
 2. `docs/06-backlog.md` — every open task and parked decision, with full detail in Part 2.
    Add new follow-ups there; remove an item and log the outcome when it is finished.
