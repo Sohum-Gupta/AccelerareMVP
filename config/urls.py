@@ -56,6 +56,11 @@ urlpatterns = [
         name="organization_responses",
     ),
     path(
+        "organizations/<slug:slug>/responses/export/",
+        organization_views.export,
+        name="organization_responses_export",
+    ),
+    path(
         "organizations/<slug:slug>/responses/<int:pk>/",
         organization_views.detail,
         name="organization_response",
