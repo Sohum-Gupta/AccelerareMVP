@@ -7,3 +7,6 @@ class EnterprisesConfig(AppConfig):
     label = "enterprises"
     # The site and the staff admin say "organization"; the code says "enterprise".
     verbose_name = "Organizations"
+
+    def ready(self):
+        from . import signals  # noqa: F401  (connects the receivers)

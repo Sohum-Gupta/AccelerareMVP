@@ -27,7 +27,9 @@ history of the person's email so it does not outlive the erasure. This module
 reaches responses, licences and memberships through their reverse relations
 ("responses", "entitlements", "memberships") so accounts never imports the apps
 that depend on it. For the same reason a status is written here as plain text
-("draft", "active"), not as the other app's constant.
+("draft", "active"), not as the other app's constant. What no relation reaches
+(an invite that was sent to the person's address) is handled by the app that
+owns it, which listens for the `account_erasing` signal below.
 """
 
 from dataclasses import dataclass
@@ -38,9 +40,17 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.sessions.models import Session
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.dispatch import Signal
 from django.utils import timezone
 
 from .models import Account, ContactPoint
+
+# Sent inside the erasure's transaction, before anything is removed, with
+# `account` and `emails` (the addresses the account has verified). It is how an
+# app that depends on accounts removes its own copies of the person's address
+# (an organization's invites, say) without accounts having to import that app.
+# A receiver that raises stops the erasure and undoes all of it.
+account_erasing = Signal()
 
 DELETE = "delete"
 ANONYMISE = "anonymise"
@@ -126,6 +136,12 @@ def erase_account(account: Account, by: Account | None = None) -> Plan:
     with transaction.atomic():
         account = Account.objects.select_for_update().get(pk=account.pk)
         plan = plan_erasure(account, by)
+        emails = list(
+            account.contact_points.filter(
+                kind=ContactPoint.Kind.EMAIL, verified_at__isnull=False
+            ).values_list("value_normalised", flat=True)
+        )
+        account_erasing.send(sender=Account, account=account, emails=emails)
         _scrub_history(account)
         _end_sessions(account)
         if plan.action == ANONYMISE:

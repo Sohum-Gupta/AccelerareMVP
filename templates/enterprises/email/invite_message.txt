@@ -1,0 +1,12 @@
+{% autoescape off %}Hello,
+
+You have been invited to join {{ enterprise_name }} on Accelerare. Open this link to accept:
+
+{{ invite_url }}
+
+You will be asked to log in, or to sign up if you have no account yet, with this email address. Before you join, a page tells you what the organization's admins will be able to see.
+
+The link works once and for {{ days }} days. If you were not expecting this, ignore this message and nothing will happen.
+
+Accelerare
+{% endautoescape %}
