@@ -17,7 +17,7 @@ Every item has an ID (`T-` for tasks, `D-` for decisions, `L-` for later feature
 
 ## Where things stand (2026-11-13)
 
-Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-12. Milestone 3 (organizations) was built on 2026-11-12 and 2026-11-13 and is live; what is left of it is your checklist on the live site (T-16). Milestone 4 (licences for organizations) was built on 2026-11-13 and is live; what is left of it is your checklist on the live site (T-18). Nobody has yet tried Milestone 3 or Milestone 4 by hand on the live site. On 2026-11-13 you answered the choices made while building Milestone 4, the payments basics, and the two GitHub questions; the answers are in the build plan's decision log. What follows from them is built in this order: the licence changes (a licence is set aside when an invite or code promises one; built and live the same day, with two live checks added to T-18), then payments (Milestone 4b; built and deployed the same day, but closed until you add the Stripe test key, T-21, and then yours to try, T-22), then Milestone 5. The site is being built for the US first; the India items below are deferred. Every decision below was reviewed with the founder on 2026-11-12; the ones still listed were left here on purpose.
+Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-12. Milestone 3 (organizations) was built on 2026-11-12 and 2026-11-13 and is live; what is left of it is your checklist on the live site (T-16). Milestone 4 (licences for organizations) was built on 2026-11-13 and is live; what is left of it is your checklist on the live site (T-18). Nobody has yet tried Milestone 3 or Milestone 4 by hand on the live site. On 2026-11-13 you answered the choices made while building Milestone 4, the payments basics, and the two GitHub questions; the answers are in the build plan's decision log. What follows from them is built in this order: the licence changes (a licence is set aside when an invite or code promises one; built and live the same day, with two live checks added to T-18), then payments (Milestone 4b; built and deployed the same day, but closed until you add the Stripe test key, T-21, and then yours to try, T-22), then Milestone 5 (re-planned the same day; the plan is in the build plan). The site is being built for the US first; the India items below are deferred. Every decision below was reviewed with the founder on 2026-11-12; the ones still listed were left here on purpose.
 
 ## Waiting on you now
 
@@ -68,6 +68,7 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | T-16 | Run the Milestone 3 live checklist | Now |
 | T-18 | Run the Milestone 4 live checklist | Now |
 | T-19 | The interface points the founder raised on the live site (six small fixes and a design pass) | When the founder asks; each is a small PR |
+| T-23 | Record bounces and complaints from Amazon SES and stop writing to those addresses | Before real email volume; needs the AWS console |
 | T-21 | Stripe test keys and webhook, in Stripe's dashboard and Parameter Store | Now; needed before payments can be tried on the live site |
 | T-22 | Run the Milestone 4b live checklist | After T-21 |
 
@@ -199,6 +200,13 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **If something fails:** note what the page said and when. Sentry will have the error, without the person's details. The file that talks to Stripe is `apps/payments/stripe_api.py`; a payment that arrived but could not be finished is marked "needs attention" under "Payments" in the Django admin, with the reason.
 - **Done when:** the founder reports each part. Then a docs-only PR ticks the three boxes, records the date in the decision log, updates the status lines and removes this item.
 - **Source:** `05-build-plan.md`, Milestone 4b, "Done when" and "Live checklist".
+
+### T-23 Bounces and complaints from Amazon SES
+- **Status:** open; moved out of Milestone 5 on 2026-11-13 (the founder accepted this as a default before the re-plan). Decided on 2026-11-12 that the site should record them and stop sending to an address that hard-bounced or complained.
+- **Why it is not in the build:** SES reports these through an SNS topic that has to be made, subscribed and confirmed in the AWS console **[console]**, and the address it calls must be public. That is the founder's console work first, and there is no AWS access on the build machine.
+- **Until then:** SES's own account-level suppression list stops repeat sends to an address that bounced, and a weekly look at the SES reputation page covers the rest (`04-infrastructure.md`, "Email sending").
+- **When built:** a small receiver for SNS's message (its signature checked, like Stripe's), a table of addresses not to write to, a check before every send, and the list visible to staff in the Django admin. The Milestone 5 worker can do the sending check.
+- **Needed by:** before real email volume; with T-4 (SES production access) and T-10 (DMARC).
 
 ## Decisions
 
