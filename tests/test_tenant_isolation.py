@@ -22,12 +22,21 @@ What must hold on every organization page:
 
 Each PR that adds organization pages adds its addresses to the lists below
 (PR 8: the list, the dashboard and the members page; PR 9: codes and invites;
-PR 11: the responses table and the page of one response).
+PR 11: the responses table and the page of one response; Milestone 4, PR 3:
+the Licences page, its three actions and the "take back" confirmation page).
 
 The responses pages are where a survey first appears on an organization page,
 so they get a class of their own at the bottom: an admin sees the surveys
 taken for their organization, never one taken personally or for anyone else,
 and of each one only who, when, its status and its level. Never an answer.
+
+The Licences page (Milestone 4) is where an admin gives out the organization's
+stock, so it has a class too: the stock and the members are its own, and a
+licence or a member of another organization (or a member's personal licence)
+is "not found" to every button on it.
+
+Each organization has bought three Tier 2 and two Tier 3 licences, and its
+second member holds an unused Tier 2 one from that stock.
 """
 
 import re
@@ -40,6 +49,8 @@ from django.test.utils import ContextList
 from apps.accounts import services as accounts
 from apps.enterprises import services as orgs
 from apps.enterprises.models import Membership
+from apps.entitlements import services as licences
+from apps.entitlements.models import Entitlement
 from apps.responses import services as surveys
 from apps.survey.models import Question
 
@@ -51,10 +62,14 @@ from .test_response_context import finish, fresh, grant, grant_personal
 PHONE_DIGITS = "9876543210"
 ORGANIZATION_TIER = 1
 PERSONAL_TIER = 3
+# What each organization has bought, and the tier of the one licence given from it.
+STOCK = {2: 3, 3: 2}
+STOCK_TIER = 2
 
 # Pages of one organization, as the part of the address after /organizations/<slug>/.
 MEMBER_PAGES = [""]  # any active member may open these
-ADMIN_PAGES = ["members/", "codes/", "invites/", "responses/"]  # only an admin may open these
+# Only an admin may open these.
+ADMIN_PAGES = ["members/", "codes/", "invites/", "responses/", "licences/"]
 # Forms on those pages that make something new (admin only), with what each is sent.
 ADMIN_FORMS = [
     ("codes/", {"max_uses": "5", "days": "30"}),
@@ -67,9 +82,14 @@ def response_page(response):
     return f"responses/{response.pk}/"
 
 
+def take_back_page(licence):
+    """The page that asks before a licence is taken back (admin only), and takes it back."""
+    return f"licences/{licence.pk}/take-back/"
+
+
 def admin_pages(org):
-    """Every admin page of an organization, including the page of one of its responses."""
-    return [*ADMIN_PAGES, response_page(org.responses[0])]
+    """Every admin page of an organization, including those about one response or licence."""
+    return [*ADMIN_PAGES, response_page(org.responses[0]), take_back_page(org.seat)]
 
 
 def member_actions(membership):
@@ -82,18 +102,38 @@ def member_actions(membership):
     ]
 
 
+def licence_actions(org):
+    """
+    The buttons of the Licences page (admin only), with what each is sent. Each
+    would succeed if its organization's own admin pressed it: the first member
+    can be given a licence, and the stock has a Tier 3 to move the licence to.
+    """
+    return [
+        (f"licences/members/{org.members[0].pk}/give/", {"tier": str(STOCK_TIER)}),
+        (f"licences/{org.seat.pk}/tier/", {"tier": "3"}),
+        (take_back_page(org.seat), {}),
+    ]
+
+
 def actions_on(org):
     """Every address that changes one of an organization's own things, by its id."""
     return [
         *member_actions(org.members[0]),
         (f"codes/{org.code.pk}/revoke/", {}),
         (f"invites/{org.invite.pk}/revoke/", {}),
+        *licence_actions(org),
     ]
+
+
+def licences_of(org):
+    """Every licence for the organization, taken back or not. Never a personal one."""
+    return Entitlement.objects.filter(membership__enterprise=org.enterprise)
 
 
 def untouched(org):
     """True if nothing of the organization's has been changed or added to."""
     member = fresh(org.members[0])
+    seat = fresh(org.seat)
     return (
         member.is_active
         and not member.is_admin
@@ -101,11 +141,17 @@ def untouched(org):
         and fresh(org.invite).revoked_at is None
         and org.enterprise.join_codes.count() == 1
         and org.enterprise.invites.count() == 1
+        and seat.revoked_at is None
+        and seat.tier == STOCK_TIER
+        and licences_of(org).count() == 3  # one each from staff, and the one from the stock
     )
 
 
 def build(name):
-    """One organization: an admin, two members with two surveys each, a code and an invite."""
+    """
+    One organization: an admin, two members with two surveys each, a code, an
+    invite, a stock of licences and one licence given from it.
+    """
     enterprise, admin = org_with_admin(name)
     accounts.set_full_name(admin.account, f"{name} Admin")
     members, organization_responses, personal_responses = [], [], []
@@ -118,6 +164,8 @@ def build(name):
         personal_responses.append(finish(surveys.start_response(member.account)))
         members.append(member)
     invite, _sent = orgs.invite_by_email(admin, f"invited@{enterprise.slug}.example.com")
+    for tier, bought in STOCK.items():
+        orgs.set_seat_pool(enterprise, tier, bought)
     return SimpleNamespace(
         enterprise=enterprise,
         slug=enterprise.slug,
@@ -128,6 +176,8 @@ def build(name):
         personal=personal_responses,
         code=orgs.create_code(admin, 5),
         invite=invite,
+        # The second member's, unused. The first can still be given one.
+        seat=licences.assign_seat(admin, members[1], STOCK_TIER),
     )
 
 
@@ -231,9 +281,11 @@ class TestAnAdminSeesOnlyTheirOwnOrganization:
             orgs.invite_by_email(world.globex.admin, f"more{number}@globex.example.com")
         orgs.redeem_code(world.globex.code.code, verified_account("joiner@example.com"))
         client.force_login(world.acme.admin.account)
+        orgs.set_seat_pool(world.globex.enterprise, 1, 40)
         for page in ("", "codes/", "invites/"):
             places = client.get(address(world.acme, page)).context["places"]
-            assert places == {"left": 24, "limit": 25}, page  # Acme has sent one invite
+            # 25 and the five licences Acme has bought; Acme has sent one invite.
+            assert places == {"left": 29, "limit": 30}, page
 
     def test_the_other_organizations_things_cannot_be_acted_on(self, client, world):
         """Their own slug with someone else's id: not found, and nothing changes."""
@@ -363,7 +415,7 @@ class TestAMemberIsNotAnAdmin:
             for membership in others:
                 assert membership.account.full_name not in text, url
                 assert membership.account.email not in text, url
-            for admins_only in ("current_members", "all_time_members", "places"):
+            for admins_only in ("current_members", "all_time_members", "places", "stock"):
                 assert admins_only not in page.context, url
             for secret in (world.acme.code.code, world.acme.invite.email, world.acme.invite.token):
                 assert secret not in text, url
@@ -386,6 +438,11 @@ class TestWhatNoPageShows:
             assert page.status_code == 200, url
             yield url, page, page.content.decode()
 
+    def test_the_licences_page_is_among_them(self, client, world):
+        urls = [url for url, _page, _text in self.pages_of(client, world)]
+        assert address(world.acme, "licences/") in urls
+        assert address(world.acme, take_back_page(world.acme.seat)) in urls
+
     def test_never_a_phone_number(self, client, world):
         for url, _page, text in self.pages_of(client, world):
             digits = "".join(character for character in text if character.isdigit())
@@ -407,7 +464,8 @@ class TestWhatNoPageShows:
         client.force_login(world.acme.admin.account)
         page = client.get(address(world.acme, "members/"))
         tiers = {row["tier"] for row in page.context["rows"]}
-        assert tiers == {None, ORGANIZATION_TIER}  # the admin has no licence
+        # The admin has no licence; the second member's highest is the one from the stock.
+        assert tiers == {None, ORGANIZATION_TIER, STOCK_TIER}
         assert f"Tier {PERSONAL_TIER}" not in page.content.decode()
 
     def test_a_personal_survey_changes_nothing_on_any_page(self, client, world):
@@ -425,6 +483,12 @@ class TestWhatNoPageShows:
             assert all(r.status == "submitted" and r.membership_id for r in org.responses)
             assert all(r.status == "submitted" and r.membership_id is None for r in org.personal)
             assert Membership.objects.filter(enterprise=org.enterprise).count() == 3
+            assert orgs.seat_summary(org.enterprise) == [
+                {"tier": 1, "bought": 0, "given": 0, "left": 0},
+                {"tier": 2, "bought": 3, "given": 1, "left": 2},
+                {"tier": 3, "bought": 2, "given": 0, "left": 2},
+            ]
+            assert org.seat.source == "seat" and org.seat.membership == org.members[1]
 
 
 # --- the responses pages ---------------------------------------------------------
@@ -582,3 +646,122 @@ class TestTheResponsesPages:
         assert len(self.shown(client, world)) == 2
         assert gone.account.full_name in text
         assert "Erased member" in text and name not in text and email not in text
+
+
+# --- the Licences page -----------------------------------------------------------
+
+# Everything the Licences page is told about a member and about one licence.
+LICENCE_MEMBER_FACTS = {"id", "name", "email", "erased", "active", "is_you", "can_give", "licences"}
+LICENCE_FACTS = {"id", "tier", "state", "from_stock", "can_take_back", "move_to"}
+# The stock lines Acme's admin is shown: only tiers it has bought.
+ACME_STOCK = [
+    {"tier": 2, "bought": 3, "given": 1, "left": 2},
+    {"tier": 3, "bought": 2, "given": 0, "left": 2},
+]
+
+
+@pytest.mark.django_db
+class TestTheLicencesPage:
+    @pytest.fixture
+    def admin(self, client, world):
+        client.force_login(world.acme.admin.account)
+        return world.acme.admin
+
+    def page(self, client, world):
+        return client.get(address(world.acme, "licences/"))
+
+    def shown_licences(self, client, world):
+        rows = self.page(client, world).context["rows"]
+        return {licence["id"] for row in rows for licence in row["licences"]}
+
+    def test_it_lists_exactly_its_own_members_and_their_licences(self, client, world, admin):
+        page = self.page(client, world)
+        assert {row["id"] for row in page.context["rows"]} == {m.pk for m in world.acme.everyone}
+        own = set(licences_of(world.acme).values_list("pk", flat=True))
+        assert self.shown_licences(client, world) == own and len(own) == 3
+        text = page.content.decode()
+        for membership in world.acme.everyone:
+            assert membership.account.full_name in text and membership.account.email in text
+
+    def test_a_personal_licence_is_never_listed(self, client, world, admin):
+        """Not one already used, and not one a member has just been given."""
+        before = self.shown_licences(client, world)
+        text = settled(html(client, address(world.acme, "licences/")))
+        new = grant_personal(world.acme.members[0].account, 2)
+        assert self.shown_licences(client, world) == before
+        assert new.pk not in before
+        assert settled(html(client, address(world.acme, "licences/"))) == text
+        personal = Entitlement.objects.filter(membership__isnull=True)
+        assert not before & set(personal.values_list("pk", flat=True))
+
+    def test_the_stock_is_its_own(self, client, world, admin):
+        """Whatever Globex buys, gives and takes back, Acme's numbers stay as they were."""
+        before = settled(html(client, address(world.acme, "licences/")))
+        orgs.set_seat_pool(world.globex.enterprise, 2, 50)
+        orgs.set_seat_pool(world.globex.enterprise, 1, 7)
+        licences.assign_seat(world.globex.admin, world.globex.members[0], 1)
+        licences.take_back_seat(world.globex.admin, world.globex.seat)
+        for url in ("licences/", ""):
+            assert client.get(address(world.acme, url)).context["stock"] == ACME_STOCK, url
+        assert settled(html(client, address(world.acme, "licences/"))) == before
+
+    def test_another_organizations_member_cannot_be_given_a_licence(self, client, world, admin):
+        for member in world.globex.everyone:
+            for org in (world.acme, world.globex):
+                answer = client.post(
+                    address(org, f"licences/members/{member.pk}/give/"), {"tier": "2"}
+                )
+                assert answer.status_code == 404, "404, never 403"
+        assert licences_of(world.globex).count() == 3
+        assert orgs.seat_summary(world.acme.enterprise)[1]["given"] == 1
+
+    def test_a_licence_that_is_not_the_organizations_is_not_found(self, client, world, admin):
+        """Another organization's, from its stock or from staff, and a member's personal one."""
+        member = world.acme.members[0]
+        not_ours = [
+            world.globex.seat,
+            licences_of(world.globex).exclude(pk=world.globex.seat.pk).first(),
+            Entitlement.objects.filter(person=member.account.person).first(),
+        ]
+        missing = client.get(address(world.acme, "licences/999999/take-back/"))
+        assert missing.status_code == 404
+        for licence in not_ours:
+            for org in (world.acme, world.globex):
+                asks = client.get(address(org, take_back_page(licence)))
+                assert asks.status_code == 404, "404, never 403"
+                if org is world.acme:
+                    # The same answer as for a licence that does not exist at all.
+                    assert asks.content == missing.content
+                assert client.post(address(org, take_back_page(licence))).status_code == 404
+                change = address(org, f"licences/{licence.pk}/tier/")
+                assert client.post(change, {"tier": "3"}).status_code == 404
+            after = fresh(licence)
+            assert after.revoked_at is None and after.tier == licence.tier
+        assert untouched(world.globex)
+
+    def test_an_admin_is_told_only_the_agreed_facts(self, client, world, admin):
+        page = self.page(client, world)
+        for row in page.context["rows"]:
+            assert set(row) == LICENCE_MEMBER_FACTS
+            for licence in row["licences"]:
+                assert set(licence) == LICENCE_FACTS
+        assert page.context["stock"] == ACME_STOCK
+        asks = client.get(address(world.acme, take_back_page(world.acme.seat)))
+        assert set(asks.context["licence"]) == {"id", "tier", "in_progress", "name"}
+
+    def test_the_answers_are_not_even_read_from_the_database(self, client, world, admin):
+        """The pages say whether a survey is in progress or submitted, from its status alone."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        holder = world.acme.members[1]
+        surveys.start_response(holder.account, holder)
+        for url in ("licences/", take_back_page(world.acme.seat)):
+            with CaptureQueriesContext(connection) as queries:
+                text = html(client, address(world.acme, url))
+            about_responses = [q["sql"] for q in queries if "responses_response" in q["sql"]]
+            assert about_responses, url
+            for sql in about_responses:
+                for column in ("answers", "took_before", "took_before_via", "pages_completed"):
+                    assert f'"{column}"' not in sql, f"{url} reads {column}"
+            assert "started" in text.lower() or "in progress" in text.lower(), url

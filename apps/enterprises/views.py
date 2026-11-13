@@ -97,7 +97,8 @@ def dashboard(request, slug):
     The organization's front page. A member gets its name and the way to their
     own surveys. An admin also gets two counts: the people who are members now,
     and everyone who has ever been one (including those since deactivated or
-    erased), how many places are left, and the way to the admin pages.
+    erased), how many places are left, the stock of licences (only the tiers
+    the organization has bought or holds), and the way to the admin pages.
     """
     membership = scoping.for_member(request, slug)
     context = {"organization": _organization(membership), "is_admin": membership.is_admin}
@@ -106,6 +107,11 @@ def dashboard(request, slug):
         context["current_members"] = everyone.filter(status=Membership.Status.ACTIVE).count()
         context["all_time_members"] = everyone.count()
         context["places"] = _places(membership.enterprise)
+        context["stock"] = [
+            line
+            for line in services.seat_summary(membership.enterprise)
+            if line["bought"] or line["given"]
+        ]
     return render(request, "enterprises/dashboard.html", context)
 
 

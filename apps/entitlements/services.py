@@ -194,6 +194,8 @@ NOT_FROM_STOCK = (
     "This licence was granted by Accelerare, not given from your organization's stock, "
     "so it cannot be changed here."
 )
+ALREADY_TAKEN_BACK = "That licence has already been taken back."
+SUBMITTED_SO_KEPT = "The survey on this licence has been submitted, so it cannot be taken back."
 
 
 def assign_seat(admin_membership, member_membership, tier):
@@ -254,9 +256,7 @@ def take_back_seat(admin_membership, entitlement):
         licence = _locked_seat(enterprise, entitlement)
         response = _locked_response(licence)
         if response is not None and response.status != "draft":
-            raise Refused(
-                "The survey on this licence has been submitted, so it cannot be taken back."
-            )
+            raise Refused(SUBMITTED_SO_KEPT)
         return revoke(licence)
 
 
@@ -324,7 +324,7 @@ def _locked_seat(enterprise, entitlement):
     if licence.source != Entitlement.Source.SEAT:
         raise Refused(NOT_FROM_STOCK)
     if licence.revoked_at is not None:
-        raise Refused("That licence has already been taken back.")
+        raise Refused(ALREADY_TAKEN_BACK)
     return licence
 
 

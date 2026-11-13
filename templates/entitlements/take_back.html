@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Take back a licence · {{ organization.name }} · Accelerare{% endblock %}
+{% block content %}
+  {# Asked first because taking back a licence deletes an unfinished survey on it. #}
+  <h1>Take back this licence?</h1>
+  <p>You are about to take back the {% include "responses/_tier.html" with tier=licence.tier %} licence you gave {% if licence.name %}{{ licence.name }}{% else %}this member{% endif %}.</p>
+  {% if licence.in_progress %}
+    <p class="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800" data-warning>They have started the survey on this licence. Their unfinished survey will be deleted, and it cannot be brought back.</p>
+  {% endif %}
+  <ul class="mb-4 list-disc space-y-1 pl-5 text-sm">
+    <li>The licence goes back into your stock, and you can give it to someone else.</li>
+    {% if not licence.in_progress %}<li>They have not started the survey on it, so nothing of theirs is deleted.</li>{% endif %}
+    <li>They cannot take the survey for {{ organization.name }} until they are given another licence.</li>
+  </ul>
+  <form method="post" class="flex flex-wrap items-center gap-4">
+    {% csrf_token %}
+    <button type="submit">Take back the licence</button>
+    <a href="{% url 'organization_licences' organization.slug %}">Cancel</a>
+  </form>
+{% endblock %}
