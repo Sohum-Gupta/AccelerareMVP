@@ -459,7 +459,7 @@ This is where the project becomes multi-tenant, and multi-tenancy is where produ
 
 **Goal:** an organization holds a stock of licences it has bought, per tier; its admins give them to members, change their tier and take them back; an invite or a join code can carry a tier so that joining brings a licence with it; and the number of people an organization may bring in grows with what it has bought.
 
-**Status (2026-11-13).** In progress. Six PRs, listed under "PR plan" below. PR 0 (this re-plan) and PR 1 (the stock, its staff page, the people limit and the source `seat`) are built; PRs 2 to 5 remain. Until PR 2, staff can record a stock but nobody can give a licence out of it yet.
+**Status (2026-11-13).** In progress. Six PRs, listed under "PR plan" below. PR 0 (this re-plan), PR 1 (the stock, its staff page, the people limit and the source `seat`) and PR 2 (giving, taking back and changing the tier, as services with no page yet) are built; PRs 3 to 5 remain. Until PR 3, an organization's admin has no page to give licences from. Built differently from the plan below: `seat_summary` lives in `apps/enterprises/services.py`, next to the stock it reads, not in `apps/entitlements`.
 
 **How this milestone is run** (founder, 2026-11-13). As Milestone 3 was: each PR is built, tested, opened, merged once CI is green and checked on the live site without waiting for the founder's review; every decision that is the founder's is raised and waits for an answer; every PR ends with a short summary. The arrangement covers Milestone 4 only and is asked again for payments.
 
