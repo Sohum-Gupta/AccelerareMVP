@@ -45,10 +45,15 @@ class Command(BaseCommand):
             signal.signal(signal.SIGTERM, self.stop)
             signal.signal(signal.SIGINT, self.stop)
         self.stdout.write(f"Worker started. It knows how to do: {', '.join(services.kinds())}.")
-        last_stuck_check = 0.0
+        # None means "not yet": the first pass always looks. (The clock used
+        # here counts from when the machine started, which can be seconds ago.)
+        last_stuck_check = None
         while not self.stopping:
             try:
-                if time.monotonic() - last_stuck_check >= STUCK_CHECK_SECONDS:
+                due = last_stuck_check is None or (
+                    time.monotonic() - last_stuck_check >= STUCK_CHECK_SECONDS
+                )
+                if due:
                     services.requeue_stuck()
                     last_stuck_check = time.monotonic()
                 ran = services.run_one()
