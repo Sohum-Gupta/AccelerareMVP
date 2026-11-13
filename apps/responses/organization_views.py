@@ -164,11 +164,6 @@ def _submitted_for(enterprise):
     )
 
 
-def _day(moment):
-    """The day only, as 2026-11-13, so a spreadsheet sorts it. The pages show the day too."""
-    return timezone.localtime(moment).date().isoformat()
-
-
 def _level_words():
     """How each results level is named, taken from the one template that names them."""
     return {
@@ -185,8 +180,8 @@ def _export_rows(responses):
         yield (
             row["name"],
             row["email"],
-            _day(row["started_at"]),
-            _day(row["submitted_at"]),
+            exports.day(row["started_at"]),
+            exports.day(row["submitted_at"]),
             f"{level} (licence withdrawn)" if row["withdrawn"] else level,
             "yes" if row["possible_repeat"] else "no",
         )
