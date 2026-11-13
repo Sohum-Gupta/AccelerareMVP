@@ -1,0 +1,23 @@
+{% comment %}
+The numbers at the top of the admin's first page. Each is a link to the list
+behind it. A member of staff gets only the lines for lists they may open; with
+none, nothing is shown at all.
+{% endcomment %}
+{% if lines %}
+  <div class="module" data-staff-numbers>
+    <table>
+      <caption>At a glance</caption>
+      <tbody>
+        {% for line in lines %}
+          <tr>
+            <th scope="row">
+              <a href="{{ line.url }}">{{ line.label }}</a>
+              {% if line.warning %}<div style="margin-top: 4px;"><span class="errornote" style="display: inline; padding: 2px 6px;">{{ line.warning }}</span></div>{% endif %}
+            </th>
+            <td style="text-align: right; white-space: nowrap; vertical-align: top;"><strong>{{ line.number }}</strong></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}

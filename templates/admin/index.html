@@ -1,0 +1,13 @@
+{% extends "admin/index.html" %}
+{% comment %}
+The Django admin's first page, with the numbers that say how the site is doing
+above the list of pages (Milestone 6). Everything else is Django's own page:
+the content block below is Django's three lines with one tag added.
+{% endcomment %}
+{% load staff_numbers %}
+{% block content %}
+<div id="content-main" class="app-list">
+  {% staff_numbers %}
+  {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+</div>
+{% endblock %}
