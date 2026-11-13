@@ -7,10 +7,34 @@
 {% block content %}
   <h1>The Accelerare Personality Diagnostic</h1>
 
-  <section class="mb-6" aria-labelledby="who-sees">
-    <h2 id="who-sees" class="mb-2 text-lg font-semibold">Who sees your answers</h2>
-    <p>While you take the survey, your answers are visible to you and to Accelerare. After you submit, you will see your results, not your answers. Accelerare keeps your answers to produce your results and to improve the diagnostic.</p>
-  </section>
+  {% if organization %}
+    {# The organization version. It must say everything the organization's admins can see. #}
+    <p class="mb-6 rounded-md border border-slate-300 bg-white px-4 py-3 text-sm">You are taking this survey for <strong>{{ organization }}</strong>.</p>
+
+    <section class="mb-6" aria-labelledby="who-sees">
+      <h2 id="who-sees" class="mb-2 text-lg font-semibold">Who sees your answers</h2>
+      <p>Your answers are visible to you while you take the survey, and to Accelerare. <strong>{{ organization }} never sees your answers.</strong></p>
+      <p class="mb-1">The admins of {{ organization }} can see:</p>
+      <ul class="mb-3 list-disc space-y-1 pl-5">
+        <li>that you are taking the survey for them, and whether it is in progress or submitted;</li>
+        <li>the dates you started and submitted it;</li>
+        <li>its results level, and a mark if it looks as though you have taken the survey before;</li>
+        <li>your results for this survey, once results are available.</li>
+      </ul>
+      <p class="mb-1">They cannot see:</p>
+      <ul class="mb-3 list-disc space-y-1 pl-5">
+        <li>your answers, or your answer to the question at the bottom of this page;</li>
+        <li>how far through the survey you are;</li>
+        <li>any survey you take personally, or for another organization.</li>
+      </ul>
+      <p>After you submit, you will see your results, not your answers. Accelerare keeps your answers to produce your results and to improve the diagnostic.</p>
+    </section>
+  {% else %}
+    <section class="mb-6" aria-labelledby="who-sees">
+      <h2 id="who-sees" class="mb-2 text-lg font-semibold">Who sees your answers</h2>
+      <p>While you take the survey, your answers are visible to you and to Accelerare. After you submit, you will see your results, not your answers. Accelerare keeps your answers to produce your results and to improve the diagnostic.</p>
+    </section>
+  {% endif %}
 
   <section class="mb-6" aria-labelledby="how-it-works">
     <h2 id="how-it-works" class="mb-2 text-lg font-semibold">How it works</h2>
@@ -25,8 +49,13 @@
 
   {% if state == "no_licence" %}
     <section class="rounded-md border border-slate-300 bg-white p-4" role="status" aria-labelledby="licence-title">
-      <h2 id="licence-title" class="mb-1 text-base font-semibold">You need a licence to take the survey</h2>
-      <p class="mb-0 text-sm text-slate-700">Accelerare adds licences by hand for now. Once one is on your account, this page will show the survey.</p>
+      {% if organization %}
+        <h2 id="licence-title" class="mb-1 text-base font-semibold">You need a licence to take the survey for {{ organization }}</h2>
+        <p class="mb-0 text-sm text-slate-700">Accelerare adds licences by hand for now. Once you have one for {{ organization }}, this page will show the survey.</p>
+      {% else %}
+        <h2 id="licence-title" class="mb-1 text-base font-semibold">You need a licence to take the survey</h2>
+        <p class="mb-0 text-sm text-slate-700">Accelerare adds licences by hand for now. Once one is on your account, this page will show the survey.</p>
+      {% endif %}
     </section>
   {% elif state == "in_progress" %}
     <section class="rounded-md border border-slate-300 bg-white p-4" role="status" aria-labelledby="progress-title">

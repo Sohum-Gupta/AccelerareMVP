@@ -153,7 +153,7 @@ class TestWithALicence:
         assert draft.took_before is False
 
     def test_a_service_refusal_is_shown_not_a_crash(self, client, licensed, monkeypatch):
-        def refuse(account):
+        def refuse(account, membership=None):
             raise services.NoLicence("You need a licence to take the survey.")
 
         monkeypatch.setattr(services, "start_response", refuse)

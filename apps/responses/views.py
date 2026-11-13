@@ -11,8 +11,12 @@ page is ever shown: any other page number redirects to the page the person is
 on, so a locked page cannot be reopened, nor a later one peeked at. History and
 results need only a verified email.
 
-The start page here is the personal one; the organization's start page arrives
-with the other per-context pages.
+Context. There are two start pages: /survey/start/ for a personal attempt and
+/survey/start/<slug>/ for one taken for an organization. The second goes
+through scoping.for_member, so the slug only says which organization is meant:
+what comes back is this account's own active membership, or a 404. Everything
+after the start page finds the context on the response itself. The templates
+are given the organization's name and nothing else about it.
 """
 
 from functools import wraps
@@ -24,6 +28,8 @@ from django.urls import reverse
 from django.views.decorators.cache import never_cache
 
 from apps.accounts.decorators import verified_email_required
+from apps.enterprises import scoping
+from apps.enterprises.models import Membership
 from apps.entitlements import services as licences
 from apps.entitlements.models import Entitlement
 from apps.survey.models import Question
@@ -40,22 +46,51 @@ def _open_draft(account, membership=None):
     ).first()
 
 
+def _start_url(membership):
+    """The start page of a context: personal, or the organization's."""
+    if membership is None:
+        return reverse("responses:start")
+    return reverse("responses:start_for_organization", args=[membership.enterprise.slug])
+
+
+def _organization(membership):
+    """The organization's name for a template, or None for a personal attempt."""
+    return membership.enterprise.name if membership is not None else None
+
+
 @verified_email_required
 def start(request):
+    """The personal start page. See _start."""
+    return _start(request, None)
+
+
+@verified_email_required
+def start_for_organization(request, slug):
     """
-    The disclosure page: who sees the answers, how the survey works, and the
-    self-report question. A GET writes nothing; the POST is what consumes the
-    licence (or resumes the draft) and saves the self-report.
+    The start page for taking the survey for an organization. Only an active
+    member gets here; anyone else, and any slug that does not exist, is a 404.
     """
-    draft = _open_draft(request.user)
-    if not licences.has_survey_access(request.user):
-        return render(request, "responses/disclosure.html", {"state": "no_licence"})
+    return _start(request, scoping.for_member(request, slug))
+
+
+def _start(request, membership):
+    """
+    The disclosure page: who sees the answers (and, for an organization, what
+    its admins will see), how the survey works, and the self-report question.
+    A GET writes nothing; the POST is what consumes a licence of this context
+    (or resumes its draft) and saves the self-report.
+    """
+    here = _start_url(membership)
+    context = {"organization": _organization(membership)}
+    draft = _open_draft(request.user, membership)
+    if not licences.has_survey_access(request.user, membership):
+        return render(request, "responses/disclosure.html", {**context, "state": "no_licence"})
     if draft is not None and draft.pages_completed:
         # The self-report locked with page 1; nothing to ask here any more.
         if request.method == "POST":
             messages.info(request, "Your answer to that question is already locked in.")
-            return redirect("responses:start")
-        context = {"state": "in_progress", "draft": draft}
+            return redirect(here)
+        context.update(state="in_progress", draft=draft)
         return render(request, "responses/disclosure.html", context)
     form = (
         SelfReportForm(request.POST)
@@ -65,13 +100,13 @@ def start(request):
     if request.method == "POST" and form.is_valid():
         took_before, via = form.answer
         try:
-            response = services.start_response(request.user)
+            response = services.start_response(request.user, membership)
             services.save_self_report(response, took_before, via)
         except services.Refused as error:
             form.add_error(None, str(error))
         else:
             return redirect("responses:resume", response.pk)
-    context = {"state": "ready", "form": form, "resuming": draft is not None}
+    context.update(state="ready", form=form, resuming=draft is not None)
     return render(request, "responses/disclosure.html", context)
 
 
@@ -102,7 +137,7 @@ def _own_draft_required(view):
             return redirect("responses:result", pk)
         response = (
             mine.filter(status=Response.Status.DRAFT)
-            .select_related("entitlement", "membership")
+            .select_related("entitlement", "membership__enterprise")
             .first()
         )
         membership = response.membership if response is not None else None
@@ -121,10 +156,20 @@ def _own_draft_required(view):
 def _where_now(response):
     """The address of the step this response is on."""
     if response.took_before is None:
-        return reverse("responses:start")
+        return _start_url(response.membership)
     if response.pages_completed >= services.page_count(response):
         return reverse("responses:review", args=[response.pk])
     return reverse("responses:page", args=[response.pk, response.pages_completed + 1])
+
+
+def _gone(response):
+    """
+    Where to go when the draft vanished while a request was on its way (its
+    licence was revoked, or the member was deactivated). A personal attempt
+    goes to the start page, which explains about licences; an organization's
+    goes to "My surveys", because its start page may no longer be theirs to see.
+    """
+    return redirect("responses:start" if response.membership_id is None else "responses:history")
 
 
 def _number(raw):
@@ -190,6 +235,7 @@ def page(request, response, number):
         "number": number,
         "page_count": services.page_count(response),
         "statements": statements,
+        "organization": _organization(response.membership),
     }
     return render(request, "responses/page.html", context)
 
@@ -225,7 +271,7 @@ def save_answer(request, response):
         }
         return render(request, "responses/_statement.html", context, status=409)
     except Response.DoesNotExist:
-        return redirect("responses:start")
+        return _gone(response)
     question = _on_current_page(saved, question_id)
     context = {
         "response": saved,
@@ -257,7 +303,7 @@ def next_page(request, response):
     except services.Refused as error:
         messages.error(request, str(error))
     except Response.DoesNotExist:
-        return redirect("responses:start")
+        return _gone(response)
     return redirect("responses:resume", response.pk)
 
 
@@ -272,6 +318,7 @@ def review(request, response):
         "response_id": response.pk,
         "answered": len(services.answered_positions(response)),
         "total": Question.objects.filter(survey_version_id=response.survey_version_id).count(),
+        "organization": _organization(response.membership),
     }
     return render(request, "responses/review.html", context)
 
@@ -294,16 +341,19 @@ def submit(request, response):
         messages.error(request, str(error))
         return redirect("responses:resume", response.pk)
     except Response.DoesNotExist:
-        return redirect("responses:start")
+        return _gone(response)
     else:
         messages.success(request, "Submitted.")
     return redirect("responses:result", response.pk)
 
 
 # --- history and results -------------------------------------------------------
-# These need only a verified email, not a licence: past results stay visible.
-# The templates get a summary (dates, status, tier), never the response itself,
-# so no later template edit can print the answers by accident.
+# These need only a verified email, not a licence: past results stay visible,
+# and so does a survey taken for an organization the person has since left.
+# The templates get a summary (dates, status, tier, context), never the response
+# itself, so no later template edit can print the answers by accident.
+
+_WITH_CONTEXT = ("entitlement", "membership__enterprise")
 
 
 def _summary(response):
@@ -316,26 +366,51 @@ def _summary(response):
         "submitted_at": response.submitted_at,
         "tier": 0 if withdrawn else response.entitlement.tier,
         "withdrawn": withdrawn,
+        # None for a personal attempt, else the organization it was taken for.
+        "organization": _organization(response.membership),
+    }
+
+
+def _next_step(account, membership=None):
+    """
+    What the person can do next in one context: carry on with its draft, start
+    on an unused licence, or neither. `organization` is None for personal.
+    """
+    if membership is None:
+        active = Entitlement.objects.filter(
+            person_id=account.person_id, membership__isnull=True, revoked_at__isnull=True
+        )
+    else:
+        active = Entitlement.objects.filter(membership=membership, revoked_at__isnull=True)
+    draft = _open_draft(account, membership)
+    return {
+        "organization": _organization(membership),
+        "draft_id": draft.pk if draft is not None else None,
+        "unused": active.filter(response__isnull=True).count(),
+        # Tier 0: no licence that still counts in this context.
+        "free": not active.exists(),
+        "start_url": _start_url(membership),
     }
 
 
 @never_cache
 @verified_email_required
 def history(request):
-    """Every attempt of this account, newest first, with Start or Continue."""
-    responses = request.user.responses.select_related("entitlement")
-    draft = _open_draft(request.user)
-    # Personal licences only (no membership): an organization's licence is not
-    # this page's business until the survey pages learn about context.
-    active = Entitlement.objects.filter(
-        person_id=request.user.person_id, membership__isnull=True, revoked_at__isnull=True
+    """
+    Every attempt of this account, newest first, each with its context, and
+    what can be done next in each context: personal first, then every
+    organization the account is an active member of.
+    """
+    account = request.user
+    memberships = (
+        Membership.objects.filter(account=account, status=Membership.Status.ACTIVE)
+        .select_related("enterprise")
+        .order_by("enterprise__name", "id")
     )
     context = {
-        "rows": [_summary(response) for response in responses],
-        "draft_id": draft.pk if draft is not None else None,
-        "unused": active.filter(response__isnull=True).count(),
-        # Tier 0: no licence that still counts, so the account is on the free tier.
-        "free": not active.exists(),
+        "rows": [_summary(r) for r in account.responses.select_related(*_WITH_CONTEXT)],
+        "personal": _next_step(account),
+        "organizations": [_next_step(account, membership) for membership in memberships],
     }
     return render(request, "responses/history.html", context)
 
@@ -343,9 +418,9 @@ def history(request):
 @never_cache
 @verified_email_required
 def result(request, pk):
-    """One submitted response: date, tier and (from Milestone 5) results. Never the answers."""
+    """One submitted response: date, tier, context and (from Milestone 5) results. Never the answers."""
     response = get_object_or_404(
-        Response.objects.select_related("entitlement"), pk=pk, account=request.user
+        Response.objects.select_related(*_WITH_CONTEXT), pk=pk, account=request.user
     )
     if response.status != Response.Status.SUBMITTED:
         return redirect("responses:resume", response.pk)
