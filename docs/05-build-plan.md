@@ -473,7 +473,7 @@ This is where the project becomes multi-tenant, and multi-tenancy is where produ
 - **Taking back.** The admin can take a licence back until its survey is submitted. If the member has started, their unfinished attempt is deleted, after a warning. Once submitted, it cannot be taken back.
 - **Changing the tier.** Before the survey is submitted the admin can move a licence up or down. Afterwards only up. Either way the new tier must have one left, and the old tier gets one back.
 - **A member who has left.** Deactivating a member leaves their unused licence with the membership, as decided in Milestone 3, and it works again if they are reactivated. The admin can also take it back to the stock with the same button.
-- **A tier on an invite or a join code.** The admin may choose a tier when sending an invite or making a code. Each person who joins with it is given a licence of that tier from the stock. If none is left, they still join, without a licence, and the admin's page says how many people that happened to.
+- **A tier on an invite or a join code.** The admin may choose a tier when sending an invite or making a code. Each person who joins with it is given a licence of that tier from the stock. If none is left, they still join, without a licence, and the admin's page says how many people that happened to. *(Changed on 2026-11-13: the licence is now set aside when the invite or code is made, so none can be missing at the join; see "Milestone 4, second part".)*
 - **The people limit** (was `06-backlog.md` D-16). The number of people an organization may bring in is its base number (25, which staff can still change by hand) plus every licence it has bought, across all tiers.
 
 **Smaller rules, the builder's calls** (raised here so they can be overruled)
@@ -540,7 +540,7 @@ This is where the project becomes multi-tenant, and multi-tenancy is where produ
 
 - [ ] On the live site: staff set an organization's stock in the Django admin; its admin gives a member a licence on the Licences page, the member takes the survey for the organization, and the counts are right at each step.
 - [ ] The admin changes an unused licence's tier and takes one back; a submitted one cannot be taken back.
-- [ ] A join code carrying Tier 2 gives the person who joins a Tier 2 licence; with none left they join without one and the admin sees the warning.
+- [ ] A join code carrying Tier 2 can be made only while the stock covers everyone it allows, and gives the person who joins a Tier 2 licence. *(Reworded on 2026-11-13 with the second part of this milestone: nobody joins without the promised licence any more, so there is no warning to see.)*
 - [ ] With 25 people brought in, the next is refused; after staff add a licence to the stock, the next gets in.
 - [x] All tests pass, including every tenant isolation test. *(1,259 tests, in CI and locally, 2026-11-13.)*
 
@@ -570,18 +570,18 @@ Run this on the live site. Each part matches one "Done when" box; tick the box w
 3. Press "Take back" under your licence. A page asks "Take back this licence?" and says nothing of yours will be deleted. Press "Take back the licence". The stock says "1 of 1 Tier 3 licence left" and your row says "No licence".
 4. The second person's licence, whose survey is submitted, still has no "Take back". Its tier can only go up: its drop-down offers Tier 3 and nothing lower.
 
-*Part C: a join code that carries a tier (box 3).*
-1. Window 1: "Join codes". Under "Licence for each person who joins" choose "Tier 2 licence" and press "Create code". The new code's line ends "Gives a Tier 2 licence".
-2. Window 2, logged in as the third person: `/join/code/`, that code, Continue, Join. The message says "You have joined (your organization). You have a licence to take the survey for it." Window 1: the Licences page shows the third person with a Tier 2 licence, "Not used yet", and the stock says "0 of 2 Tier 2 licences left".
-3. Window 2, logged in as the fourth person: join with the same code. The message says only "You have joined (your organization)."
-4. Window 1: the organization's page. The "Licences" box has a yellow note beginning "1 member joined with an invite or a join code that came with a licence, but your stock had none left". The Licences page has the same note, and under the fourth person: "Joined with an invite or a join code for a Tier 2 licence, but none was left."
+*Part C: a join code that carries a tier (box 3).* *(Rewritten on 2026-11-13 for the second part of this milestone.)*
+1. Window 1: "Join codes". The drop-down "Licence for each person who joins" now reads "Tier 2 licence (1 left)" and "Tier 3 licence (1 left)". Leave "How many people may use it" at 10, choose "Tier 2 licence (1 left)" and press "Create code". It is refused: the code "would give a Tier 2 licence to each of 10 people, but your stock has only 1 left".
+2. Change "How many people may use it" to 1 and press "Create code" again. The new code's line ends "Gives a Tier 2 licence". On the Licences page the stock reads "0 of 2 Tier 2 licences left · 1 set aside for invites and join codes".
+3. Window 2, logged in as the third person: `/join/code/`, that code, Continue. The last sentence above the button reads "Joining makes you a member. This code comes with a licence to take the survey for (your organization)." Press Join. The message says "You have joined (your organization). You have a licence to take the survey for it." Window 1: the Licences page shows the third person with a Tier 2 licence, "Not used yet", and the stock says "0 of 2 Tier 2 licences left" with nothing set aside.
+4. Window 1: "Join codes", make another code with "No licence". Window 2, logged in as the fourth person: join with that code. The sentence above the button says a licence may be given later, and the message afterwards says only "You have joined (your organization)."
 
 *Part D: the people limit grows with what was bought (box 4).*
 1. Django admin, the organization. "Places" begins "25 of 28 left (0 invite(s) sent, 3 join(s) by code": 25 to start with, plus the 3 licences bought, less the 3 people who joined.
 2. Set "People limit" to 0 and save. "Places" now begins "0 of 3 left": only the licences bought are letting people in.
 3. Window 1: "Invites", type any address, "Send invite". It is refused: "(your organization) has no places left."
 4. Django admin, "Licence stock…": type 1 for "Tier 1 licences bought" and save. "Places" begins "1 of 4 left".
-5. Window 1: send the same invite again. This time it goes (while SES is in its sandbox the page may say the invite is saved but the email could not be sent; that is still a pass). On the Licences page, give the fourth person a licence (Tier 1 and Tier 3 each have one left): the yellow note disappears there and on the organization's page.
+5. Window 1: send the same invite again. This time it goes (while SES is in its sandbox the page may say the invite is saved but the email could not be sent; that is still a pass). On the Licences page, give the fourth person a licence (Tier 1 and Tier 3 each have one left).
 6. Django admin: set "People limit" back to 25. Window 1: "Invites", "Withdraw invite" beside the test invite.
 
 When every part passes, tell Claude: the four boxes are then ticked in a docs-only PR and the milestone is closed. If anything does not behave as written, say what you saw; it is fixed before the box is ticked.
@@ -596,7 +596,7 @@ When every part passes, tell Claude: the four boxes are then ticked in a docs-on
 
 *Why the lock.* Two admins give the last licence at the same instant. Both read "1 left", both give, and the organization has handed out more than it bought. Locking the organization's row makes the second wait and then see "0 left". It is the same shape as the join code and the people limit in Milestone 3, and the same fix.
 
-*Why a join never fails because of the stock.* The person holding the invite did nothing wrong, and the admin can fix the stock afterwards. Turning them away would make the organization's bookkeeping the member's problem.
+*Why a join never fails because of the stock.* The person holding the invite did nothing wrong, and the admin can fix the stock afterwards. Turning them away would make the organization's bookkeeping the member's problem. *(Since the second part of this milestone the question no longer comes up: the licence is set aside when the invite or code is made, so the stock cannot be empty at the join.)*
 
 ---
 
@@ -606,7 +606,7 @@ When every part passes, tell Claude: the four boxes are then ticked in a docs-on
 
 **Goal:** a licence promised by an invite or a join code is really there. It is set aside out of the organization's stock when the invite or the code is made, the page read before joining says it comes with one, and an invite that has not been used can be emailed again or moved to another address.
 
-**Status (2026-11-13).** Planned (PR 0, this section). Nothing is built: until PR 1 is deployed the site behaves as Milestone 4 describes above.
+**Status (2026-11-13).** PR 0 (the plan) and PR 1 (`lc-set-aside`) are merged: licences are set aside, the page before joining says when one comes with the invite or code, the stock lines show what is set aside, and the "joined without a licence" warning is gone. PR 2 (emailing an invite again and moving it) is next.
 
 **How it is run.** Merged on green without waiting for review, like Milestones 3 and 4 (decision log, 2026-11-13). The rules below marked *builder's call* were not asked one by one, because the founder asked for small choices to be made sensibly and listed; each can be overruled.
 

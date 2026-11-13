@@ -71,7 +71,11 @@ def _state(licence):
 
 def _stock(enterprise):
     """The stock lines a page shows: the tiers the organization has bought or holds."""
-    return [line for line in orgs.seat_summary(enterprise) if line["bought"] or line["given"]]
+    return [
+        line
+        for line in orgs.seat_summary(enterprise)
+        if line["bought"] or line["given"] or line["set_aside"]
+    ]
 
 
 def _licence_facts(licence, tiers_left):
@@ -95,12 +99,8 @@ def _licence_facts(licence, tiers_left):
     }
 
 
-def _member_facts(person, held, viewer, tiers_left, promised):
-    """
-    What the page shows for one member. Plain values only. `promised` is the
-    tier their invite or join code came with if the stock had none left when
-    they joined and they have had no licence since; otherwise None.
-    """
+def _member_facts(person, held, viewer, tiers_left):
+    """What the page shows for one member. Plain values only."""
     shown = [_licence_facts(licence, tiers_left) for licence in held]
     return {
         "id": person.pk,
@@ -112,7 +112,6 @@ def _member_facts(person, held, viewer, tiers_left, promised):
         "licences": shown,
         # One licence at a time: another can be given once the last is submitted.
         "can_give": person.is_active and all(one["state"] == SUBMITTED for one in shown),
-        "promised": promised,
     }
 
 
@@ -123,9 +122,8 @@ def licences(request, slug):
     """
     The organization's stock, tier by tier, and its members with the licences
     they hold. Members who have left are listed only while they still hold one.
-    A licence that has been taken back is not shown. It also says how many
-    people joined with an invite or a code that came with a licence and got
-    none, because the stock had none left, and marks each of them.
+    A licence that has been taken back is not shown. A tier has a licence
+    "left" only if it is neither given nor set aside for an invite or a code.
     """
     membership = scoping.for_admin(request, slug)
     enterprise = membership.enterprise
@@ -141,17 +139,13 @@ def licences(request, slug):
         if person.is_active or person.pk in held
     ]
     people.sort(key=lambda person: (not person.is_active, person.joined_at, person.pk))
-    without = orgs.joined_without_licence(enterprise)
 
     context = {
         "organization": organization(membership),
         "stock": stock,
         "give_tiers": tiers_left,
-        "without_licence": len(without),
         "rows": [
-            _member_facts(
-                person, held.get(person.pk, []), membership, tiers_left, without.get(person.pk)
-            )
+            _member_facts(person, held.get(person.pk, []), membership, tiers_left)
             for person in people
         ],
     }

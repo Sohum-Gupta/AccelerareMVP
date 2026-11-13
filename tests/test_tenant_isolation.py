@@ -416,7 +416,7 @@ class TestAMemberIsNotAnAdmin:
                 assert membership.account.full_name not in text, url
                 assert membership.account.email not in text, url
             admin_things = ("current_members", "all_time_members", "places", "stock")
-            for admins_only in (*admin_things, "without_licence"):
+            for admins_only in admin_things:
                 assert admins_only not in page.context, url
             for secret in (world.acme.code.code, world.acme.invite.email, world.acme.invite.token):
                 assert secret not in text, url
@@ -485,9 +485,9 @@ class TestWhatNoPageShows:
             assert all(r.status == "submitted" and r.membership_id is None for r in org.personal)
             assert Membership.objects.filter(enterprise=org.enterprise).count() == 3
             assert orgs.seat_summary(org.enterprise) == [
-                {"tier": 1, "bought": 0, "given": 0, "left": 0},
-                {"tier": 2, "bought": 3, "given": 1, "left": 2},
-                {"tier": 3, "bought": 2, "given": 0, "left": 2},
+                {"tier": 1, "bought": 0, "given": 0, "set_aside": 0, "left": 0},
+                {"tier": 2, "bought": 3, "given": 1, "set_aside": 0, "left": 2},
+                {"tier": 3, "bought": 2, "given": 0, "set_aside": 0, "left": 2},
             ]
             assert org.seat.source == "seat" and org.seat.membership == org.members[1]
 
@@ -661,13 +661,12 @@ LICENCE_MEMBER_FACTS = {
     "is_you",
     "can_give",
     "licences",
-    "promised",
 }
 LICENCE_FACTS = {"id", "tier", "state", "from_stock", "can_take_back", "move_to"}
 # The stock lines Acme's admin is shown: only tiers it has bought.
 ACME_STOCK = [
-    {"tier": 2, "bought": 3, "given": 1, "left": 2},
-    {"tier": 3, "bought": 2, "given": 0, "left": 2},
+    {"tier": 2, "bought": 3, "given": 1, "set_aside": 0, "left": 2},
+    {"tier": 3, "bought": 2, "given": 0, "set_aside": 0, "left": 2},
 ]
 
 
@@ -716,16 +715,16 @@ class TestTheLicencesPage:
             assert client.get(address(world.acme, url)).context["stock"] == ACME_STOCK, url
         assert settled(html(client, address(world.acme, "licences/"))) == before
 
-    def test_the_warning_counts_only_its_own_members(self, client, world, admin):
-        """Someone joining Globex with a code whose licence had run out is Globex's business."""
-        orgs.set_seat_pool(world.globex.enterprise, 3, 0)
-        code = orgs.create_code(world.globex.admin, 5, tier=3)
-        joined = orgs.redeem_code(code.code, verified_account("late@example.com"))
-        assert orgs.joined_without_licence(world.globex.enterprise) == {joined.pk: 3}
+    def test_what_another_organization_sets_aside_is_its_own(self, client, world, admin):
+        """Globex promising its licences to a code and an invite takes nothing from Acme's stock."""
+        orgs.create_code(world.globex.admin, 2, tier=3)
+        orgs.invite_by_email(world.globex.admin, "late@example.com", tier=2)
+        assert orgs.seats_set_aside(world.globex.enterprise) == {1: 0, 2: 1, 3: 2}
+        assert orgs.seats_set_aside(world.acme.enterprise) == {1: 0, 2: 0, 3: 0}
         for url in ("licences/", ""):
             page = client.get(address(world.acme, url))
-            assert page.context["without_licence"] == 0, url
-            assert "data-without-licence" not in page.content.decode(), url
+            assert page.context["stock"] == ACME_STOCK, url
+            assert "data-set-aside" not in page.content.decode(), url
 
     def test_another_organizations_member_cannot_be_given_a_licence(self, client, world, admin):
         for member in world.globex.everyone:

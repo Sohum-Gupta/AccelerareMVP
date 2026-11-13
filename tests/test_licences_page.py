@@ -135,7 +135,6 @@ class TestThePage:
             "is_you": False,
             "can_give": True,
             "licences": [],
-            "promised": None,
         }
         assert "No licence" in text and give(bob) in text and give(admin) in text
 

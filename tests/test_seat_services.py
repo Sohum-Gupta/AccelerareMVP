@@ -104,7 +104,7 @@ class TestGiving:
         assert (licence.membership, licence.person, licence.tier) == (member, None, 2)
         assert licence.source == "seat" and licence.granted_by == admin.account
         assert licence.is_active
-        assert row(enterprise, 2) == {"tier": 2, "bought": 5, "given": 1, "left": 4}
+        assert row(enterprise, 2) == {"tier": 2, "bought": 5, "given": 1, "set_aside": 0, "left": 4}
         assert events() == [("licence_granted", 2, "seat")]
 
     def test_the_member_can_then_take_the_survey_for_the_organization(self, acme, member):
@@ -294,7 +294,7 @@ class TestTakingBack:
         assert taken.pk == licence.pk and not draft_deleted
         licence.refresh_from_db()
         assert licence.revoked_at is not None  # revoked, not deleted
-        assert row(enterprise, 2) == {"tier": 2, "bought": 5, "given": 0, "left": 5}
+        assert row(enterprise, 2) == {"tier": 2, "bought": 5, "given": 0, "set_aside": 0, "left": 5}
         assert not services.has_survey_access(member.account, member)
 
     def test_one_in_progress_goes_back_and_the_unfinished_attempt_is_deleted(self, acme, member):
@@ -562,7 +562,7 @@ def test_two_admins_giving_the_last_licence_at_the_same_moment_give_exactly_one(
     refused = [result for result in results if isinstance(result, Refused)]
     assert [str(result) for result in refused] == [NONE_LEFT]
     assert Entitlement.objects.count() == 1
-    assert row(enterprise, 2) == {"tier": 2, "bought": 1, "given": 1, "left": 0}
+    assert row(enterprise, 2) == {"tier": 2, "bought": 1, "given": 1, "set_aside": 0, "left": 0}
 
 
 @pytest.mark.django_db(transaction=True)

@@ -187,8 +187,8 @@ class TestCounting:
         services.set_seat_pool(enterprise, 2, 5)
         stock_licence(member, 2)
         assert services.seats_given(enterprise) == {1: 0, 2: 1, 3: 0}
-        assert row(enterprise, 2) == {"tier": 2, "bought": 5, "given": 1, "left": 4}
-        assert row(enterprise, 1) == {"tier": 1, "bought": 0, "given": 0, "left": 0}
+        assert row(enterprise, 2) == {"tier": 2, "bought": 5, "given": 1, "set_aside": 0, "left": 4}
+        assert row(enterprise, 1) == {"tier": 1, "bought": 0, "given": 0, "set_aside": 0, "left": 0}
 
     def test_an_admin_holding_one_counts_like_any_member(self, acme):
         enterprise, admin = acme
@@ -248,9 +248,9 @@ class TestCounting:
         stock_licence(new_member(other, "carol@example.com"), 1)
         assert services.seats_given(enterprise) == NOTHING
         assert services.seat_summary(enterprise) == [
-            {"tier": tier, "bought": 0, "given": 0, "left": 0} for tier in (1, 2, 3)
+            {"tier": tier, "bought": 0, "given": 0, "set_aside": 0, "left": 0} for tier in (1, 2, 3)
         ]
-        assert row(other, 2) == {"tier": 2, "bought": 9, "given": 1, "left": 8}
+        assert row(other, 2) == {"tier": 2, "bought": 9, "given": 1, "set_aside": 0, "left": 8}
 
     def test_a_stock_lowered_below_what_is_given_takes_nothing_away(self, acme, member):
         enterprise, admin = acme
@@ -258,7 +258,7 @@ class TestCounting:
         stock_licence(member, 2)
         stock_licence(admin, 2)
         services.set_seat_pool(enterprise, 2, 1)
-        assert row(enterprise, 2) == {"tier": 2, "bought": 1, "given": 2, "left": 0}
+        assert row(enterprise, 2) == {"tier": 2, "bought": 1, "given": 2, "set_aside": 0, "left": 0}
         assert Entitlement.objects.filter(revoked_at__isnull=True).count() == 2
 
 
@@ -394,7 +394,7 @@ class TestTheStockPage:
         ]
         page = response.content.decode()
         assert "Tier 2 licences bought" in page
-        assert "1 given to members, 9 left." in page
+        assert "1 given to members, 0 set aside for invites and join codes, 9 left." in page
         assert "it can bring in 35 in total" in page
 
     def test_looking_at_it_changes_nothing(self, client, root, acme):
@@ -411,7 +411,10 @@ class TestTheStockPage:
         assert history(enterprise) == [(root, text)]
         assert text + "." in said(response)
         page = response.content.decode()
-        assert "Tier 2: 10 bought, 0 given, 10 left; Tier 3: 3 bought, 0 given, 3 left" in page
+        assert (
+            "Tier 2: 10 bought, 0 given, 0 set aside, 10 left; "
+            "Tier 3: 3 bought, 0 given, 0 set aside, 3 left"
+        ) in page
         assert "38 of 38 left" in page
 
     def test_only_the_tiers_that_changed_are_written_and_logged(self, client, root, acme):
@@ -442,11 +445,11 @@ class TestTheStockPage:
         data = {"tier_1": 0, "tier_2": 1, "tier_3": 0}
         response = client.post(stock_page(enterprise), data, follow=True)
         messages = said(response)
-        assert "Tier 2: 2 are already given to members" in messages
+        assert "Tier 2: 2 are already given to members or set aside" in messages
         assert "Nobody loses a licence" in messages
         assert services.seats_bought(enterprise)[2] == 1
         assert Entitlement.objects.filter(revoked_at__isnull=True).count() == 2
-        assert "Tier 2: 1 bought, 2 given, 0 left" in response.content.decode()
+        assert "Tier 2: 1 bought, 2 given, 0 set aside, 0 left" in response.content.decode()
 
     @pytest.mark.parametrize("typed", ["-1", "", "ten", "2.5", str(services.MAX_SEATS + 1)])
     def test_a_number_that_will_not_do_is_an_error_on_the_form(self, client, root, acme, typed):

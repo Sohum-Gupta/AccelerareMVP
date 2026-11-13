@@ -11,7 +11,8 @@ Who sees what (the founder's rules of 2026-11-12):
   took personally.
 * An admin brings people in with join codes and email invites, and sees how
   many places the organization has left. An invite or a code can carry a tier:
-  whoever joins with it is given a licence of that tier from the stock.
+  its licences are set aside out of the stock when it is made, and whoever
+  joins with it is given one.
 
 How that is kept true:
 
@@ -50,6 +51,20 @@ from .forms import EnterpriseForm, InviteForm, JoinCodeForm, JoinForm
 from .models import Invite, JoinCode, Membership
 from .shown import member_email, member_name
 from .shown import organization as _organization
+
+
+def _tiers_left(enterprise):
+    """{tier: how many licences of it can still be given or promised}, for the two forms."""
+    return {line["tier"]: line["left"] for line in services.seat_summary(enterprise)}
+
+
+def _stock_lines(enterprise):
+    """The stock lines a page shows: only the tiers the organization has bought or holds."""
+    return [
+        line
+        for line in services.seat_summary(enterprise)
+        if line["bought"] or line["given"] or line["set_aside"]
+    ]
 
 
 def _places(enterprise):
@@ -108,13 +123,7 @@ def dashboard(request, slug):
         context["current_members"] = everyone.filter(status=Membership.Status.ACTIVE).count()
         context["all_time_members"] = everyone.count()
         context["places"] = _places(membership.enterprise)
-        context["stock"] = [
-            line
-            for line in services.seat_summary(membership.enterprise)
-            if line["bought"] or line["given"]
-        ]
-        # How many joined with an invite or code that came with a licence and got none.
-        context["without_licence"] = len(services.joined_without_licence(membership.enterprise))
+        context["stock"] = _stock_lines(membership.enterprise)
     return render(request, "enterprises/dashboard.html", context)
 
 
@@ -286,10 +295,11 @@ def codes(request, slug):
     """
     The organization's join codes, working ones first, and the form that makes
     a new one: how many people it lets in, how many days it lasts, and the
-    licence (if any) each person who joins with it is given.
+    licence (if any) each person who joins with it is given. A code with a
+    licence sets one aside for each person it allows, so the stock must cover it.
     """
     membership = scoping.for_admin(request, slug)
-    form = JoinCodeForm(request.POST or None)
+    form = JoinCodeForm(request.POST or None, left=_tiers_left(membership.enterprise))
     if request.method == "POST" and form.is_valid():
         expires_at = timezone.now() + timedelta(days=form.cleaned_data["days"])
         try:
@@ -320,7 +330,10 @@ def codes(request, slug):
 @verified_email_required
 @require_POST
 def revoke_code(request, slug, pk):
-    """Switch a join code off. Nobody else can join with it; those who did stay."""
+    """
+    Switch a join code off. Nobody else can join with it; those who did stay.
+    Licences it had set aside and nobody took are back in the stock.
+    """
     membership = scoping.for_admin(request, slug)
     code = get_object_or_404(JoinCode, pk=pk, enterprise_id=membership.enterprise_id)
     try:
@@ -364,7 +377,7 @@ def invites(request, slug):
     admin copies the link and passes it on some other way.
     """
     membership = scoping.for_admin(request, slug)
-    form = InviteForm(request.POST or None)
+    form = InviteForm(request.POST or None, left=_tiers_left(membership.enterprise))
     if request.method == "POST" and form.is_valid():
         email = form.cleaned_data["email"]
         try:
@@ -399,7 +412,10 @@ def invites(request, slug):
 @verified_email_required
 @require_POST
 def revoke_invite(request, slug, pk):
-    """Withdraw an invite that has not been accepted. Its place is not given back."""
+    """
+    Withdraw an invite that has not been accepted. Its place is not given back;
+    a licence that was set aside for it is.
+    """
     membership = scoping.for_admin(request, slug)
     invite = get_object_or_404(Invite, pk=pk, enterprise_id=membership.enterprise_id)
     try:
@@ -422,8 +438,9 @@ def revoke_invite(request, slug, pk):
 #   every rule is checked and nothing is written). Then the button, a POST,
 #   which is the only thing that joins (services.redeem_code or accept_invite,
 #   which check everything again).
-# * All these pages ever show of the organization is its name. Never a member,
-#   a count or a licence: the person does not belong to it yet.
+# * All these pages ever show of the organization is its name, and whether the
+#   invite or the code comes with a licence for this person (never its tier).
+#   Never a member or a count: the person does not belong to it yet.
 # * Logged out, nothing is checked and nothing is revealed, not even whether
 #   the code or the link is real. The person is asked to log in or sign up, and
 #   a note in their session (apps/accounts/arrival.py) brings them back here
@@ -440,13 +457,16 @@ def _log_in_first(request, channel, back_to):
     return render(request, "enterprises/join_log_in.html", {"by_invite": channel == "invite"})
 
 
-def _confirmation(request, enterprise, *, email, code=""):
+def _confirmation(request, enterprise, *, email, with_licence, code=""):
     """
     The page that tells the truth first. Plain values only. `email` is the
     address the organization's admins will see for this person (the invited
     address for an invite, the login address for a code; see shown.member_email).
+    `with_licence` says whether the invite or the code carries a tier: a licence
+    was then set aside for whoever joins, and the page promises it.
     """
     context = {
+        "with_licence": with_licence,
         "organization_name": enterprise.name,
         "name": request.user.full_name,
         "email": email,
@@ -509,6 +529,7 @@ def join_code(request):
         request,
         found.enterprise,
         email=request.user.email,
+        with_licence=found.tier is not None,
         code=services.display_code(found.code),
     )
 
@@ -536,4 +557,6 @@ def join_invite(request, token):
             "wrong_address": isinstance(error, services.WrongAddress),
         }
         return render(request, "enterprises/join_refused.html", context)
-    return _confirmation(request, invite.enterprise, email=invite.email)
+    return _confirmation(
+        request, invite.enterprise, email=invite.email, with_licence=invite.tier is not None
+    )

@@ -48,7 +48,11 @@
     <p>Members who are not admins see nothing about you.</p>
   </section>
 
-  <p class="text-sm text-slate-700">Joining makes you a member. To take the survey for {{ organization_name }} you also need a licence from it. It may give you one as you join, or later.</p>
+  {% if with_licence %}
+    <p class="text-sm text-slate-700" data-with-licence>Joining makes you a member. This {% if by_invite %}invite{% else %}code{% endif %} comes with a licence to take the survey for {{ organization_name }}.</p>
+  {% else %}
+    <p class="text-sm text-slate-700">Joining makes you a member. To take the survey for {{ organization_name }} you also need a licence from it, which it may give you later.</p>
+  {% endif %}
 
   <form method="post" class="mb-4">
     {% csrf_token %}

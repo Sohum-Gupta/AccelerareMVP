@@ -3,11 +3,11 @@ What the licences app does when someone joins an organization.
 
 An invite or a join code can carry a tier. The organizations app cannot give a
 licence itself (it may not import this app), so it announces every join with
-its `member_joined` signal, and the receiver below gives the new member a
-licence of that tier out of the organization's stock, if one is left.
+its `member_joined` signal, and the receiver below gives the new member the
+licence of that tier that was set aside when the invite or code was made.
 
-The join never depends on this: the sender runs its listeners inside a
-savepoint and carries on if one fails (enterprises.services._announce_join).
+The join and the licence happen together or not at all: an error here is not
+caught, so it undoes the whole join (enterprises.services._announce_join).
 """
 
 from django.dispatch import receiver

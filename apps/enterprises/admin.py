@@ -200,7 +200,7 @@ class StockForm(forms.Form):
                 max_value=services.MAX_SEATS,
                 initial=row["bought"],
                 help_text=f"The total bought so far. {row['given']} given to members, "
-                f"{row['left']} left.",
+                f"{row['set_aside']} set aside for invites and join codes, {row['left']} left.",
             )
 
 
@@ -272,11 +272,16 @@ class EnterpriseAdmin(admin.ModelAdmin):
     @admin.display(description="Licences bought")
     def licences(self, enterprise):
         """The stock, tier by tier. Changed on the "Licence stock" page, not here."""
-        rows = [row for row in services.seat_summary(enterprise) if row["bought"] or row["given"]]
+        rows = [
+            row
+            for row in services.seat_summary(enterprise)
+            if row["bought"] or row["given"] or row["set_aside"]
+        ]
         if not rows:
             return "None yet"
         return "; ".join(
-            f"Tier {row['tier']}: {row['bought']} bought, {row['given']} given, {row['left']} left"
+            f"Tier {row['tier']}: {row['bought']} bought, {row['given']} given, "
+            f"{row['set_aside']} set aside, {row['left']} left"
             for row in rows
         )
 
@@ -317,12 +322,14 @@ class EnterpriseAdmin(admin.ModelAdmin):
                     continue
                 services.set_seat_pool(enterprise, row["tier"], new)
                 changes.append(f"Tier {row['tier']} from {row['bought']} to {new}")
-                if new < row["given"]:
+                promised = row["given"] + row["set_aside"]
+                if new < promised:
                     self.message_user(
                         request,
-                        f"Tier {row['tier']}: {row['given']} are already given to members, more "
-                        f"than the {new} now recorded as bought. Nobody loses a licence, and no "
-                        "more can be given at that tier until fewer are given than bought.",
+                        f"Tier {row['tier']}: {promised} are already given to members or set "
+                        f"aside for invites and join codes, more than the {new} now recorded as "
+                        "bought. Nobody loses a licence or a promise of one, and no more can be "
+                        "given at that tier until fewer are out than bought.",
                         messages.WARNING,
                     )
             if changes:

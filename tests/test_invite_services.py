@@ -91,6 +91,7 @@ class TestInvite:
         assert not Invite.objects.exists()
 
     def test_the_tier_is_stored_and_checked(self, acme):
+        services.set_seat_pool(acme[0], 2, 1)  # an invite with a tier needs one left in the stock
         assert invite(acme[1], tier=2).tier == 2
         refusal(lambda: services.invite_by_email(acme[1], "other@example.com", tier=4))
 
