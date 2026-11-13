@@ -31,10 +31,14 @@ before doing any work:
    audit log, possible duplicates and linking two logins, the match box, the results seam) is
    code-complete and deployed: PRs 0 to 7 (1,786 tests). The server runs a third container, the worker.
    Nobody has tried Milestone 5 by hand on the live site; its remaining "Done when" boxes are the
-   founder's live checks (T-24). Nothing is in progress: Milestone 6 has not been planned or started,
-   and it waits for the founder's word. Merging on green without waiting for a review applied to the
-   licence changes, payments and Milestone 5 and has ended with them: ask before doing it for anything
-   further. Product choices that come up are still asked of the founder first. `main` is
+   founder's live checks (T-24). The interface points the founder raised on the live site (T-19) and
+   the "look for duplicates" action (T-25) were built the same day (1,836 tests): a login now lands on
+   "My surveys", and the profile is a tidy "Your account" page. **The work in progress is Milestone 6**
+   (root admin, CSV export, erasure). The founder asked on 2026-11-13 for it to be planned, as its PR 0,
+   and built like Milestone 5: merging on green without waiting for a review applies to Milestone 6
+   and to nothing after it, and pertinent product decisions are raised to the founder as they come up.
+   The build plan's Milestone 6 section is the October outline and predates much of the code; re-plan
+   from the code as it is. Product choices that come up are still asked of the founder first. `main` is
    protected on GitHub: every change goes through a pull request whose `test` check has passed. The site
    is built for the US first; India is deferred.**
    Do not build anything from a later milestone than the one in progress.
