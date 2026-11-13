@@ -47,7 +47,7 @@ flowchart LR
 | Container registry | GitHub Container Registry (ghcr.io) | Free for this use; avoids ECR setup |
 | CI/CD | GitHub Actions | Test and lint on every push; on `main` build, push, then deploy over SSH with a key used only for deploys |
 | Email | Amazon SES over SMTP from `app.theaccelerare.com`, set up 2026-10-09 | Test mail delivered; production access requested and pending (sandbox: verified recipients only). See "Email sending" |
-| Error tracking | Sentry free tier, one project (`survey-platform`, organisation `accelerare`, US data region) | DSN in Parameter Store. `local` has no DSN; the server reports as environment `production` |
+| Error tracking | Sentry, on its free Developer plan once the new account's trial of the paid plan ends (founder, 2026-11-13); one project (`survey-platform`, organisation `accelerare`, US data region) | DSN in Parameter Store. `local` has no DSN; the server reports as environment `production` |
 | Uptime | A free external checker (UptimeRobot or similar) hitting `https://<domain>/health` every 5 minutes, alert by email | Detects the site being down; Sentry does not. Not yet set up |
 | Metrics and alarms | CloudWatch: EC2 CPU > 80% for 15 min, EC2 status check failed, RDS free storage < 2 GB, RDS CPU > 80%; all to one SNS topic emailing you | Default EC2 metrics do not include disk and memory; the CloudWatch agent adds them (optional for trial). Not yet set up |
 | Logs | `docker compose logs`; containers log to stdout. Optional: CloudWatch agent ships them off the box | Enough for the trial |
