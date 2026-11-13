@@ -5,7 +5,7 @@
   <script src="{% static 'js/survey-page.js' %}" defer></script>
 {% endblock %}
 {% block content %}
-  <p class="mb-1 text-sm text-slate-600">Page {{ number }} of {{ page_count }}</p>
+  <p class="mb-1 text-sm text-slate-600">Page {{ number }} of {{ page_count }}{% if organization %} · for {{ organization }}{% endif %}</p>
   <h1>How well does each statement describe you?</h1>
   <p class="text-sm text-slate-700">Every click is saved. Pick the closest fit for each one.</p>
 

@@ -463,15 +463,6 @@ class TestThePersonalStartPage:
         assert personal.pk != org_draft.pk
         assert fresh(finished_page_one).pages_completed == 1  # untouched
 
-    def test_my_surveys_offers_to_continue_the_personal_attempt_only(self, client, member):
-        client.force_login(member.account)
-        grant(member)
-        services.start_response(member.account, member)
-        assert client.get("/survey/history/").context["draft_id"] is None
-        grant_personal(member.account)
-        personal = services.start_response(member.account)
-        assert client.get("/survey/history/").context["draft_id"] == personal.pk
-
 
 def _answer_page_one(response):
     questions = Question.objects.filter(survey_version=response.survey_version, position__lte=5)

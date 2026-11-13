@@ -1,0 +1,22 @@
+{% comment %}
+What can be done next in one context ("My surveys"): carry on, start, or
+neither. `step.organization` is empty for the personal context.
+{% endcomment %}
+<section class="mb-4 rounded-md border border-slate-300 bg-white p-4" aria-labelledby="next-title-{{ key }}">
+  {% if label %}<p class="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{{ label }}</p>{% endif %}
+  {% if step.draft_id %}
+    <h2 id="next-title-{{ key }}" class="mb-1 text-base font-semibold">Your survey{% if step.organization %} for {{ step.organization }}{% endif %} is in progress</h2>
+    <p class="text-sm text-slate-700">Your answers so far are saved. Carry on from the first unlocked page.</p>
+    <a href="{% url 'responses:resume' step.draft_id %}" class="inline-block rounded-md bg-brand px-4 py-2 font-medium text-white no-underline hover:bg-brand-dark">Continue</a>
+  {% elif step.unused %}
+    <h2 id="next-title-{{ key }}" class="mb-1 text-base font-semibold">You have {{ step.unused }} unused licence{{ step.unused|pluralize }}{% if step.organization %} for {{ step.organization }}{% endif %}</h2>
+    <p class="text-sm text-slate-700">Each licence is one attempt at the survey.{% if step.organization %} The next page says what {{ step.organization }} will be able to see.{% endif %}</p>
+    <a href="{{ step.start_url }}" class="inline-block rounded-md bg-brand px-4 py-2 font-medium text-white no-underline hover:bg-brand-dark">Start</a>
+  {% elif step.organization %}
+    <h2 id="next-title-{{ key }}" class="mb-1 text-base font-semibold">No unused licence for {{ step.organization }}</h2>
+    <p class="mb-0 text-sm text-slate-700">Taking the survey for {{ step.organization }} needs a licence. Accelerare adds licences by hand for now.</p>
+  {% else %}
+    <h2 id="next-title-{{ key }}" class="mb-1 text-base font-semibold">{% if step.free %}Free account{% else %}No unused licence{% endif %}</h2>
+    <p class="mb-0 text-sm text-slate-700">Taking the survey needs a licence. Accelerare adds licences by hand for now.</p>
+  {% endif %}
+</section>
