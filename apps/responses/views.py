@@ -3,11 +3,16 @@ Thin views: read the form, call a service, show the result.
 
 The pages of one attempt (page, save_answer, next_page, review, submit) are
 behind _own_draft_required: a submitted response goes to its result, then the
-licence gate (survey_access_required), then ownership: the id in the address must
-be your own unfinished response on a licence that is still active, or it is a
-404. Only one page is ever shown: any other page number redirects to the page the
-person is on, so a locked page cannot be reopened, nor a later one peeked at.
-History and results need only a verified email.
+licence gate, then ownership: the id in the address must be your own unfinished
+response on a licence that is still active, or it is a 404. The gate is asked
+in the attempt's own context: a personal attempt needs personal access, and one
+taken for an organization needs the membership to be active still. Only one
+page is ever shown: any other page number redirects to the page the person is
+on, so a locked page cannot be reopened, nor a later one peeked at. History and
+results need only a verified email.
+
+The start page here is the personal one; the organization's start page arrives
+with the other per-context pages.
 """
 
 from functools import wraps
@@ -20,7 +25,6 @@ from django.views.decorators.cache import never_cache
 
 from apps.accounts.decorators import verified_email_required
 from apps.entitlements import services as licences
-from apps.entitlements.decorators import survey_access_required
 from apps.entitlements.models import Entitlement
 from apps.survey.models import Question
 
@@ -29,8 +33,11 @@ from .forms import SelfReportForm
 from .models import Response
 
 
-def _open_draft(account):
-    return Response.objects.filter(account=account, status=Response.Status.DRAFT).first()
+def _open_draft(account, membership=None):
+    """The account's unfinished attempt in one context: personal unless a membership is given."""
+    return Response.objects.filter(
+        account=account, membership=membership, status=Response.Status.DRAFT
+    ).first()
 
 
 @verified_email_required
@@ -78,31 +85,35 @@ def _own_draft_required(view):
     licence), then ownership: the id must be your own unfinished response on a
     licence that is still active, or it is a 404 (revoking deletes the draft; this
     is the second lock). The view gets the response instead of the id.
+
+    The licence gate is asked in the attempt's own context. With no draft of
+    yours under that id, or a personal one, it is the personal gate: without
+    access you go to the start page, which explains that a licence is needed.
+    For an organization's attempt the membership must still be active
+    (deactivating deletes the draft; this is the second lock there too), and
+    without access it is a 404.
     """
-
-    @wraps(view)
-    def own(request, pk, *args, **kwargs):
-        response = get_object_or_404(
-            Response.objects.select_related("entitlement"),
-            pk=pk,
-            account=request.user,
-            status=Response.Status.DRAFT,
-        )
-        if response.entitlement.revoked_at is not None:
-            raise Http404
-        return view(request, response, *args, **kwargs)
-
-    gated = survey_access_required(own)
 
     @wraps(view)
     @verified_email_required
     def wrapper(request, pk, *args, **kwargs):
-        submitted = Response.objects.filter(
-            pk=pk, account=request.user, status=Response.Status.SUBMITTED
-        )
-        if submitted.exists():
+        mine = Response.objects.filter(pk=pk, account=request.user)
+        if mine.filter(status=Response.Status.SUBMITTED).exists():
             return redirect("responses:result", pk)
-        return gated(request, pk, *args, **kwargs)
+        response = (
+            mine.filter(status=Response.Status.DRAFT)
+            .select_related("entitlement", "membership")
+            .first()
+        )
+        membership = response.membership if response is not None else None
+        if not licences.has_survey_access(request.user, membership):
+            if membership is not None:
+                raise Http404
+            messages.warning(request, "You need a licence to take the survey.")
+            return redirect("responses:start")
+        if response is None or response.entitlement.revoked_at is not None:
+            raise Http404
+        return view(request, response, *args, **kwargs)
 
     return wrapper
 

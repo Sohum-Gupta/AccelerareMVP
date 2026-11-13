@@ -137,6 +137,11 @@ def erase_account(account: Account, by: Account | None = None) -> Plan:
     """Do what plan_erasure says, all or nothing. Returns the plan that ran."""
     with transaction.atomic():
         account = Account.objects.select_for_update().get(pk=account.pk)
+        # Lock the memberships before anything of theirs is touched. An admin
+        # deactivating this person locks the membership and then deletes its
+        # unfinished attempt; taking the locks in the same order here (membership,
+        # then responses) means the two wait for each other instead of deadlocking.
+        list(account.memberships.select_for_update())
         plan = plan_erasure(account, by)
         emails = list(
             account.contact_points.filter(

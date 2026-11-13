@@ -16,6 +16,9 @@ The rules (decided by the founder on 2026-11-12):
   `people_limit` people in total (25 by default). Every invite ever sent counts,
   whatever became of it, and so does every join by code, so revoking and
   resending does not get round it. The creator does not count.
+* Deactivating someone deletes their unfinished survey attempt for the
+  organization. Their licence stays with the membership and works again when
+  they are reactivated; what they have submitted stays.
 * A join code works until it is revoked, expires or runs out of uses. A
   deactivated member cannot come back with a code; an admin reactivates them.
 * An invite goes to one email address, works once and lasts 14 days. Only an
@@ -428,9 +431,17 @@ def deactivate_membership(membership, by=None):
     The person has left: switch their membership off. They also stop being an
     admin, so they come back (if they do) as an ordinary member. The last active
     admin cannot be deactivated. Doing it twice changes nothing.
+
+    Their unfinished survey attempt for this organization is deleted: it could
+    not be continued, and it would be in the way if they came back. The licence
+    it was on stays with the membership, unused again, and works once they are
+    reactivated. Surveys they have submitted, and anything they took personally,
+    are left alone. The returned membership's `draft_deleted` says whether an
+    attempt was deleted, so the page or the admin can say so.
     """
     with transaction.atomic():
         membership = _locked(membership, by)
+        membership.draft_deleted = False
         if not membership.is_active:
             return membership
         _keep_one_admin(membership)
@@ -438,6 +449,11 @@ def deactivate_membership(membership, by=None):
         membership.deactivated_at = timezone.now()
         membership.role = Membership.Role.MEMBER
         membership.save(update_fields=["status", "deactivated_at", "role"])
+        # Through the reverse name: this app never imports the responses app.
+        # Starting an attempt locks this same membership row first, so a start
+        # and a deactivation take turns and no draft can slip past this delete.
+        deleted, _ = membership.responses.filter(status="draft").delete()
+        membership.draft_deleted = deleted > 0
         return membership
 
 

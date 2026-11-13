@@ -13,10 +13,17 @@ Concurrency: each function opens a transaction and re-reads the response with
 SELECT ... FOR UPDATE, so two tabs (or a double click) queue up instead of
 writing over each other; the caller's copy is treated as stale and the fresh
 row is returned. start_response locks the account row (so it queues behind an
-erasure), then the person row (so two logins sharing one person cannot both
-consume the same licence), then the person's licences (so a revoke cannot slip
-in between choosing a licence and using it). The database constraints (one
-licence one attempt, one open draft per account) are the backstop.
+erasure), then the owner of the licences: the person row for a personal attempt
+(so two logins sharing one person cannot both consume the same licence), or the
+membership row for an organization's (so a start and a deactivation of that
+member take turns). Then it locks that context's licences (so a revoke cannot
+slip in between choosing a licence and using it). The database constraints (one
+licence one attempt, one open draft per account and context) are the backstop.
+
+Context: an attempt is personal or for one organization, and the licence
+decides which. start_response is told the context (a membership, or none for
+personal), consumes a licence of that context only, and copies the licence's
+membership onto the response, so the two can never disagree.
 
 A write the rules do not allow raises Refused or one of its subclasses with a
 plain-words message; the views turn it into a 409. A funnel event is recorded
@@ -30,6 +37,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import Account, Person
+from apps.enterprises.models import Membership
 from apps.entitlements import services as licences
 from apps.entitlements.models import Entitlement
 from apps.funnel import services as funnel
@@ -85,35 +93,56 @@ def page_count(response):
 # --- writes --------------------------------------------------------------------
 
 
-def start_response(account):
+def start_response(account, membership=None):
     """
-    The account's open draft, or a new one on its oldest unused licence.
-    Raises NoLicence when there is neither.
+    The account's open draft in this context, or a new one on that context's
+    oldest unused licence. The context is personal (membership None) or one
+    organization (the account's own active membership of it). Raises NoLicence
+    when there is neither a draft nor a licence, and Refused for a membership
+    that is someone else's or has been deactivated.
     """
     with transaction.atomic():
         account = Account.objects.select_for_update().get(pk=account.pk)
         if not account.is_active or account.anonymised_at is not None or account.person_id is None:
             raise Refused("This account cannot take the survey.")
-        Person.objects.select_for_update().get(pk=account.person_id)
-        draft = Response.objects.filter(account=account, status=Response.Status.DRAFT).first()
+        if membership is None:
+            Person.objects.select_for_update().get(pk=account.person_id)
+            owner = {"person_id": account.person_id, "membership__isnull": True}
+            no_licence = "You need a licence to take the survey."
+        else:
+            # A plain single-table lock, then the checks on the row as it is now:
+            # a deactivation that got here first is seen, and one that arrives
+            # later waits and then deletes the draft made below.
+            membership = Membership.objects.select_for_update().filter(pk=membership.pk).first()
+            if membership is None or membership.account_id != account.pk:
+                raise Refused("You are not a member of that organization.")
+            name = membership.enterprise.name
+            if not membership.is_active:
+                raise Refused(f"Your membership of {name} has been deactivated.")
+            owner = {"membership_id": membership.pk}
+            no_licence = f"You need a licence to take the survey for {name}."
+        draft = Response.objects.filter(
+            account=account, membership=membership, status=Response.Status.DRAFT
+        ).first()
         if draft is not None:
             return draft
-        # Lock the person's active licences without joining other tables (a join
-        # would make the lock unreliable), then ask which one is unused in a fresh
-        # statement, which sees everything committed while we waited.
-        list(
-            Entitlement.objects.select_for_update().filter(
-                person_id=account.person_id, revoked_at__isnull=True
-            )
-        )
-        licence = licences.unused_licence(account)
+        # Lock this context's active licences without joining other tables (a
+        # join would make the lock unreliable), then ask which one is unused in a
+        # fresh statement, which sees everything committed while we waited.
+        list(Entitlement.objects.select_for_update().filter(revoked_at__isnull=True, **owner))
+        licence = licences.unused_licence(account, membership)
         if licence is None:
-            raise NoLicence("You need a licence to take the survey.")
+            raise NoLicence(no_licence)
         version = current_version()
         if version is None:
             raise Refused("No survey is published yet.")
+        # The context comes from the licence, never from the caller, so a
+        # response and its licence cannot disagree about who may see it.
         response = Response.objects.create(
-            account=account, survey_version=version, entitlement=licence
+            account=account,
+            survey_version=version,
+            entitlement=licence,
+            membership_id=licence.membership_id,
         )
         funnel.record_event(funnel.Kind.SURVEY_STARTED, tier=licence.tier, source=licence.source)
         return response
