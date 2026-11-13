@@ -459,7 +459,7 @@ This is where the project becomes multi-tenant, and multi-tenancy is where produ
 
 **Goal:** an organization holds a stock of licences it has bought, per tier; its admins give them to members, change their tier and take them back; an invite or a join code can carry a tier so that joining brings a licence with it; and the number of people an organization may bring in grows with what it has bought.
 
-**Status (2026-11-13).** In progress. Six PRs, listed under "PR plan" below. PR 0 (this re-plan), PR 1 (the stock, its staff page, the people limit and the source `seat`), PR 2 (giving, taking back and changing the tier, as services), PR 3 (the organization admin's Licences page and the dashboard box) and PR 4 (a tier on an invite or a join code, the licence on joining, and the warning) are built; PR 5 (docs sync, an end-to-end run and the founder's live checklist) remains. Built differently from the plan below: `seat_summary` lives in `apps/enterprises/services.py`, next to the stock it reads, not in `apps/entitlements`. Choices made while building the page, for the founder to overrule: the page lists every active member, and a member who has left only while they still hold a licence; a licence that was taken back is not shown; a licence staff granted by hand is shown, marked "Granted by Accelerare", with no buttons; the drop-downs offer only tiers that have a licence left. Choices made in PR 4, also to overrule: the page a person reads before joining does not say whether a licence comes with the invite or code (it shows nothing of the organization but its name), and its last sentence changed from "It does not by itself give you a licence to take the survey" to "To take the survey for <organization> you also need a licence from it. It may give you one as you join, or later" (see D-17 in `06-backlog.md`); after joining, the person is told if they have a licence; a member who comes back with an invite keeps an unused licence they already hold and gets no second one; a tier can be put on an invite or a code while the stock has none (the stock is checked at the moment of joining); the warning counts a person until they are given any licence, by an admin or by staff, and not again if that licence is later taken back.
+**Status (2026-11-13).** Code-complete and live. PRs 0 to 4 are merged and deployed (#67 to #71), and PR 5 is the docs PR that wrote this paragraph; the suite stands at 1,259 tests. What remains is the founder's checklist on the live site (parts A to D below; `06-backlog.md`, T-18): four of the five "Done when" boxes can only be ticked there, and nothing in this milestone has yet been tried by a person on the live site. The choices made while building are listed under "Smaller rules" and wait for the founder's word (`06-backlog.md`, D-18). Outside the plan, at the founder's request on 2026-11-13: #72 (the tests' setup made cheaper, docs-only merges no longer deploy, and CI lists its slowest tests).
 
 **How this milestone is run** (founder, 2026-11-13). As Milestone 3 was: each PR is built, tested, opened, merged once CI is green and checked on the live site without waiting for the founder's review; every decision that is the founder's is raised and waits for an answer; every PR ends with a short summary. The arrangement covers Milestone 4 only and is asked again for payments.
 
@@ -484,19 +484,30 @@ This is where the project becomes multi-tenant, and multi-tenancy is where produ
 - Taking a licence back keeps a record: it is revoked, not deleted, like every licence.
 - Members are not emailed when they are given a licence; "My surveys" shows it. Email arrives with the Milestone 5 worker.
 
-**What you build**
+*Added while building (PRs 2 to 4), raised the same way; the founder has not yet answered any of them (D-18):*
 
-- `apps/enterprises/models.py`: `SeatPool` (enterprise FK, tier 1 to 3, seats; unique on enterprise and tier). It lives in `enterprises`, not `entitlements`, because the people limit needs it and `enterprises` may not import upwards. `services.set_seat_pool(enterprise, tier, seats)` and `services.seats_bought(enterprise)`; `places_left` becomes the base limit plus the seats bought, less invites sent and joins by code.
-- `apps/entitlements`: the source `seat` on `Entitlement`. `assign_seat(admin_membership, member_membership, tier)`, `take_back_seat(admin_membership, entitlement)`, `change_seat_tier(admin_membership, entitlement, tier)`, and `seat_summary(enterprise)` (per tier: bought, given, left). The funnel records `licence_granted` with source `seat`.
-- Django admin: the stock of an organization, readable and editable by superusers and Support staff, with a history line for every change; the organization's page shows bought, given and left per tier, and the people limit with its sum.
-- The organization admin's "Licences" page, `/organizations/<slug>/licences/`: the stock per tier ("7 of 10 Tier 2 licences left"), and each member with their licence and its state (unused, in progress, submitted), with Give, Change tier and Take back (which has a confirmation page). Served by the entitlements app, the way the responses pages are served by the responses app. The dashboard gets a "Licences" box, and the members page keeps its licence column.
-- The tier field on the invite form and the join code form (optional; "No licence" by default). Joining with a tier gives the licence. A warning on the Licences page and the dashboard counts members whose invite or code carried a tier and who got none.
+- One licence in hand at a time, whoever it came from: a member part-way through the survey is refused another until they submit, and an unused licence staff granted by hand also blocks giving one from the stock.
+- The Licences page lists every active member, and a member who has left only while they still hold a licence. A licence that was taken back is not shown. A licence staff granted by hand is shown, marked "Granted by Accelerare, not from your stock", with no buttons. The drop-downs offer only tiers that have a licence left.
+- The page a person reads before joining shows nothing of the organization but its name, so it does not say whether a licence comes with the invite or the code. Its last sentence was reworded, because "It does not by itself give you a licence" stopped being true (`06-backlog.md`, D-17). The message after joining says when they have a licence.
+- A member who comes back with an invite that carries a tier keeps an unused licence they already hold and gets no second one.
+- A tier can be chosen for an invite or a code while the stock has none: the stock is checked at the moment of joining, not when the invite or code is made.
+- The warning counts a member until they have had any licence for the organization, from an admin or from staff, and not again if that licence is later taken back. An admin who decides not to give one keeps seeing the warning.
+- The licence given on joining records as its giver whoever made the invite or the code.
+
+**What was built** (as built; where it differs from the plan of PR 0 it says so)
+
+- `apps/enterprises/models.py`: `SeatPool` (enterprise FK, tier 1 to 3, seats; unique on enterprise and tier). It lives in `enterprises`, not `entitlements`, because the people limit needs it and `enterprises` may not import upwards. In `apps/enterprises/services.py`: `set_seat_pool(enterprise, tier, seats)`, `seats_bought`, `seats_given`, `seat_summary` (per tier: bought, given, left; planned for `entitlements`, built here beside the stock it reads), `people_limit` and `places_left` (the base limit plus the seats bought, less invites sent and joins by code), `joined_without_licence` (the warning), `lock_for_admin` (the organization's lock, for the licences app), and the signal `member_joined`.
+- `apps/entitlements`: the source `seat` on `Entitlement`. In `services.py`: `assign_seat(admin_membership, member_membership, tier)`, `take_back_seat(admin_membership, entitlement)`, `change_seat_tier(admin_membership, entitlement, tier)` and `give_seat_on_joining(membership, tier)`. They raise `Refused` with a message for the page, or `NotFound` for a member or licence of another organization. `signals.py` listens for `member_joined`. The funnel records `licence_granted` with source `seat`.
+- Django admin: the "Licence stock…" page of an organization, for superusers and Support staff (permission `enterprises.change_seatpool`), with a history line for every change; the organization's page shows bought, given and left per tier, and the people limit with its sum. The tier of an invite and of a join code shows on their own admin pages.
+- The organization admin's "Licences" page, `/organizations/<slug>/licences/` (`apps/entitlements/organization_views.py`, listed in `config/urls.py` like the responses pages): the stock per tier ("7 of 10 Tier 2 licences left"), and each member with their licences and the state of each (not used yet, survey in progress, survey submitted), with Give licence, Change tier and Take back (which has a confirmation page, with a warning when an unfinished survey will be deleted). The dashboard has a "Licences" box, and the members page keeps its licence column and links to the page.
+- The tier drop-down on the invite form and the join code form (optional; "No licence" by default). Joining with a tier gives the licence. A warning on the Licences page and the dashboard counts members whose invite or code carried a tier and who got none, and the Licences page marks each.
 
 **Technical detail**
 
 - Dependencies still run one way: `accounts` ← `enterprises` ← `entitlements` ← `responses`. `enterprises` tells `entitlements` that someone joined through a signal it sends (`member_joined`, with the membership and the tier), the same pattern as `account_erasing` in Milestone 3. The receiver never raises: a join must not fail because of the stock.
 - Counting is computed, never stored: licences with source `seat`, not revoked, on memberships of that organization, grouped by tier. A stored counter could drift from the licences.
 - Every function that counts first locks the organization's row, then the membership, then the licences, in that order, so two admins giving the last licence at the same moment take turns and exactly one succeeds. This is the order Milestone 3's deactivation and survey start already use.
+- Giving a licence on joining has nobody acting: the admin chose the tier when they made the invite or the code and may not be an admin any more. So `give_seat_on_joining` does not check an acting admin; it takes the same locks in the same order and records whoever made the invite or code as the giver. The join's listeners run inside a savepoint, so even a database error in one of them is rolled back on its own and the join is kept (NOTES 2026-11-13).
 - `take_back_seat` is `revoke` with the rules above in front of it (from the stock, not submitted, the acting admin's own organization). `change_seat_tier` is `change_tier` with the stock check and the up-only rule after submission.
 - The acting admin is checked again inside the function, as in Milestone 3 (`by` is an active admin of the same organization), and the member's membership must belong to that organization; a licence id from another organization is "not found".
 - Erasure needs no new rule: an erased account's unused membership licences are already deleted or revoked (Milestone 3, PR 5), which puts them back in the stock; a submitted one stays spent.
@@ -514,22 +525,66 @@ This is where the project becomes multi-tenant, and multi-tenancy is where produ
 - Staff: superusers and Support staff can set a stock; a staff account outside the group cannot; the history line names nobody.
 - Erasure: erasing a member with an unused licence from the stock frees it; with a submitted one it stays counted.
 
-**PR plan** (one branch and one pull request each, in this order)
+**PR plan** (one branch and one pull request each, in this order; all merged)
 
-0. `m4-replan`: this section; the US-first decision and the payments milestone recorded; D-16 and T-12 closed in the backlog. Docs only.
-1. `m4-seat-pools`: `SeatPool`, the staff admin for it, the people limit rule, the source `seat`.
-2. `m4-seat-services`: give, change tier, take back, the summary; the concurrency tests; the funnel event; erasure tests.
-3. `m4-licences-page`: the organization admin's Licences page and the dashboard box; isolation tests first.
-4. `m4-tier-on-join`: the tier on the invite and code forms; a licence on joining; the warning.
-5. `m4-docs-live-checks`: docs synced with what was built, NOTES, an end-to-end automated run, and the founder's live checklist.
+0. `m4-replan` (#67): this section; the US-first decision and the payments milestone recorded; D-16 and T-12 closed in the backlog. Docs only.
+1. `m4-seat-pools` (#68): `SeatPool`, the staff admin for it, the people limit rule, the source `seat`.
+2. `m4-seat-services` (#69): give, change tier, take back, the summary; the concurrency tests; the funnel event; erasure tests.
+3. `m4-licences-page` (#70): the organization admin's Licences page and the dashboard box; isolation tests first.
+4. `m4-tier-on-join` (#71): the tier on the invite and code forms; a licence on joining; the warning.
+5. `m4-docs-live-checks`: docs synced with what was built, an end-to-end automated run, and the founder's live checklist. Docs only.
 
 **Done when**
+
+*The first four boxes are the founder's live checks (the checklist is below). Tick each only after it has been seen working on the live site.*
 
 - [ ] On the live site: staff set an organization's stock in the Django admin; its admin gives a member a licence on the Licences page, the member takes the survey for the organization, and the counts are right at each step.
 - [ ] The admin changes an unused licence's tier and takes one back; a submitted one cannot be taken back.
 - [ ] A join code carrying Tier 2 gives the person who joins a Tier 2 licence; with none left they join without one and the admin sees the warning.
 - [ ] With 25 people brought in, the next is refused; after staff add a licence to the stock, the next gets in.
-- [ ] All tests pass, including every tenant isolation test.
+- [x] All tests pass, including every tenant isolation test. *(1,259 tests, in CI and locally, 2026-11-13.)*
+
+**Checks at the end (2026-11-13)**
+
+*Automated, all passing.* The full suite: 1,259 tests, including every tenant isolation test, on the laptop and in CI. `ruff check`, `ruff format --check`, `manage.py check --fail-level WARNING` and `makemigrations --check`. Each feature PR was also checked by breaking the code on purpose and confirming a test fails: nine breaks in PR 1, seventeen in PR 2, twenty-one in PR 3 and twenty-four in PR 4. Two were not caught at first. One (PR 3: the page looking a member up in any organization) is refused by the service underneath, and breaking both together fails two isolation tests. The other (PR 4: a lock that the join already holds) got a test of its own.
+
+One end-to-end run in a real browser at phone width, against a local server, in sixteen steps: staff set the stock on the "Licence stock" page of the Django admin (two Tier 2, one Tier 3) and the people limit becomes 28; the admin gives a member a Tier 2 licence on the Licences page (1 of 2 left); the member starts the survey for the organization and the admin sees "Survey in progress" with the count unchanged and nothing about how far they have got; the member answers all 25 statements and submits; the admin sees "Survey submitted", no "Take back", and the licence still counted; the admin gives a second member a Tier 2 licence, changes it to Tier 3 (both counts move) and takes it back after the confirmation page; the submitted licence cannot be taken back even by typing the address; the admin makes a join code that gives a Tier 2 licence; the next person to join with it has the last Tier 2 licence straight away and is told so; the person after that joins without one; the admin sees the warning on the dashboard and on the Licences page with that person marked; with the base people limit set to 0 in the Django admin the three licences bought let three people in and the fourth is refused; staff add one licence to the stock and the same person gets in; the admin gives the new licence to the person who joined without one and the warning drops by one. No statement, answer or phone number appeared on the Licences page at any step, and nothing on it was wider than the phone. The run is a script outside the repository, like Milestone 3's.
+
+*Not covered by that run* (covered by the automated tests, and partly by the live checklist below): a tier on an email invite, a member who comes back with an invite, taking back a licence whose survey is in progress (covered in PR 3's own browser check), a deactivated member's licence, two people joining at the same moment, a stock lowered below what is given, and erasure. *Not covered by anything automated:* the live site itself beyond `/health` answering 200 after each deploy. The checklist below is what proves that.
+
+**Live checklist (for the founder)**
+
+Run this on the live site. Each part matches one "Done when" box; tick the box when the part has been seen working. You need: your superuser login (window 1, also used for the Django admin at `/admin/`), a private or incognito window (window 2), and three accounts with verified email addresses for the second, third and fourth person. How to verify an address while SES is in its sandbox is in the Milestone 3 checklist above; accounts left over from that checklist will do. Start with a **new organization**, so that the numbers on your screen match the ones written here. Nothing here needs SSH, the AWS console or GitHub.
+
+*Part A: staff set the stock, the admin gives a licence, the member takes the survey (box 1).*
+1. Window 1: "Organizations", "Create an organization", give it a name. Then "Join codes": leave "Licence for each person who joins" at "No licence" and press "Create code".
+2. Window 2, as the second person: go to `/join/code/`, type the code, Continue, Join. The message says "You have joined (your organization)." and nothing about a licence.
+3. Window 1: Django admin, "Organizations", open the new one, then "Licence stock…" at the top right, beside History. Type 2 for "Tier 2 licences bought" and 1 for "Tier 3 licences bought", and press "Save the stock". Back on the organization's page, "Licences bought" reads "Tier 2: 2 bought, 0 given, 2 left; Tier 3: 1 bought, 0 given, 1 left" and "Places" begins "27 of 28 left".
+4. Window 1: the organization's own page (not the Django admin). The "Licences" box says "2 of 2 Tier 2 licences left" and "1 of 1 Tier 3 licence left". Press "Manage licences". Beside the second person choose Tier 2 and press "Give licence". The page says they now have a Tier 2 licence, the stock says "1 of 2 Tier 2 licences left", and their licence reads "Not used yet".
+5. Window 2: the organization's page, "Go to the survey", start it, answer the first page and press Next. Window 1: reload the Licences page. The licence reads "Survey in progress" and the stock still says "1 of 2".
+6. Window 2: answer the other four pages and submit. Window 1: reload. The licence reads "Survey submitted", there is no "Take back" under it, and the stock still says "1 of 2 Tier 2 licences left": a used licence stays counted. "See responses" on the organization's page lists the survey at Tier 2.
+
+*Part B: change a tier and take a licence back (box 2).*
+1. Window 1: the Licences page. Beside your own name choose Tier 2 and press "Give licence". The page says "You now have a Tier 2 licence." and the stock says "0 of 2 Tier 2 licences left".
+2. In the box of your licence choose Tier 3 and press "Change tier". The page says "The licence is now Tier 3."; the stock says "1 of 2 Tier 2 licences left" and "0 of 1 Tier 3 licence left".
+3. Press "Take back" under your licence. A page asks "Take back this licence?" and says nothing of yours will be deleted. Press "Take back the licence". The stock says "1 of 1 Tier 3 licence left" and your row says "No licence".
+4. The second person's licence, whose survey is submitted, still has no "Take back". Its tier can only go up: its drop-down offers Tier 3 and nothing lower.
+
+*Part C: a join code that carries a tier (box 3).*
+1. Window 1: "Join codes". Under "Licence for each person who joins" choose "Tier 2 licence" and press "Create code". The new code's line ends "Gives a Tier 2 licence".
+2. Window 2, logged in as the third person: `/join/code/`, that code, Continue, Join. The message says "You have joined (your organization). You have a licence to take the survey for it." Window 1: the Licences page shows the third person with a Tier 2 licence, "Not used yet", and the stock says "0 of 2 Tier 2 licences left".
+3. Window 2, logged in as the fourth person: join with the same code. The message says only "You have joined (your organization)."
+4. Window 1: the organization's page. The "Licences" box has a yellow note beginning "1 member joined with an invite or a join code that came with a licence, but your stock had none left". The Licences page has the same note, and under the fourth person: "Joined with an invite or a join code for a Tier 2 licence, but none was left."
+
+*Part D: the people limit grows with what was bought (box 4).*
+1. Django admin, the organization. "Places" begins "25 of 28 left (0 invite(s) sent, 3 join(s) by code": 25 to start with, plus the 3 licences bought, less the 3 people who joined.
+2. Set "People limit" to 0 and save. "Places" now begins "0 of 3 left": only the licences bought are letting people in.
+3. Window 1: "Invites", type any address, "Send invite". It is refused: "(your organization) has no places left."
+4. Django admin, "Licence stock…": type 1 for "Tier 1 licences bought" and save. "Places" begins "1 of 4 left".
+5. Window 1: send the same invite again. This time it goes (while SES is in its sandbox the page may say the invite is saved but the email could not be sent; that is still a pass). On the Licences page, give the fourth person a licence (Tier 1 and Tier 3 each have one left): the yellow note disappears there and on the organization's page.
+6. Django admin: set "People limit" back to 25. Window 1: "Invites", "Withdraw invite" beside the test invite.
+
+When every part passes, tell Claude: the four boxes are then ticked in a docs-only PR and the milestone is closed. If anything does not behave as written, say what you saw; it is fixed before the box is ticked.
 
 **Why this order / what to understand**
 
@@ -725,7 +780,7 @@ Not a milestone. Self-serve purchase for individuals and enterprises (likely Raz
 | 1 | Accounts | 0 | Sign up, verify, log in, reset |
 | 2 | Survey and responses | 1 | Individuals take and view the survey; licences, erasure and the funnel are built (closed 2026-11-12) |
 | 3 | Organizations, memberships, join | 2 | Organization admins onboard members and see who took the survey; licences per membership (built 2026-11-13; the founder's live checks remain) |
-| 4 | Licences for organizations (seat pools) | 3 | An organization's admins give out the licences it has bought; counts are right (re-planned 2026-11-13, in progress) |
+| 4 | Licences for organizations (seat pools) | 3 | An organization's admins give out the licences it has bought; counts are right (built 2026-11-13; the founder's live checks remain) |
 | 4b | Payments | 4 | A purchase adds licences without staff typing (moved here from Phase 3 on 2026-11-13; not planned yet) |
 | 5 | Jobs, matching, audit | 4b | Worker live; repeats flagged and linked; actions audited |
 | 6 | Root admin, export, erasure audit | 5 | Root console complete; CSV; erasure audited and documented |
@@ -748,6 +803,9 @@ Moved on 2026-11-12 to `06-backlog.md`, the one list of open tasks and parked de
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-13 | Milestone 4 is code-complete and deployed: PRs 0 to 5 (#67 to #71 and the closing docs PR). Its four live checks wait for the founder (`06-backlog.md`, T-18). Merging on green without review ended with the milestone; whether it applies to payments is asked when that milestone is planned (T-17) | The arrangement was given for Milestone 4 only |
+| 2026-11-13 | Builder's calls in Milestone 4, each recorded in its PR and listed under "Smaller rules" in the Milestone 4 section: one licence in hand at a time whoever it came from; what the Licences page lists and offers; the page before joining says nothing about a licence, and its last sentence was reworded; a returning member gets no second licence; a tier can be chosen while the stock is empty; when the "joined without a licence" warning stops counting someone; who is recorded as the giver of a licence given on joining. They wait for the founder's word (`06-backlog.md`, D-18) | Raised to be overruled, not decided |
+| 2026-11-13 | Test helpers build their data through the widest real service call, never one row at a time and never past the services. A push to `main` that changes only documents is not deployed. The deploy keeps running the tests on `main`. CI lists its ten slowest tests on every run (#72) | The founder asked for the pipeline to be made quicker without making the project less safe. 42% of the suite's work was one helper answering surveys a statement at a time; a docs-only merge rebuilt an identical image; and `main` has no branch protection, so the run on `main` is the only gate before the server (`06-backlog.md`, T-20) |
 | 2026-11-13 | Milestone 4 re-planned into six PRs (0 to 5) and run as Milestone 3 was: merged on green without waiting for review, decisions raised, a summary after each PR. The arrangement covers Milestone 4 only | Founder's instruction; it worked for Milestone 3 |
 | 2026-11-13 | A licence from an organization's stock counts against the tier it has now from the moment it is given. The admin can take it back until the survey is submitted (an unfinished attempt is deleted after a warning); a submitted one is spent for good. Its tier can move up or down before submission and only up afterwards | Founder's decisions for Milestone 4, taken one by one: a mistake can be undone, a used licence cannot be reused |
 | 2026-11-13 | A deactivated member's unused licence stays with the membership (as decided for Milestone 3), and the admin can take it back to the stock | The organization should not lose a licence it paid for because someone left |

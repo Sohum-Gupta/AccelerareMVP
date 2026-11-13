@@ -62,7 +62,7 @@ survey-platform/
 │   ├── enterprises/        # Enterprise, Membership, Invite, JoinCode, SeatPool
 │   ├── survey/             # SurveyVersion, Question; placeholder v1 in a data migration; load_questions
 │   ├── responses/          # Response; autosave and submit views; Support staff group (signals.py)
-│   ├── entitlements/       # Entitlement; seat pool enforcement
+│   ├── entitlements/       # Entitlement; giving licences from the stock; the organization's Licences page
 │   ├── funnel/             # FunnelEvent; admin funnel summary
 │   ├── matching/           # MatchCandidate; rules.py; merge and unmerge
 │   ├── results/            # Result; compute_result interface; tier filter
