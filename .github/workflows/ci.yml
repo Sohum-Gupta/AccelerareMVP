@@ -70,5 +70,7 @@ jobs:
       - name: Migration check
         run: uv run python manage.py makemigrations --check --dry-run
 
+      # --durations lists the ten slowest tests at the end of every run, so a
+      # test that makes the suite creep is seen while it is still one test.
       - name: Tests
-        run: uv run pytest
+        run: uv run pytest --durations=10
