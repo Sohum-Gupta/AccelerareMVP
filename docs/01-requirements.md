@@ -23,11 +23,11 @@ Five roles; four are in the MVP. Roles are per-enterprise for enterprise users, 
 | --- | --- | --- | --- |
 | Individual user | Own account | Take and retake the survey, save and resume, view own responses | See anyone else's data |
 | Enterprise member | Own account within an enterprise | Same as individual user; joins only via an invite or a code; may add a personal email and phone | Leave the enterprise's view of their data |
-| Enterprise admin | One enterprise | Self-register the enterprise, invite members (email or code), see all member responses and results, assign tier seats, export CSV | See other enterprises, change platform settings |
+| Enterprise admin | One enterprise | Self-register the enterprise, invite members (email or code), make other members admins, see which members took the survey, each response's status, dates and tier, and results (never the answers), assign tier seats, export CSV | See other enterprises, change platform settings |
 | Platform root admin | Whole platform | Everything: all enterprises, all users, all responses, create enterprises, set tiers and seat pools, export | — |
 | Helper admin | Deferred | Requirements undefined; design the role system so it can be added without a schema change | — |
 
-Enterprise admins see individual members' answers. The survey must state this plainly before a member starts answering.
+Enterprise admins never see a member's answers (decided 2026-11-12, replacing the 2026-10-05 rule): they see that the member took the survey, when, its status and tier, and later the results. A person is told this before joining an enterprise and again before starting a survey for it. The site calls an enterprise an "organization".
 
 ## Core domain concepts
 
@@ -56,16 +56,17 @@ Numbered so later docs and code can cite them. "Must" items block the MVP; "shou
 2. FR-2 (must): An account must have at least one email (personal or enterprise) and a phone number; a second email is optional and is prompted for once, right after the first email is verified. Email is verified at registration. Phone is validated (with a country, India/US/UK first) but unverified in MVP (SMS verification deferred); only verified contact details take part in matching, login or password reset. *Updated 2026-10-09.*
    - FR-2a (must): A verified email or phone belongs to exactly one account. Verifying an address that another account already holds never links or merges anything; the person is told it belongs to an existing account and offered login or password reset for that account.
    - FR-2b (must): A user can log in with the primary email or any verified email, reset the password from any verified email, make any verified email the primary (login) address, and remove a non-primary email. A reset notifies the account's other verified contacts.
-3. FR-3 (must): Enterprise membership is granted only by accepting an email invite or redeeming a valid code. Email domains grant nothing.
+   - FR-2c (must): An account has a full name, asked for at sign-up; accounts made earlier are asked on the profile page. Erasure removes it. *Added 2026-11-12.*
+3. FR-3 (must): Enterprise membership is granted only by accepting an email invite or redeeming a valid code. Email domains grant nothing. *A deactivated member cannot rejoin with a shared code; an admin reactivates them or sends a fresh invite (2026-11-12).*
 4. FR-4 (should): An account can hold memberships in more than one enterprise at once.
 5. FR-5 (deferred): SSO (SAML or OIDC) as an optional login method per enterprise.
 
 **Enterprise management**
 
-6. FR-6 (must): Any account can self-register an enterprise and become its first admin, with no manual review. Root admin sets the enterprise's seat pool per tier (manually until payments exist).
-7. FR-7 (must): An enterprise admin can invite members by email (single-use link), or generate codes with a use cap and expiry (cap of 1 is a per-person code). Codes can be revoked. Each invite or code may carry a tier.
+6. FR-6 (must): Any account can self-register an enterprise and become its first admin, with no manual review. Root admin sets the enterprise's seat pool per tier (manually until payments exist). *Until an enterprise has bought licences it can bring in at most 25 people in total, by invite or code; staff can raise the limit (2026-11-12).*
+7. FR-7 (must): An enterprise admin can invite members by email (single-use link), or generate codes with a use cap and expiry (cap of 1 is a per-person code). Codes can be revoked. Each invite or code may carry a tier. *An invite expires after 14 days and can be accepted only by an account that has verified the invited address. An admin can make another member an admin, or an admin a member again, never the last admin (2026-11-12).*
 8. FR-8 (must): An enterprise admin can assign or change a member's tier, within the seat pool.
-9. FR-9 (must): An enterprise admin can deactivate a membership. The member's responses stay visible to the enterprise and the platform.
+9. FR-9 (must): An enterprise admin can deactivate a membership. The member's responses stay visible to the enterprise and the platform. *Their unfinished attempt for the enterprise is deleted (2026-11-12).*
 10. FR-10 (must): A deactivated member keeps access to their own responses if they still have a working login (personal email or another membership).
 
 **Survey intake**
@@ -99,7 +100,7 @@ Numbered so later docs and code can cite them. "Must" items block the MVP; "shou
 
 **Tiers and entitlements**
 
-26. FR-34 (must): A tier is held as an entitlement on a person (individual purchase) or on a membership (enterprise seat). Results are computed in full and filtered on display by the viewer's entitlement. Entitlements can be granted before or after a response is submitted. *Changed on 2026-10-09: a licence must exist before an attempt starts; it is one attempt plus results at its tier, upgradeable in place.*
+26. FR-34 (must): A tier is held as an entitlement on a person (individual purchase) or on a membership (enterprise seat). Results are computed in full and filtered on display by the viewer's entitlement. Entitlements can be granted before or after a response is submitted. *Changed on 2026-10-09: a licence must exist before an attempt starts; it is one attempt plus results at its tier, upgradeable in place.* *From Milestone 3 a membership licence can be used only for that enterprise and a personal licence only personally, so the licence decides the context of the response (2026-11-12).*
 
 ## Repeat-user identification
 
@@ -191,6 +192,7 @@ Decisions made in Planning Session 1 (2026-10-05), newest first. Later sessions 
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-12 | Enterprise admins see status, dates, tier and results, never answers; a full name is collected; admins can promote members; 25 people per enterprise until it buys licences; a deactivated member cannot rejoin by code; a licence carries its context | Founder's decisions when Milestone 3 was re-planned; see `05-build-plan.md` |
 | 2026-10-09 | Erasure: no completed survey means delete outright; a completed survey means strip email, phone, name and login and keep the results, marked erased (FR-24). The self-report is Yes or No plus a required how drop-down (FR-16). The admin is the operations hub with two staff levels (FR-35). Funnel events carry no account link (FR-36). Licences do not expire | Founder's rules of 2026-10-09; see `05-build-plan.md` decision log for the reasons |
 | 2026-10-09 | A verified email has one owner; a second claim is recovered (log in or reset the existing account), never auto-linked or auto-merged | Controlling an inbox proves ownership of the address today, not of an account verified earlier; recycled corporate and shared mailboxes would otherwise take over accounts silently. Recovery needs a deliberate reset that the owner is notified of and root admin can reverse |
 | 2026-10-09 | Login with any verified email, reset from any verified email, change the primary email, remove emails; second email prompted after first verification; phone with country (IN/US/UK first) | Founder: one account per person across employers; people rarely return to a profile page; three target markets |

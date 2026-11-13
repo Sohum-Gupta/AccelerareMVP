@@ -17,7 +17,7 @@ Every item has an ID (`T-` for tasks, `D-` for decisions, `L-` for later feature
 
 ## Where things stand (2026-11-12)
 
-Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-12. Milestone 3 (enterprises) has **not** started; it starts when the founder says so. Every decision below was reviewed with the founder on 2026-11-12; the ones still listed were left here on purpose.
+Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-12. Milestone 3 (organizations) was re-planned on 2026-11-12 into fourteen PRs and is in progress; the plan is in `05-build-plan.md`. Every decision below was reviewed with the founder on 2026-11-12; the ones still listed were left here on purpose.
 
 ## Waiting on you now
 
@@ -43,6 +43,7 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | D-10 | Show dates in each person's time zone? | If people complain | Day only, in UTC |
 | D-11 | Keep `app.theaccelerare.com` or rename it? | Before the pilot, ideally before T-4 and T-10 | `app.` is a placeholder |
 | D-15 | Hide whether an email has an account (sign-up timing, reset warning) | If it becomes a concern | Accepted for now (2026-11-12) |
+| D-16 | How buying licences raises an organization's 25-person limit | Planning Milestone 4 | 25 until staff raise it by hand |
 
 ## Tasks still open
 
@@ -84,7 +85,7 @@ These are not in any milestone yet. The code is shaped so none of them needs a r
 
 Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item below:
 
-- Do not build anything from a milestone later than the one in progress. As of 2026-11-12 no milestone is in progress: Milestone 2 is closed, and Milestone 3 starts only when the founder says so.
+- Do not build anything from a milestone later than the one in progress. As of 2026-11-12 Milestone 3 is in progress: PRs 0 to 13 in `05-build-plan.md`, merged on green without waiting for review, with founder decisions still raised (see "How this milestone is run" there).
 - An item marked **Decision** is the founder's to make. Do not pick an answer. Present the options, recommend one if asked, and wait.
 - The founder reviewed every decision on 2026-11-12. Those still here were deliberately left for later; do not re-ask them unprompted unless the milestone that needs them is being planned.
 - Never put survey statements, answers or a person's email into this file, a test or an admin history label.
@@ -166,7 +167,7 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 
 ### D-2 Enterprise-wide deletion requests
 - **Status:** undecided; needs the privacy lawyer (D-7). Needed during Milestone 3. Reviewed 2026-11-12.
-- **Already decided (2026-11-12):** erasing a person **keeps** their membership link; the stripped response stays visible to the enterprise and counts in its historical total. This is the founder's choice, for the lawyer to confirm (recorded in `05-build-plan.md`, Milestone 3 "Technical detail" and decision log). Enterprise admins never see answers anyway (decided the same day, settling FR-19's enterprise scope).
+- **Already decided (2026-11-12):** erasing a person **keeps** their membership link; the stripped response stays visible to the enterprise and counts in its historical total. This is the founder's choice, for the lawyer to confirm (recorded in `05-build-plan.md`, Milestone 3 product rules and decision log). Enterprise admins never see answers anyway (decided the same day, settling FR-19's enterprise scope).
 - **Still open:** how an enterprise's own request to delete its members' data works (staff erasing each member one by one from the admin is the obvious fallback, but it was not confirmed), and whether the membership link survives that kind of request.
 - **Code today:** `apps/accounts/erasure.py`, the strip list is one function, `_anonymise`; `Account.anonymised_at` marks stripped accounts. A completed survey means strip, otherwise hard delete.
 
@@ -203,7 +204,14 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 ### D-15 Revealing whether an email has an account
 - **Status:** accepted for now (confirmed 2026-11-12). Two leaks: sign-up answers "check your inbox" either way, but a real send takes longer (NOTES.md 2026-10-09); and while SES is sandboxed the reset page warns "could not send" only for addresses that have an account (NOTES.md 2026-10-10). The second fades with T-4. Revisit if account enumeration ever matters.
 
+### D-16 How purchases raise the people limit
+- **Status:** left for the Milestone 4 re-plan (founder, 2026-11-12: "we can deal with the Milestone 4 question later").
+- **Background:** the founder decided on 2026-11-12 that anyone may create an organization but it is very limited until it pays: at most 25 people in total by invite or join code (`Enterprise.people_limit`, default 25; every invite ever sent counts, plus every join by code). The founder's words: an unpaid organization gets a small number of invites, "and based on that [a purchase] you can send out more".
+- **To decide:** the rule that turns seats bought into places (for example places equal to seats, or seats plus a margin), whether the limit is removed entirely for a paying organization, and whether `people_limit` is then computed from `SeatPool` or still stored.
+- **Until then:** staff raise `people_limit` by hand in the Django admin.
+
 ### Small things to revisit only if they come up
+- **Spelling:** the site says "licence" (British) and "organization" (US, the founder's choice on 2026-11-12). Pick one spelling for the whole site if anyone notices.
 - SES **Mail Manager** (managed credential rotation) was not chosen; revisit if rotating the SMTP credential by hand becomes a chore.
 - **allauth** was chosen for verification and later SSO; revisit if it fights the Milestone 3 join flows (`03-tech-stack.md` decision log).
 - **Known refused edge:** account A has verified `x@`, but account B registered with `x@` and never verified it, so `x@` is B's login name and A's make-primary is refused (NOTES.md 2026-10-09).
