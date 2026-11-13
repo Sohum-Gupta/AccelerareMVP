@@ -1,6 +1,6 @@
 # Build Plan — Survey Platform
 
-As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs; open items live in `06-backlog.md` · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded and Milestone 2 closed 2026-11-12 · Milestone 3 re-planned 2026-11-12 · Milestone 3 built and status synced 2026-11-13
+As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs; open items live in `06-backlog.md` · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded and Milestone 2 closed 2026-11-12 · Milestone 3 re-planned 2026-11-12 · Milestone 3 built and status synced 2026-11-13 · Milestone 4 re-planned 2026-11-13
 
 ## How to read this document
 
@@ -293,7 +293,7 @@ This is the first milestone that delivers the product's core, and it does so bef
 
 - **Creating.** Any account with a verified email can create an organization, with no review, and becomes its first admin. Two organizations may share a name; each gets its own slug.
 - **Admins.** An admin can make a member an admin and make an admin a member again. The last active admin can never be demoted or deactivated. Staff can do the same in the Django admin. An admin is also a member: they can take the survey for their own organization.
-- **The people limit.** Until an organization has bought licences it can bring in at most 25 people in total, by email invite or by join code (`Enterprise.people_limit`, default 25). Every invite ever sent counts, including revoked and expired ones, plus every join by code, so revoking and resending does not get round it. The creator does not count. Staff raise the number by hand in the Django admin; how buying licences raises it is a Milestone 4 question (`06-backlog.md`, D-16). Joining only makes someone a member; taking the survey still needs a licence.
+- **The people limit.** Until an organization has bought licences it can bring in at most 25 people in total, by email invite or by join code (`Enterprise.people_limit`, default 25). Every invite ever sent counts, including revoked and expired ones, plus every join by code, so revoking and resending does not get round it. The creator does not count. Staff raise the number by hand in the Django admin; how buying licences raises it was a Milestone 4 question, settled on 2026-11-13: the limit is this number plus the licences bought (see Milestone 4). Joining only makes someone a member; taking the survey still needs a licence.
 - **Licences.** A licence (`Entitlement`) belongs to a person or to a membership, never both. A membership licence can only be used for that organization and a personal one only personally, so the licence decides who sees the result. Until Milestone 4 adds seats, staff grant both kinds by hand in the Django admin. A person may have a personal attempt and an organization attempt open at the same time.
 - **What an admin sees.** Of a member: name, email, joined date, status and licence tier; never the phone number and never a survey taken personally. Of a response taken for the organization: member, "In progress" or "Submitted", the start and submit dates, tier and the possible-repeat flag; never the answers, the self-report or how far along a draft is. Results are added in Phase 2.
 - **What a member sees.** The organization's name and their own surveys. Never other members.
@@ -453,53 +453,109 @@ This is where the project becomes multi-tenant, and multi-tenancy is where produ
 
 ---
 
-## Milestone 4 — Seat pools and entitlements
+## Milestone 4 — Licences for organizations (seat pools)
 
-*Re-plan this section before starting it. On 2026-10-09 the founder decided that a licence is one survey attempt plus results at its tier, and Milestone 2 built the individual half of `Entitlement` with a one-to-one from `Response`. So a seat here is a licence an enterprise bought and assigned to a member, consumed by that member's one attempt, and upgradeable in place; the "joined without a seat" warning becomes "cannot take the survey until given a licence".*
+*Re-planned on 2026-11-13 with the founder, who took each decision below one at a time. This section replaces the original one. The site says "licences" and "stock"; the code, the tables and these docs keep "seat" and "seat pool" for the same things.*
 
-*State after Milestone 3 (as built, 2026-11-13).* Milestone 3 pulled the model half of this milestone forward: `Entitlement.person` becomes nullable, the membership FK and the exactly-one check constraint are added, and staff grant a membership licence by hand with source `manual` (`grant_for_membership`). `Response.membership` follows the licence. Each organization has a people limit of 25 until it has bought licences. What is left for this milestone: `SeatPool`, the source `seat`, organization admins assigning licences within the pool, invites and codes that carry a tier consuming a seat, and how seats raise the people limit (`06-backlog.md`, D-16).
+**Goal:** an organization holds a stock of licences it has bought, per tier; its admins give them to members, change their tier and take them back; an invite or a join code can carry a tier so that joining brings a licence with it; and the number of people an organization may bring in grows with what it has bought.
 
-*State after Milestone 2.* `Entitlement` exists with a non-null `person`, source purchase or manual, and `grant_individual`, `revoke`, `change_tier`, `unused_licence` and `has_survey_access` are built, with an admin grant form (the account is found with the admin's search box, by email or phone), a revoke action and an unused-licences filter. This milestone makes `person` nullable, adds the membership FK, the exactly-one check constraint and the source `seat`, and records the funnel event `licence_granted` with source `seat`. Licences do not expire. Staff manage `SeatPool` from the admin like everything else.
+**Status (2026-11-13).** Planned, not started. Six PRs, listed under "PR plan" below. PR 0 is this re-plan.
 
-**Goal:** root admin sets seat pools per tier for an enterprise; enterprise admins assign tiers to members within the pool; invites and codes that carry a tier consume a seat on join; an individual can hold an entitlement set manually by root admin.
+**How this milestone is run** (founder, 2026-11-13). As Milestone 3 was: each PR is built, tested, opened, merged once CI is green and checked on the live site without waiting for the founder's review; every decision that is the founder's is raised and waits for an answer; every PR ends with a short summary. The arrangement covers Milestone 4 only and is asked again for payments.
+
+**Where it starts from.** Milestone 3 already built the model half of the original plan. A licence (`Entitlement`) belongs to a person or to a membership, never both; a membership licence lets that member take the survey for that organization; staff grant both kinds by hand in the Django admin (`grant_individual`, `grant_for_membership`, source `manual`); a licence is one attempt and is upgraded in place (`change_tier`); revoking one deletes an unfinished attempt on it (`revoke`). `Invite.tier` and `JoinCode.tier` exist and are hidden. Each organization can bring in 25 people (`Enterprise.people_limit`).
+
+**The product rules, as decided by the founder on 2026-11-13**
+
+- **The stock.** For each organization and tier, a number: how many licences it has bought. Until payments exist (the milestone after this one), staff type it into the Django admin after a sale made off the site. Superusers and Support staff may both set it (the founder's choice "for now", because payments follow straight away and will set it without anyone typing).
+- **What counts against it.** A licence counts against the stock of the tier it has now, from the moment an admin gives it to a member, until it is taken back. One whose survey has been submitted counts for good: it is spent. Only licences given from the stock count. A licence staff grant by hand is a gift on top and is outside the stock.
+- **Giving.** An organization's admin gives a member a licence of a tier while the stock of that tier has one left. An admin can give one to themselves: an admin is a member.
+- **Taking back.** The admin can take a licence back until its survey is submitted. If the member has started, their unfinished attempt is deleted, after a warning. Once submitted, it cannot be taken back.
+- **Changing the tier.** Before the survey is submitted the admin can move a licence up or down. Afterwards only up. Either way the new tier must have one left, and the old tier gets one back.
+- **A member who has left.** Deactivating a member leaves their unused licence with the membership, as decided in Milestone 3, and it works again if they are reactivated. The admin can also take it back to the stock with the same button.
+- **A tier on an invite or a join code.** The admin may choose a tier when sending an invite or making a code. Each person who joins with it is given a licence of that tier from the stock. If none is left, they still join, without a licence, and the admin's page says how many people that happened to.
+- **The people limit** (was `06-backlog.md` D-16). The number of people an organization may bring in is its base number (25, which staff can still change by hand) plus every licence it has bought, across all tiers.
+
+**Smaller rules, the builder's calls** (raised here so they can be overruled)
+
+- A member holds at most one unused licence for an organization at a time; giving a second is refused with "they already have a licence they have not used". After they submit, they can be given another (a retake needs another licence, as everywhere).
+- An organization's admin can take back or change only licences that came from the stock. One that staff granted by hand is staff's to change.
+- Staff may lower a stock below what has been given (a customer downsizes, or a typing mistake is corrected). Nothing is taken from anyone; the page says "12 of 10 given" and no more can be given at that tier until it is back under.
+- Taking a licence back keeps a record: it is revoked, not deleted, like every licence.
+- Members are not emailed when they are given a licence; "My surveys" shows it. Email arrives with the Milestone 5 worker.
 
 **What you build**
 
-- `apps/entitlements/models.py`: `SeatPool` (enterprise FK, tier 1–3, seats; unique on enterprise+tier), `Entitlement` (person FK nullable, membership FK nullable, tier, source seat/purchase/manual, granted_by FK, granted_at, revoked_at nullable; check constraint: exactly one of person/membership set).
-- `apps/entitlements/services.py`: `set_seat_pool(enterprise, tier, seats)` (root only), `assign_seat(admin_membership, member_membership, tier)`, `revoke_seat(...)`, `grant_individual(person, tier, source)`, `current_tier(membership) -> int | None`, `current_tier_for_person(person) -> int | None` (highest active), `seats_used(enterprise, tier)`.
-- Enterprise admin: a tier column and a change-tier control on the members page, showing "3 of 10 tier-2 seats used."
-- Root admin: `SeatPool` and `Entitlement` in Django admin; a custom action on `Enterprise` to set all three pools at once.
-- `accept_invite` and `redeem_code` now call `assign_seat` when a tier is present; if the pool is full, the join still succeeds and the admin page shows a warning banner "2 members joined without a seat because the tier-2 pool is full."
+- `apps/enterprises/models.py`: `SeatPool` (enterprise FK, tier 1 to 3, seats; unique on enterprise and tier). It lives in `enterprises`, not `entitlements`, because the people limit needs it and `enterprises` may not import upwards. `services.set_seat_pool(enterprise, tier, seats)` and `services.seats_bought(enterprise)`; `places_left` becomes the base limit plus the seats bought, less invites sent and joins by code.
+- `apps/entitlements`: the source `seat` on `Entitlement`. `assign_seat(admin_membership, member_membership, tier)`, `take_back_seat(admin_membership, entitlement)`, `change_seat_tier(admin_membership, entitlement, tier)`, and `seat_summary(enterprise)` (per tier: bought, given, left). The funnel records `licence_granted` with source `seat`.
+- Django admin: the stock of an organization, readable and editable by superusers and Support staff, with a history line for every change; the organization's page shows bought, given and left per tier, and the people limit with its sum.
+- The organization admin's "Licences" page, `/organizations/<slug>/licences/`: the stock per tier ("7 of 10 Tier 2 licences left"), and each member with their licence and its state (unused, in progress, submitted), with Give, Change tier and Take back (which has a confirmation page). Served by the entitlements app, the way the responses pages are served by the responses app. The dashboard gets a "Licences" box, and the members page keeps its licence column.
+- The tier field on the invite form and the join code form (optional; "No licence" by default). Joining with a tier gives the licence. A warning on the Licences page and the dashboard counts members whose invite or code carried a tier and who got none.
 
 **Technical detail**
 
-- `assign_seat` runs in a transaction, locks the `SeatPool` row, counts active entitlements for that enterprise and tier, and refuses if `count >= seats`. Changing a member's tier revokes the old entitlement and creates a new one in the same transaction, so a downgrade frees a seat and an upgrade needs one.
-- Revocation is a timestamp, not a delete: the history of who had which tier when is preserved, and an audit row is written (milestone 5 formalises the audit log; until then write the row directly).
-- "Current tier" for display is computed, not stored on the member: highest tier among active entitlements on the membership. For the individual context, highest among the person's active entitlements.
-- Seat pools can be reduced below current usage by root admin (e.g. a customer downsizes). Allow it, show the enterprise admin "12 of 10 seats used; revoke 2 to assign new seats," and refuse new assignments until it's back under.
+- Dependencies still run one way: `accounts` ← `enterprises` ← `entitlements` ← `responses`. `enterprises` tells `entitlements` that someone joined through a signal it sends (`member_joined`, with the membership and the tier), the same pattern as `account_erasing` in Milestone 3. The receiver never raises: a join must not fail because of the stock.
+- Counting is computed, never stored: licences with source `seat`, not revoked, on memberships of that organization, grouped by tier. A stored counter could drift from the licences.
+- Every function that counts first locks the organization's row, then the membership, then the licences, in that order, so two admins giving the last licence at the same moment take turns and exactly one succeeds. This is the order Milestone 3's deactivation and survey start already use.
+- `take_back_seat` is `revoke` with the rules above in front of it (from the stock, not submitted, the acting admin's own organization). `change_seat_tier` is `change_tier` with the stock check and the up-only rule after submission.
+- The acting admin is checked again inside the function, as in Milestone 3 (`by` is an active admin of the same organization), and the member's membership must belong to that organization; a licence id from another organization is "not found".
+- Erasure needs no new rule: an erased account's unused membership licences are already deleted or revoked (Milestone 3, PR 5), which puts them back in the stock; a submitted one stays spent.
+- The warning for joins without a licence is computed: active members whose `joined_via_invite` or `joined_via_code` has a tier and who have never held a licence for the organization.
 
 **Tests**
 
-- Pool of 2: third assignment refused; concurrent assignments (threaded) yield exactly two.
-- Change tier 1 → 2 frees a tier-1 seat and consumes a tier-2 seat atomically; if tier-2 is full, nothing changes.
-- Code with tier joins consume seats; when the pool is full, join succeeds, entitlement absent, warning shown.
-- Revoked entitlement not counted; `current_tier` returns None.
-- Individual manual grant shows on the person's response list as their tier.
-- Enterprise A's admin cannot assign a seat to B's member (scoping again).
+- The stock: a pool of 2 refuses the third licence; two admins giving the last one at the same moment (threads) produce exactly one; the lock is asserted.
+- Taking back: allowed when unused and when in progress (the draft goes, the licence is free again), refused when submitted; a licence staff granted by hand is refused; a deactivated member's unused licence can be taken back.
+- Tier changes: up and down before submission move one between two stocks or change nothing if the new tier is full; down after submission is refused; up after submission works.
+- Counting: a manual grant does not count; a revoked licence does not count; a submitted one counts for good; lowering the stock below what is given blocks new ones and removes none.
+- The people limit: 25 plus the seats bought; the 26th person gets in once a licence has been bought; staff changing the base still works.
+- Tier on join: an invite and a code with a tier give a licence on joining; with none left the person joins without one and the warning counts them; a join never fails because of the stock.
+- Tenant isolation, written before the page: organization A's admin cannot see B's stock or members on the Licences page, cannot give a licence to B's member, and cannot take back or change B's licence (404, not 403); a member who is not an admin cannot open the page.
+- Staff: superusers and Support staff can set a stock; a staff account outside the group cannot; the history line names nobody.
+- Erasure: erasing a member with an unused licence from the stock frees it; with a submitted one it stays counted.
+
+**PR plan** (one branch and one pull request each, in this order)
+
+0. `m4-replan`: this section; the US-first decision and the payments milestone recorded; D-16 and T-12 closed in the backlog. Docs only.
+1. `m4-seat-pools`: `SeatPool`, the staff admin for it, the people limit rule, the source `seat`.
+2. `m4-seat-services`: give, change tier, take back, the summary; the concurrency tests; the funnel event; erasure tests.
+3. `m4-licences-page`: the organization admin's Licences page and the dashboard box; isolation tests first.
+4. `m4-tier-on-join`: the tier on the invite and code forms; a licence on joining; the warning.
+5. `m4-docs-live-checks`: docs synced with what was built, NOTES, an end-to-end automated run, and the founder's live checklist.
 
 **Done when**
 
-- [ ] Root admin sets pools in the admin; enterprise admin assigns and changes tiers on the live site; counts are correct.
-- [ ] A code carrying tier 2 consumes a seat on join.
-- [ ] All tests pass.
+- [ ] On the live site: staff set an organization's stock in the Django admin; its admin gives a member a licence on the Licences page, the member takes the survey for the organization, and the counts are right at each step.
+- [ ] The admin changes an unused licence's tier and takes one back; a submitted one cannot be taken back.
+- [ ] A join code carrying Tier 2 gives the person who joins a Tier 2 licence; with none left they join without one and the admin sees the warning.
+- [ ] With 25 people brought in, the next is refused; after staff add a licence to the stock, the next gets in.
+- [ ] All tests pass, including every tenant isolation test.
 
 **Why this order / what to understand**
 
-Nothing in the MVP *shows* a tier-filtered result yet, so it's fair to ask why build entitlements now. Three reasons: enterprises will ask "how many seats have I used" from the first conversation; the invite/code-with-tier flow needs it; and this is the table payments will write into in Phase 3, so its shape should be settled by then.
+*Why a stock at all, when staff could keep granting by hand.* An organization will ask "how many have we used" in the first conversation, and its admin should be able to hand licences out without writing to support. The stock is also the place a payment will write to: when the payments milestone arrives, "bought 10 at Tier 2" becomes one call to `set_seat_pool`'s sibling, and nothing else changes.
 
-*Entitlement versus "tier on the member."* A single `tier` column on Membership would be simpler today and wrong by Phase 3. Entitlements have a source (seat, purchase, manual), a grantor, a timestamp and a revocation; that's what an invoice dispute or a refund needs. They also let an individual purchase and an enterprise seat coexist for one person without conflict.
+*Why a licence, not a tier on the member.* A single `tier` column on the membership would be simpler today and wrong as soon as money is involved. A licence has a source (stock, purchase, by hand), a grantor, a date and a revocation: what a refund or a dispute needs. It also lets one person hold a personal licence and an organization's licence without the two getting mixed up.
 
-*Why computed, not cached.* Storing `current_tier` on the membership means two places can disagree. Computing it from entitlements is one query with an index and is always right. Cache it only if a profiler ever says to.
+*Why counted, not stored.* Storing "7 left" next to the licences means two places that can disagree. Counting the licences is one query and is always right.
+
+*Why the lock.* Two admins give the last licence at the same instant. Both read "1 left", both give, and the organization has handed out more than it bought. Locking the organization's row makes the second wait and then see "0 left". It is the same shape as the join code and the people limit in Milestone 3, and the same fix.
+
+*Why a join never fails because of the stock.* The person holding the invite did nothing wrong, and the admin can fix the stock afterwards. Turning them away would make the organization's bookkeeping the member's problem.
+
+---
+
+## Milestone 4b — Payments
+
+*Moved here on 2026-11-13 by the founder, from Phase 3, to follow Milestone 4. Not planned yet: this section is a placeholder. Plan it with the founder before any code, the way Milestones 3 and 4 were planned.*
+
+**Why it moved.** While deciding who should type an organization's stock into the admin, the founder asked why anyone types it at all. The answer was that the site cannot take payments; the founder's decision was to build payments next rather than later.
+
+**What is already decided.** The site is built for the US first (2026-11-13), so a US payment provider and US dollars; India (Razorpay, GST) is a later conversation. A purchase writes licences through the same services the admin uses: `grant_individual` with source `purchase` for a person, and the seat pool for an organization. Licences do not expire, a retake needs another licence, and upgrades happen in place. The payment record carries no personal identity, so erasing a person never removes an accounting record.
+
+**What the founder must decide first** (`06-backlog.md`, T-17): the provider (Stripe was suggested, not chosen) and an account with test keys; prices in dollars for each tier, and whether organizations get a volume price; the refund rule; whether sales tax and numbered invoices are needed; and whether the merge-on-green arrangement applies.
+
+**What it will need, roughly:** a buy page for a person and for an organization's admin; the hand-off to the provider's checkout and back; a receiver for the provider's "payment succeeded" message that adds the licences exactly once even if the message arrives twice; the payment ledger; refunds that take the licence back through the service; the funnel event `licence_granted` with source `purchase`; the provider's keys in Parameter Store **[console]**.
 
 ---
 
@@ -655,6 +711,8 @@ When the algorithm arrives, Phase 2 is: implement `compute_result`, fill the tie
 
 ## Phase 3 stub — payments
 
+*Moved on 2026-11-13: payments are now Milestone 4b, straight after Milestone 4, and "likely Razorpay for India" below is deferred with the rest of the India plans (the site is built for the US first). The paragraph is kept for what was already decided.*
+
 Not a milestone. Self-serve purchase for individuals and enterprises (likely Razorpay for India) writes licences through the same services the admin uses: `grant_individual` with source `purchase`, and the seat-pool services. Already decided: licences do not expire, a retake needs another licence, upgrades happen in place. Needed when payments arrive: a payment ledger (amount, currency, date, invoice number, provider reference, the licence id and tier) that carries no personal identity, so erasing a person never removes an accounting record; refunds revoke the licence through the service; the funnel records `licence_granted` with source `purchase`; and a reminder path for unused licences once the worker exists. Nothing in milestones 0–7 changes.
 
 ---
@@ -667,8 +725,9 @@ Not a milestone. Self-serve purchase for individuals and enterprises (likely Raz
 | 1 | Accounts | 0 | Sign up, verify, log in, reset |
 | 2 | Survey and responses | 1 | Individuals take and view the survey; licences, erasure and the funnel are built (closed 2026-11-12) |
 | 3 | Organizations, memberships, join | 2 | Organization admins onboard members and see who took the survey; licences per membership (built 2026-11-13; the founder's live checks remain) |
-| 4 | Seat pools and entitlements | 3 | Tiers assigned and counted |
-| 5 | Jobs, matching, audit | 4 | Worker live; repeats flagged and linked; actions audited |
+| 4 | Licences for organizations (seat pools) | 3 | An organization's admins give out the licences it has bought; counts are right (re-planned 2026-11-13, in progress) |
+| 4b | Payments | 4 | A purchase adds licences without staff typing (moved here from Phase 3 on 2026-11-13; not planned yet) |
+| 5 | Jobs, matching, audit | 4b | Worker live; repeats flagged and linked; actions audited |
 | 6 | Root admin, export, erasure audit | 5 | Root console complete; CSV; erasure audited and documented |
 | 7 | Hardening and pilot | 6 | First customer |
 
@@ -689,6 +748,16 @@ Moved on 2026-11-12 to `06-backlog.md`, the one list of open tasks and parked de
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-13 | Milestone 4 re-planned into six PRs (0 to 5) and run as Milestone 3 was: merged on green without waiting for review, decisions raised, a summary after each PR. The arrangement covers Milestone 4 only | Founder's instruction; it worked for Milestone 3 |
+| 2026-11-13 | A licence from an organization's stock counts against the tier it has now from the moment it is given. The admin can take it back until the survey is submitted (an unfinished attempt is deleted after a warning); a submitted one is spent for good. Its tier can move up or down before submission and only up afterwards | Founder's decisions for Milestone 4, taken one by one: a mistake can be undone, a used licence cannot be reused |
+| 2026-11-13 | A deactivated member's unused licence stays with the membership (as decided for Milestone 3), and the admin can take it back to the stock | The organization should not lose a licence it paid for because someone left |
+| 2026-11-13 | Someone joining with an invite or a code that carries a tier, when none of that tier is left, still joins, without a licence; the admin is warned | The person holding the invite did nothing wrong |
+| 2026-11-13 | The people limit is the base number (25, still changeable by staff) plus every licence the organization has bought, across all tiers. Settles `06-backlog.md` D-16 | Simple to explain, leaves room for people who join without a licence, and still caps how many invite emails go out |
+| 2026-11-13 | Licences staff grant by hand are outside an organization's stock; only licences given from the stock count against it | Staff can help a customer without changing what was sold, and the stock stays an honest record of sales |
+| 2026-11-13 | Superusers and Support staff can both set an organization's stock in the Django admin, until payments set it automatically | Founder's choice "for now", over a superusers-only recommendation, because payments follow straight after |
+| 2026-11-13 | Invites and join codes can carry a tier in Milestone 4, built as its last feature PR | An admin inviting thirty people should not have to give thirty licences one by one |
+| 2026-11-13 | The site is built for the US first; expanding to India is a later conversation. Everything India-specific in these docs (Razorpay, GST, SMS sender registration, the DPDP Act, the move to Mumbai) is deferred, not dropped | Founder's decision |
+| 2026-11-13 | Payments move from Phase 3 to a milestone of their own straight after Milestone 4 (Milestone 4b), to be planned with the founder before any code | The founder asked why staff type an organization's stock by hand; it is only because the site cannot take payments |
 | 2026-11-13 | Milestone 3 is code-complete and deployed: PRs 0 to 13, plus #62 to #64. Its six live checks wait for the founder (`06-backlog.md`, T-16). Merging on green without review ended with the milestone; whether it applies to Milestone 4 is asked when that milestone is re-planned | The arrangement was given for Milestone 3 only |
 | 2026-11-13 | In the staff admin every action on an organization (deactivate, reactivate, make admin, make member, withdraw an invite, switch off a code) shows a confirmation page first and writes a history line with no email or name in it. Support staff can look at the four pages and hold one extra permission, `deactivate_membership`. A join code is shown only to superusers; an invite's link secret to nobody | Two of the actions cannot be undone and a wrong pick in a dropdown is easy; its own permission makes "deactivate only" exact; a code and a link are ways in |
 | 2026-11-13 | The wording that tells a member what an organization's admins can see (the join confirmation and the organization "Before you begin" page) stays as built for now and is reviewed with the privacy lawyer's list (`06-backlog.md`, D-17) | The founder read both and said "fine for now" |
