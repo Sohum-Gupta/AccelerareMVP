@@ -705,7 +705,7 @@ When both parts pass, tell Claude: the two boxes are ticked in a docs-only PR.
 
 **Goal:** a person can buy a licence and pay to upgrade one, and an organization's admin can buy licences into its stock, without staff typing anything; staff can refund from the Django admin; and every payment leaves a record that holds no personal identity.
 
-**Status (2026-11-13).** PR 0 (the plan, #78), PR 1 (`m4b-payments-models`, #79) and PR 2 (`m4b-checkout`) are merged: the `payments` app with prices, the record of payments and refunds, the file that talks to Stripe, the three optional settings, the read-only admin with editable prices; and starting a purchase, giving what was paid for exactly once, the two pages Stripe sends a person back to, and the address Stripe sends its messages to. PR 3 (`m4b-buy-pages`) added the pages: `/buy/` for a person (buy, and upgrade a licence they hold), `/organizations/<slug>/licences/buy/` for an organization's admin, and links to them from "My surveys", the "You need a licence" notice, a personal result below the top tier, and the organization's dashboard and Licences page. Until the founder has put the Stripe key on the server (`06-backlog.md`, T-21) those pages say buying online is not open yet. PR 4 (`m4b-refunds`) added the "Refund…" button on a payment in the Django admin, for superusers, and the handling of a refund made in Stripe's own dashboard. What remains is PR 5: the docs and the founder's live checklist.
+**Status (2026-11-13).** Code-complete and deployed: PR 0 the plan (#78), PR 1 the models and the Stripe wrapper (#79), PR 2 starting a purchase and giving what was paid for (#80), PR 3 the buy pages (#81), PR 4 refunds (#82), and PR 5, these docs. 1,547 tests. **Buying is not open on the live site yet:** the server has no Stripe key, so the buy pages show the prices and say "Buying online is not open yet." That changes when the founder has done the five steps under "What the founder does" (`06-backlog.md`, T-21). **Nothing has been run against Stripe itself:** in every test Stripe is played by a stand-in, so the first real payment page will be the founder's, on test keys, with the live checklist below (`06-backlog.md`, T-22). The builder's calls are under "Smaller rules" and wait for the founder's word.
 
 **How this milestone is run** (founder, 2026-11-13). As Milestones 3 and 4 were: each PR is merged once CI is green and checked on the live site, with a summary after each. The founder is away while it is built and asked for product choices to be sent to their phone. None was needed for this plan: the basics and the defaults below were all accepted beforehand ("those defaults are fine"), and the smaller calls are listed to be overruled.
 
@@ -782,14 +782,23 @@ When both parts pass, tell Claude: the two boxes are ticked in a docs-only PR.
 - Erasure: erasing a buyer both ways keeps every `Purchase` and `Refund` row with its amounts.
 - Nothing personal: no payment page, admin label, history line or log line contains an email or a name.
 
-**PR plan** (one branch and one pull request each, in this order)
+**Built as planned, with these differences** (each is also in its PR's description)
 
-0. `m4b-plan`: this section; T-17 closed and T-21 (the founder's Stripe steps) opened in the backlog. Docs only.
-1. `m4b-payments-models`: the app, its three models and migrations, the prices, the three settings, `stripe_api.py`, the read-only admin with editable prices, `add_seats` and `remove_seats`, erasure tests.
-2. `m4b-checkout`: the three `start_…` services, `fulfil`, the webhook, the return and cancelled pages.
-3. `m4b-buy-pages`: the personal and organization buy pages and every link to them; isolation tests first.
-4. `m4b-refunds`: the Refund button, `refund`, refunds made in Stripe's dashboard, "needs attention".
-5. `m4b-docs-live-checks`: docs synced with what was built, and the founder's live checklist.
+- *`Purchase.given_at`* (PR 4) was not in the plan. It records when what was paid for was given. A paid row without it is money that came in for nothing, and the Refund button then refunds it whole, with nothing to take back and no 30-day limit.
+- *Coming back without paying* returns the person to the buy page they left, not to "My surveys".
+- *The names in `stripe_api.py`* are `create_checkout`, `get_checkout`, `refund_payment`, `read_event`, and two small readers of a message, `checkout_in` and `charge_in`.
+- *The page that asks before a refund* shows the same refusal the button would give, by trying the take-back in a transaction that is always undone (`refund_preview`).
+- *An organization's member who needs a licence* is told to ask one of its admins; only a personal licence can be bought by the person themselves.
+- *Not built:* an email to the person when their payment is refunded (Stripe sends its own), and any funnel event for an organization's purchase (the payment record is the count).
+
+**PR plan** (one branch and one pull request each, in this order; all merged)
+
+0. `m4b-plan` (#78): this section; T-17 closed and T-21 (the founder's Stripe steps) opened in the backlog. Docs only.
+1. `m4b-payments-models` (#79): the app, its three models and migrations, the prices, the three settings, `stripe_api.py`, the read-only admin with editable prices, `add_seats` and `remove_seats`, erasure tests.
+2. `m4b-checkout` (#80): the three `start_…` services, `fulfil`, the webhook, the return and cancelled pages.
+3. `m4b-buy-pages` (#81): the personal and organization buy pages and every link to them; isolation tests first.
+4. `m4b-refunds` (#82): the Refund button, `refund`, refunds made in Stripe's dashboard, "needs attention".
+5. `m4b-docs-live-checks`: docs synced with what was built, and the founder's live checklist. Docs only.
 
 **Done when**
 
@@ -798,7 +807,42 @@ When both parts pass, tell Claude: the two boxes are ticked in a docs-only PR.
 - [ ] On the live site, with the test keys in place: a person buys a Tier 1 licence with Stripe's test card `4242 4242 4242 4242`, is brought back, and can start the survey at once; then upgrades it to Tier 2 and pays only the difference.
 - [ ] An organization's admin buys three Tier 2 licences; the stock and the people limit both go up by three; the payment is in the Django admin with no name or email on it.
 - [ ] A superuser refunds an unused licence from the Django admin: the money goes back in Stripe's dashboard and the licence is withdrawn; a used one is refused.
-- [ ] All tests pass, including every tenant isolation test.
+- [x] All tests pass, including every tenant isolation test. *(1,547 tests, in CI and locally, 2026-11-13.)*
+
+**Checks at the end (2026-11-13)**
+
+*Automated, all passing.* The full suite: 1,547 tests, including every tenant isolation test (which now runs with buying open, so a buy form sent to the wrong organization would really write a payment row and be caught). `ruff check`, `ruff format --check`, `manage.py check --fail-level WARNING` and `makemigrations --check`. Each code PR was checked by breaking the code on purpose: thirteen breaks in PR 1, seventeen in PR 2, ten in PR 3 and seventeen in PR 4. Fifty-three were caught by a test. The other four are places where a page's own check was removed and the service underneath still refused. Four tests run requests at the same moment in threads: the return page and Stripe's message together (one licence), a stock purchase confirmed twice (added once), and two staff refunding at once (one refund). One test found a real fault before the first commit: a database rule that let "an upgrade from nothing" through (NOTES 2026-11-13).
+
+One run in a real browser at phone width, against a local server (PR 3): a person opens "My surveys", goes to the buy page, buys a Tier 2 licence, comes back and sees it ready; upgrades a Tier 1 licence to Tier 3 and comes back; an organization's admin opens "Buy licences", starts a purchase, cancels (back on the same page, "Nothing was charged"), buys three Tier 2 licences and comes back to "3 of 3 Tier 2 licences left"; and with no Stripe key both pages say buying is not open. Nothing was wider than the phone. Stripe's own page was a stand-in in that run.
+
+*Not covered by anything automated, and so not verified at all:* every conversation with Stripe itself. The file that talks to Stripe has been run only against a stand-in for Stripe's library (its signature check is the exception: that is Stripe's real code, run on messages the tests sign themselves). Whether a real payment page opens, takes the test card, comes back, and whether Stripe's message reaches the site and is accepted, will first be seen in the founder's live checklist below. If any of it fails, the place to look is `apps/payments/stripe_api.py`, and Sentry will have the error. The two admin pages for a refund were tested through requests, not looked at in a browser.
+
+**Live checklist (for the founder)**
+
+Do the five steps under "What the founder does" first (`06-backlog.md`, T-21). Then run this on the live site, on Stripe's **test** keys: no real money moves. You need window 1 (your superuser login, also for the Django admin), window 2 (a private window) with an ordinary account whose email is verified, an organization that account 1 is an admin of, and Stripe's dashboard open in test mode. Stripe's test card is `4242 4242 4242 4242`, with any date in the future, any three digits and any postcode. Nothing here needs SSH or GitHub.
+
+*Part A: a person buys a licence, then upgrades it (box 1).*
+1. Window 2: "My surveys". The Personal box says "Taking the survey needs a licence" with a "Buy a licence" button. Press it. The page lists Tier 1, 2 and 3 at $1.00, $2.00 and $3.00. (If it says "Buying online is not open yet", the key has not reached the server: check step 4 of T-21.)
+2. Press "Buy for $1.00". You are on Stripe's page, which shows "Tier 1 licence" and $1.00. Pay with the test card.
+3. You are brought back to "My surveys" with "Thank you. Your Tier 1 licence is ready." and "You have 1 unused licence", with a Start button.
+4. "Buy a licence, or upgrade one you have". Under "Your licences" the Tier 1 licence has "Upgrade to Tier 2 for $1.00" and "Upgrade to Tier 3 for $2.00". Press the first and pay $1.00 on Stripe's page. Back on "My surveys": "Thank you. Your licence is now Tier 2."
+5. Window 1: Django admin, "Payments". Two payments, "1 x Tier 1" for $1.00 and "Tier 1 to Tier 2" for $1.00, both "Paid". Neither line shows a name or an email.
+6. Stripe's dashboard, Payments: the same two payments. Developers, Webhooks, your endpoint: the `checkout.session.completed` messages show as delivered.
+
+*Part B: an organization buys licences (box 2).*
+1. Window 1: your organization's page. Note what "Bring people in" says about places, and what the Licences box says. Press "Buy licences".
+2. Choose "Tier 2 licence, $2.00 each", type 3, "Continue to payment". Stripe's page shows 3 at $2.00 and a total of $6.00. Pay with the test card.
+3. You are brought back to the Licences page: "Thank you. 3 Tier 2 licences have been added to (your organization)'s stock." The Tier 2 line has three more than before, and the organization's page has three more places.
+4. Django admin, "Payments": "3 x Tier 2", $6.00, "Paid", with the organization named and nobody else.
+5. Start again from "Buy licences", and on Stripe's page press the back arrow instead of paying. You are back on "Buy licences" with "Nothing was charged."
+
+*Part C: a refund (box 3).*
+1. Django admin, "Payments", open the organization's payment. Press "Refund…" at the top right, beside History. The page says the licences refunded are taken out of the stock and $2.00 goes back for each. Type 1 and press "Yes, refund through Stripe".
+2. The payment now reads "Partly refunded" and "$6.00 ($2.00 refunded)". The organization's Tier 2 stock is one lower. In Stripe's dashboard the payment shows a $2.00 refund. The payment's History says who refunded it.
+3. Window 2: start the survey on the personal licence and answer the first page. Window 1: open the "1 x Tier 1" payment, "Refund…". It says the payment cannot be refunded here, because the survey on the licence has been started, and there is no refund button. (It would also be refused for the upgrade on top of it.)
+4. To see a personal refund work: in window 2 buy another Tier 3 licence and do not start it; in window 1 refund that payment. Window 2: "My surveys" no longer offers that licence.
+
+*Afterwards.* Stripe does not email receipts in test mode, so the receipt and the organization's invoice are checked when real keys go in. Tell Claude what you saw: the three boxes are then ticked in a docs-only PR. Real keys go in only when you say so, and after the accountant's answer on tax (`06-backlog.md`, D-20).
 
 **Why this order / what to understand**
 
@@ -982,7 +1026,7 @@ Not a milestone. Self-serve purchase for individuals and enterprises (likely Raz
 | 3 | Organizations, memberships, join | 2 | Organization admins onboard members and see who took the survey; licences per membership (built 2026-11-13; the founder's live checks remain) |
 | 4 | Licences for organizations (seat pools) | 3 | An organization's admins give out the licences it has bought; counts are right (built 2026-11-13; the founder's live checks remain) |
 | 4, part 2 | Licences set aside for invites and codes | 4 | A licence promised by an invite or a code is really there; an invite can be sent again or moved (built 2026-11-13; the founder's live checks remain) |
-| 4b | Payments | 4 | A purchase adds licences without staff typing (moved here from Phase 3 on 2026-11-13; planned the same day, in six PRs) |
+| 4b | Payments | 4 | A purchase adds licences without staff typing (built 2026-11-13; closed until the founder adds the Stripe test key, then their live checks) |
 | 5 | Jobs, matching, audit | 4b | Worker live; repeats flagged and linked; actions audited |
 | 6 | Root admin, export, erasure audit | 5 | Root console complete; CSV; erasure audited and documented |
 | 7 | Hardening and pilot | 6 | First customer |
@@ -1004,6 +1048,7 @@ Moved on 2026-11-12 to `06-backlog.md`, the one list of open tasks and parked de
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-13 | Milestone 4b is code-complete and deployed: PRs 0 to 5 (#78 to #82 and the closing docs PR). Buying stays closed on the live site until the founder adds the Stripe test key (`06-backlog.md`, T-21), and its three live checks then wait for the founder (T-22). Nothing has been run against Stripe itself | The site was built to work with or without the keys, so the code did not have to wait for the Stripe account |
 | 2026-11-13 | Milestone 4b (payments) is planned in six PRs (0 to 5): Stripe's hosted payment page; prices in the database; a ledger row written before the money moves and holding no identity; the licence given exactly once, from the return page or Stripe's message, whichever comes first; refunds from the Django admin. The defaults the founder accepted beforehand are the product rules; the builder's further calls are under "Smaller rules" | The founder answered the basics and accepted the defaults ("those defaults are fine") before going away, and asked for it to be planned and built without waiting |
 | 2026-11-13 | The buy pages are open to everyone on the live site while Stripe is on test keys | Founder: "treat it like it's live with customers"; nobody is looking at the site yet, and on test keys no money can move |
 | 2026-11-13 | The licence changes (Milestone 4, second part) are code-complete and deployed: PRs 0 to 2 (#75, #76 and the PR that wrote this line). Its two live checks wait for the founder (`06-backlog.md`, T-18). One rule changed while building: an invite's 14 days restart only when its email actually goes out, not on a send the mail server refused | A refused send reaches nobody, so it should neither count towards the five nor keep an invite, and the licence set aside for it, alive |

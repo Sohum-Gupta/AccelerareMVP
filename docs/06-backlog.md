@@ -17,7 +17,7 @@ Every item has an ID (`T-` for tasks, `D-` for decisions, `L-` for later feature
 
 ## Where things stand (2026-11-13)
 
-Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-12. Milestone 3 (organizations) was built on 2026-11-12 and 2026-11-13 and is live; what is left of it is your checklist on the live site (T-16). Milestone 4 (licences for organizations) was built on 2026-11-13 and is live; what is left of it is your checklist on the live site (T-18). Nobody has yet tried Milestone 3 or Milestone 4 by hand on the live site. On 2026-11-13 you answered the choices made while building Milestone 4, the payments basics, and the two GitHub questions; the answers are in the build plan's decision log. What follows from them is built in this order: the licence changes (a licence is set aside when an invite or code promises one; built and live the same day, with two live checks added to T-18), then payments (planned as Milestone 4b; your part is T-21), then Milestone 5. The site is being built for the US first; the India items below are deferred. Every decision below was reviewed with the founder on 2026-11-12; the ones still listed were left here on purpose.
+Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-12. Milestone 3 (organizations) was built on 2026-11-12 and 2026-11-13 and is live; what is left of it is your checklist on the live site (T-16). Milestone 4 (licences for organizations) was built on 2026-11-13 and is live; what is left of it is your checklist on the live site (T-18). Nobody has yet tried Milestone 3 or Milestone 4 by hand on the live site. On 2026-11-13 you answered the choices made while building Milestone 4, the payments basics, and the two GitHub questions; the answers are in the build plan's decision log. What follows from them is built in this order: the licence changes (a licence is set aside when an invite or code promises one; built and live the same day, with two live checks added to T-18), then payments (Milestone 4b; built and deployed the same day, but closed until you add the Stripe test key, T-21, and then yours to try, T-22), then Milestone 5. The site is being built for the US first; the India items below are deferred. Every decision below was reviewed with the founder on 2026-11-12; the ones still listed were left here on purpose.
 
 ## Waiting on you now
 
@@ -26,6 +26,7 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | T-16 | Run the Milestone 3 live checklist (parts A to F in the build plan) | Six of Milestone 3's seven boxes can only be ticked on the live site |
 | T-18 | Run the Milestone 4 live checklist (parts A to D in the build plan, and parts E and F for its second part) | Four of Milestone 4's five boxes, and two of its second part's three, can only be ticked on the live site |
 | T-21 | Stripe: a test-mode account, its secret key and webhook secret in Parameter Store (five steps in the build plan, Milestone 4b) | Until the key is on the server, the buy pages say buying online is not open yet |
+| T-22 | Run the Milestone 4b live checklist with Stripe's test card (parts A to C in the build plan) | Nothing has been run against Stripe itself yet; three of its four boxes can only be ticked on the live site |
 | T-2 | Set up the uptime checker (Better Stack) once Outlook is back | Nobody is told if the site goes down |
 | T-3 | Confirm you did the second-email checks (part F) | Two Milestone 1 boxes can then be ticked |
 | T-4 | Check the AWS support case for SES production access | Until it is approved, strangers cannot get a sign-up email |
@@ -68,6 +69,7 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | T-18 | Run the Milestone 4 live checklist | Now |
 | T-19 | The interface points the founder raised on the live site (six small fixes and a design pass) | When the founder asks; each is a small PR |
 | T-21 | Stripe test keys and webhook, in Stripe's dashboard and Parameter Store | Now; needed before payments can be tried on the live site |
+| T-22 | Run the Milestone 4b live checklist | After T-21 |
 
 ## Later, not yet planned
 
@@ -90,7 +92,7 @@ These are not in any milestone yet. The code is shaped so none of them needs a r
 
 Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item below:
 
-- Do not build anything from a milestone later than the one in progress. As of 2026-11-13 Milestones 3 and 4 are both code-complete and live, each waiting only for the founder's live checklist (T-16, T-18). The work in progress is what the founder asked for on 2026-11-13, in this order: the licence changes that follow from their answers on Milestone 4's choices (built and live; "Milestone 4, second part" in the build plan), payments (Milestone 4b, planned in `05-build-plan.md`; the founder's Stripe steps are T-21), then Milestone 5. Merging on green without waiting for review applies to those pieces of work (decision log, 2026-11-13) and to nothing else; ask before doing it for anything further. `main` is protected: every change goes through a pull request whose `test` check has passed. The site is built for the US first (2026-11-13): do not design anything India-specific unless the founder brings it back.
+- Do not build anything from a milestone later than the one in progress. As of 2026-11-13 Milestones 3 and 4 are both code-complete and live, each waiting only for the founder's live checklist (T-16, T-18). The work in progress is what the founder asked for on 2026-11-13, in this order: the licence changes that follow from their answers on Milestone 4's choices (built and live; "Milestone 4, second part" in the build plan), payments (Milestone 4b; code-complete and deployed, closed on the live site until the founder's Stripe steps, T-21, with the live checklist T-22), then Milestone 5. Merging on green without waiting for review applies to those pieces of work (decision log, 2026-11-13) and to nothing else; ask before doing it for anything further. `main` is protected: every change goes through a pull request whose `test` check has passed. The site is built for the US first (2026-11-13): do not design anything India-specific unless the founder brings it back.
 - An item marked **Decision** is the founder's to make. Do not pick an answer. Present the options, recommend one if asked, and wait.
 - The founder reviewed every decision on 2026-11-12. Those still here were deliberately left for later; do not re-ask them unprompted unless the milestone that needs them is being planned.
 - Never put survey statements, answers or a person's email into this file, a test or an admin history label.
@@ -190,6 +192,13 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Why the order does not matter:** both settings are optional. With no key the buy pages say buying online is not open yet; with a key and no webhook secret, buying works through the page the person returns to, and Stripe's own messages are answered "not set up" until the secret arrives (Stripe keeps retrying for days).
 - **Real keys later:** only after the founder has tried a purchase on test keys and says so (decision log, 2026-11-13), and after D-20. Going live means the same two parameters with `sk_live_…` and a new webhook secret, made in Stripe's live mode.
 - **When done:** remove this item, note the date in the decision log, and update `04-infrastructure.md` (the Secrets row and section 4) and NOTES.md's porting checklist if they do not already say so.
+
+### T-22 Run the Milestone 4b live checklist
+- **Status:** open, waiting on T-21 and then on the founder, since 2026-11-13. Milestone 4b is code-complete and deployed. **Nothing in it has been run against Stripe:** every test uses a stand-in. The first real payment page, the first real message from Stripe and the first real refund will be the founder's, on test keys.
+- **What to do:** "Live checklist (for the founder)" in `05-build-plan.md`, Milestone 4b: part A (a person buys a licence and upgrades it), part B (an organization buys three), part C (a refund from the Django admin, and one that is refused). Stripe's test card is `4242 4242 4242 4242`. It needs the superuser login, a second ordinary account, an organization, and Stripe's dashboard in test mode.
+- **If something fails:** note what the page said and when. Sentry will have the error, without the person's details. The file that talks to Stripe is `apps/payments/stripe_api.py`; a payment that arrived but could not be finished is marked "needs attention" under "Payments" in the Django admin, with the reason.
+- **Done when:** the founder reports each part. Then a docs-only PR ticks the three boxes, records the date in the decision log, updates the status lines and removes this item.
+- **Source:** `05-build-plan.md`, Milestone 4b, "Done when" and "Live checklist".
 
 ## Decisions
 

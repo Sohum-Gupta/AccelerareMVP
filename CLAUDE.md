@@ -22,10 +22,13 @@ before doing any work:
    the choices made while building it, and the payments basics, on 2026-11-13 (the build plan's decision
    log). The licence changes that follow from those answers ("Milestone 4, second part": a licence is set
    aside when an invite or a join code promises one) are code-complete and live (1,315 tests); their two
-   live checks are part of T-18. The work in progress, in this order: payments (Milestone 4b, on Stripe
-   test keys; its plan is its PR 0), then Milestone 5. Merging on green without
-   waiting for a review applies to those pieces of work and nothing else: ask before doing it for
-   anything further. Product choices that come up are still asked of the founder first. `main` is
+   live checks are part of T-18. Payments (Milestone 4b, Stripe) are code-complete and deployed: PRs 0
+   to 5 (1,547 tests). Buying is closed on the live site until the founder adds the Stripe test key
+   (T-21), and nothing has been run against Stripe itself: every test uses a stand-in, and the founder's
+   live checklist (T-22) is the first real run. Never let a test reach Stripe (`tests/conftest.py`), and
+   never print or commit a key. The work in progress: Milestone 5. Merging on green without
+   waiting for a review applies to the licence changes, payments and Milestone 5 and nothing else: ask
+   before doing it for anything further. Product choices that come up are still asked of the founder first. `main` is
    protected on GitHub: every change goes through a pull request whose `test` check has passed. The site
    is built for the US first; India is deferred.**
    Do not build anything from a later milestone than the one in progress.
