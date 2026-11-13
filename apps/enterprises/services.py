@@ -30,6 +30,11 @@ The rules (decided by the founder on 2026-11-12):
   proves nothing, so a forwarded link is useless to anyone else. An invite
   brings a deactivated member back. If the email cannot be sent, the invite is
   kept and the admin can copy the link.
+* An invite that has not been used can be emailed again, or moved to another
+  address (decided by the founder on 2026-11-13). Moving gives it a new link;
+  the old one stops working, and a licence set aside for it follows the new
+  address. An invite is emailed at most five times in all. Its 14 days start
+  afresh each time the email goes out.
 * A tier on an invite or a join code (decided by the founder on 2026-11-13):
   the admin may choose one, and the licences it promises are set aside out of
   the stock from that moment: one for an invite, one for each person a code
@@ -93,6 +98,13 @@ CODE_LENGTH = 10
 DEFAULT_CODE_DAYS = 30
 MAX_CODE_USES = 10_000
 INVITE_DAYS = 14
+# How many times one invite may be emailed in all: the first send, each repeat
+# and each move to another address. Only emails the mail server accepted count.
+MAX_INVITE_EMAILS = 5
+EMAILED_ENOUGH = (
+    f"This invite has been emailed {MAX_INVITE_EMAILS} times, which is the most allowed. "
+    "Copy its link and pass it on yourself, or withdraw it and send a new invite."
+)
 TIERS = (1, 2, 3)
 # The most licences of one tier an organization can be recorded as having bought.
 MAX_SEATS = 1_000_000
@@ -523,7 +535,8 @@ def invite_by_email(admin_membership, email, tier=None, *, request=None):
     The email goes out after the invite is saved, and only when a request is
     given (a view passes it; it is what the link's address is built from).
     `sent` is False if the mail server refused or nothing was sent; the invite
-    is kept either way, and the admin can copy its link (`invite_link`).
+    is kept either way, and the admin can copy its link (`invite_link`). An
+    email that went out is the first of the five the invite may have.
     """
     typed = str(email or "").strip()
     try:
@@ -559,9 +572,125 @@ def invite_by_email(admin_membership, email, tier=None, *, request=None):
             tier=tier,
             expires_at=now + timedelta(days=INVITE_DAYS),
             created_by_id=admin.account_id,
+            # Counted before it is sent, and given back if the send fails.
+            emails_sent=1 if request is not None else 0,
         )
-    sent = send_invite_email(invite, request) if request is not None else False
+    sent = _send_counted(invite, request) if request is not None else False
     return invite, sent
+
+
+def resend_invite(invite, by, *, request):
+    """
+    Email an invite again, to the same address. Returns (invite, sent). The
+    link stays the same, so the earlier email still works too.
+
+    Refused when the invite can no longer be accepted (used, withdrawn,
+    expired, or its address erased) and when it has already been emailed five
+    times. If the mail server refuses, nothing is counted and the admin can
+    still copy the link.
+    """
+    with transaction.atomic():
+        invite = Invite.objects.select_for_update().get(pk=invite.pk)
+        _acting_admin(by, invite.enterprise_id)
+        _check_still_open(invite)
+        _count_an_email(invite)
+        invite.save(update_fields=["emails_sent"])
+    return invite, _send_counted(invite, request)
+
+
+def move_invite(invite, email, by, *, request):
+    """
+    Send an invite to a different address instead. Returns (invite, sent).
+
+    The invite gets the new address and a new link together, so the old link
+    is simply unknown from then on: it reveals nothing, not even where the
+    invite went. Only an account that has verified the new address can accept
+    it, and a licence that was set aside for the invite stays set aside, now
+    for the new address. It uses no further place: it is still one person
+    being brought in.
+
+    Refused when the invite can no longer be accepted, when it has already
+    been emailed five times, and for the reasons a new invite to that address
+    would be: not an address, already an active member's, or already has an
+    open invite of its own.
+    """
+    typed = str(email or "").strip()
+    try:
+        validate_email(typed)
+    except ValidationError:
+        raise Refused("Enter a valid email address.") from None
+    address = normalise_email(typed)
+    with transaction.atomic():
+        # The organization first, as when a new invite is made: "one open
+        # invite per address" is then checked on settled data.
+        enterprise = Enterprise.objects.select_for_update().get(pk=invite.enterprise_id)
+        invite = Invite.objects.select_for_update().get(pk=invite.pk)
+        _acting_admin(by, enterprise.pk)
+        _check_still_open(invite)
+        if address == invite.email:
+            raise Refused(
+                "That is the address this invite already goes to. "
+                "To send it there again, use the button for that."
+            )
+        if _active_member_has_verified(enterprise, address):
+            raise Refused("Someone with that address is already a member.")
+        if _open_invites(enterprise, timezone.now()).filter(email=address).exists():
+            raise Refused("There is already an open invite to that address.")
+        _count_an_email(invite)
+        invite.email = address
+        invite.token = secrets.token_urlsafe(32)
+        invite.save(update_fields=["email", "token", "emails_sent"])
+    return invite, _send_counted(invite, request)
+
+
+def _check_still_open(invite):
+    """Refuse unless the invite could still be accepted. The caller holds its lock."""
+    state = invite_state(invite)
+    if state == "accepted":
+        raise Refused("That invite has already been accepted.")
+    if state == "revoked":
+        raise Refused("That invite has been withdrawn. Send a new one instead.")
+    if state == "expired":
+        raise Refused("That invite has expired. Send a new one instead.")
+    if state != "pending":
+        raise Refused("That invite can no longer be used.")
+
+
+def _count_an_email(invite):
+    """
+    Count the email about to be sent, or refuse at the cap. The caller holds
+    the invite's lock and saves it. Counting first, under the lock, is what
+    stops two clicks at the same moment sending a sixth email; _send_counted
+    gives the count back if the mail server refuses.
+    """
+    if invite.emails_sent >= MAX_INVITE_EMAILS:
+        raise Refused(EMAILED_ENOUGH)
+    invite.emails_sent += 1
+
+
+def _send_counted(invite, request):
+    """
+    Send an invite's email that has already been counted (_count_an_email), and
+    return whether the mail server took it. No lock is held while the mail
+    server is talked to.
+
+    If it went, the invite's 14 days start afresh: the email says the link
+    works for 14 days, and that should be true of every email. If it did not,
+    the count is given back, so a refused send uses up none of the five.
+    The caller's `invite` is brought up to date either way.
+    """
+    sent = send_invite_email(invite, request)
+    still_open = Invite.objects.filter(
+        pk=invite.pk, accepted_at__isnull=True, revoked_at__isnull=True
+    )
+    if sent:
+        still_open.update(expires_at=timezone.now() + timedelta(days=INVITE_DAYS))
+    else:
+        Invite.objects.filter(pk=invite.pk, emails_sent__gt=0).update(
+            emails_sent=F("emails_sent") - 1
+        )
+    invite.refresh_from_db()
+    return sent
 
 
 def invite_link(invite, request):

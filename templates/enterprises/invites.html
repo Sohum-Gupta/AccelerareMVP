@@ -7,7 +7,7 @@
 {% block content %}
   <p class="mb-1 text-sm"><a href="{% url 'enterprises:dashboard' organization.slug %}">{{ organization.name }}</a></p>
   <h1>Invites</h1>
-  <p class="text-sm text-slate-700">An invite goes to one email address, works once and lasts {{ days }} days. An invite can also come with a licence from your stock: choose its tier below, and the licence is set aside for that person until they join.</p>
+  <p class="text-sm text-slate-700">An invite goes to one email address, works once and lasts {{ days }} days. Until it is used you can email it again, or send it to a different address instead; it can be emailed {{ max_emails }} times in all. An invite can also come with a licence from your stock: choose its tier below, and the licence is set aside for that person until they join.</p>
 
   {% include "enterprises/_places.html" %}
 
@@ -45,10 +45,31 @@
               <input type="text" readonly id="invite-link-{{ row.id }}" value="{{ row.link }}" class="min-w-0 text-sm">
               <button type="button" class="button-secondary shrink-0 cursor-pointer rounded-md px-3 py-2 text-sm font-medium" data-copy="invite-link-{{ row.id }}" hidden>Copy link</button>
             </div>
-            <form method="post" action="{% url 'enterprises:invite_revoke' organization.slug row.id %}">
-              {% csrf_token %}
-              <button type="submit" class="button-secondary">Withdraw invite</button>
-            </form>
+            <p class="mb-2 text-xs text-slate-600" data-emailed>Emailed {{ row.emails_sent }} of {{ max_emails }} time{{ max_emails|pluralize }}{% if not row.can_email %}, the most allowed. Copy the link, or withdraw this invite and send a new one{% endif %}.</p>
+            <div class="mb-2 flex flex-wrap gap-2">
+              {% if row.can_email %}
+                <form method="post" action="{% url 'enterprises:invite_resend' organization.slug row.id %}">
+                  {% csrf_token %}
+                  <button type="submit" class="button-secondary">Email it again</button>
+                </form>
+              {% endif %}
+              <form method="post" action="{% url 'enterprises:invite_revoke' organization.slug row.id %}">
+                {% csrf_token %}
+                <button type="submit" class="button-secondary">Withdraw invite</button>
+              </form>
+            </div>
+            {% if row.can_email %}
+              <details>
+                <summary class="cursor-pointer text-sm text-slate-700">Send it to a different address instead</summary>
+                <form method="post" action="{% url 'enterprises:invite_move' organization.slug row.id %}" class="mt-2">
+                  {% csrf_token %}
+                  <label for="move-to-{{ row.id }}">New email address</label>
+                  <input type="email" name="email" id="move-to-{{ row.id }}" autocomplete="off" required class="mb-1">
+                  <p class="mb-2 text-xs text-slate-600">The link above stops working and a new one is emailed to this address. Only an account that has verified the new address can then accept{% if row.tier %}, and the licence goes with it{% endif %}.</p>
+                  <button type="submit" class="button-secondary">Move the invite</button>
+                </form>
+              </details>
+            {% endif %}
           {% endif %}
         </li>
       {% endfor %}

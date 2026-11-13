@@ -30,4 +30,6 @@ urlpatterns = [
     path("<slug:slug>/codes/<int:pk>/revoke/", views.revoke_code, name="code_revoke"),
     path("<slug:slug>/invites/", views.invites, name="invites"),
     path("<slug:slug>/invites/<int:pk>/revoke/", views.revoke_invite, name="invite_revoke"),
+    path("<slug:slug>/invites/<int:pk>/resend/", views.resend_invite, name="invite_resend"),
+    path("<slug:slug>/invites/<int:pk>/move/", views.move_invite, name="invite_move"),
 ]

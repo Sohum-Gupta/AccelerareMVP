@@ -20,8 +20,10 @@ before doing any work:
    PRs 0 to 5 merged and deployed (1,259 tests). Its remaining "Done when" boxes are the founder's live
    checks (task T-18 in `docs/06-backlog.md`; the checklist is in the build plan). The founder answered
    the choices made while building it, and the payments basics, on 2026-11-13 (the build plan's decision
-   log). The work in progress, in this order: the licence changes that follow from those answers, payments
-   (Milestone 4b, on Stripe test keys; its plan is its PR 0), then Milestone 5. Merging on green without
+   log). The licence changes that follow from those answers ("Milestone 4, second part": a licence is set
+   aside when an invite or a join code promises one) are code-complete and live (1,315 tests); their two
+   live checks are part of T-18. The work in progress, in this order: payments (Milestone 4b, on Stripe
+   test keys; its plan is its PR 0), then Milestone 5. Merging on green without
    waiting for a review applies to those pieces of work and nothing else: ask before doing it for
    anything further. Product choices that come up are still asked of the founder first. `main` is
    protected on GitHub: every change goes through a pull request whose `test` check has passed. The site

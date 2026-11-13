@@ -120,6 +120,8 @@ def actions_on(org):
     return [
         *member_actions(org.members[0]),
         (f"codes/{org.code.pk}/revoke/", {}),
+        (f"invites/{org.invite.pk}/resend/", {}),
+        (f"invites/{org.invite.pk}/move/", {"email": "moved@example.com"}),
         (f"invites/{org.invite.pk}/revoke/", {}),
         *licence_actions(org),
     ]
@@ -128,6 +130,16 @@ def actions_on(org):
 def licences_of(org):
     """Every licence for the organization, taken back or not. Never a personal one."""
     return Entitlement.objects.filter(membership__enterprise=org.enterprise)
+
+
+def same_invite(invite):
+    """True if the invite still goes to the same address, by the same link, emailed as often."""
+    now = fresh(invite)
+    return (now.email, now.token, now.emails_sent) == (
+        invite.email,
+        invite.token,
+        invite.emails_sent,
+    )
 
 
 def untouched(org):
@@ -139,6 +151,7 @@ def untouched(org):
         and not member.is_admin
         and fresh(org.code).revoked_at is None
         and fresh(org.invite).revoked_at is None
+        and same_invite(org.invite)
         and org.enterprise.join_codes.count() == 1
         and org.enterprise.invites.count() == 1
         and seat.revoked_at is None
