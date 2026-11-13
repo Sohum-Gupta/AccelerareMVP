@@ -6,13 +6,13 @@ As of 2026-10-05 · v2, amended in Planning Session 2 (Architecture)
 
 The platform collects answers to one fixed personality survey, stores every answer permanently, and lets individuals, enterprise admins and the startup view them. Insights from a separately built algorithm come later; the MVP ships without it.
 
-Target market is India, with a US-hosted trial first. Customers are enterprises (companies, schools) buying seats for their members, and individuals buying for themselves. Minors do not take the survey.
+The site is built for the US first (founder, 2026-11-13); India, the original target market, is a later conversation, and everything India-specific below is deferred, not dropped. Customers are enterprises (companies, schools) buying seats for their members, and individuals buying for themselves. Minors do not take the survey.
 
 | Phase | Delivers | Status |
 | --- | --- | --- |
 | 1 — MVP | Accounts, enterprise tenants, survey intake with save/resume, raw data storage, table-based viewing, CSV export, repeat-user flagging, manual tier assignment | Current |
 | 2 — Insights | Algorithm integration, tiered insight delivery, results UI | Not started |
-| 3 — Commercial | Self-serve payments (individual and enterprise), SSO, helper admin role, dashboards | Not started |
+| 3 — Commercial | SSO, helper admin role, dashboards. Self-serve payments moved out on 2026-11-13: they are now a milestone of Phase 1, straight after Milestone 4 | Not started |
 | 4 — India | Move hosting to ap-south-1 (Mumbai), DPDP review with counsel | Not started |
 
 ## Actors and roles
@@ -43,7 +43,7 @@ The central decision: a person is separate from their enterprise memberships. Da
 | Response | One completed or in-progress run of the survey by one account under one context (enterprise or individual) | Stores raw answers permanently; status is draft or submitted; records survey version at submission; has no tier |
 | Tier | One of three insight levels (1, 2, 3) | Same survey for all; results are computed in full and the viewer's tier filters what is shown. Can be bought before or after taking the survey |
 | Entitlement | A tier granted to a person (individual purchase) or a membership (enterprise seat) | Source: seat, purchase, or manual; revocable; the only place tier is stored |
-| Seat pool | Count of seats per tier an enterprise has bought | Admin assigns members to tiers; cannot exceed the pool; set manually by root admin until payments exist |
+| Seat pool | Count of seats per tier an enterprise has bought | Admin gives licences to members from it; cannot exceed the pool; set by hand by staff (superusers and Support staff) until payments exist |
 | Result | Output of the algorithm for one response | Phase 2; empty in MVP |
 
 ## Functional requirements (MVP)
@@ -165,7 +165,7 @@ Keep the MVP cheap and simple, but make the three things that are expensive to c
 
 Deferred, but the MVP design must not block them:
 
-- Payments: self-serve purchase for individuals and enterprises, likely Razorpay for India. Until then, root admin sets tiers and seat pools by hand after manual invoicing. When payments arrive, a payment ledger without personal identity keeps accounting records after an erasure; licences do not expire.
+- Payments: self-serve purchase for individuals and enterprises. Moved on 2026-11-13 to follow Milestone 4 (`05-build-plan.md`, Milestone 4b), with a US provider and US dollars; Razorpay for India is deferred. Until it is built, staff set seat pools by hand after a sale made off the site. When payments arrive, a payment ledger without personal identity keeps accounting records after an erasure; licences do not expire.
 - SSO per enterprise (SAML or OIDC), optional alongside local accounts.
 - Helper admin role with a reduced permission set.
 - Dashboards, charts and aggregate views.
@@ -192,6 +192,7 @@ Decisions made in Planning Session 1 (2026-10-05), newest first. Later sessions 
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-13 | Built for the US first, India later. Payments move from Phase 3 to follow Milestone 4. An enterprise's people limit is 25 plus the licences it has bought; an admin can take a licence back until its survey is submitted; staff grants are outside the pool; Support staff can set a pool | Founder's decisions while re-planning Milestone 4 (`05-build-plan.md`) |
 | 2026-11-12 | Enterprise admins see status, dates, tier and results, never answers; a full name is collected; admins can promote members; 25 people per enterprise until it buys licences; a deactivated member cannot rejoin by code; a licence carries its context | Founder's decisions when Milestone 3 was re-planned; see `05-build-plan.md` |
 | 2026-10-09 | Erasure: no completed survey means delete outright; a completed survey means strip email, phone, name and login and keep the results, marked erased (FR-24). The self-report is Yes or No plus a required how drop-down (FR-16). The admin is the operations hub with two staff levels (FR-35). Funnel events carry no account link (FR-36). Licences do not expire | Founder's rules of 2026-10-09; see `05-build-plan.md` decision log for the reasons |
 | 2026-10-09 | A verified email has one owner; a second claim is recovered (log in or reset the existing account), never auto-linked or auto-merged | Controlling an inbox proves ownership of the address today, not of an account verified earlier; recycled corporate and shared mailboxes would otherwise take over accounts silently. Recovery needs a deliberate reset that the owner is notified of and root admin can reverse |

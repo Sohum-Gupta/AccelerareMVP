@@ -84,7 +84,7 @@ erDiagram
 | `membership` | id, account_id, enterprise_id, role (member/admin), status (active/deactivated), joined_at, deactivated_at, joined_via_invite_id (nullable), joined_via_code_id (nullable) | Never deleted. Unique on (account_id, enterprise_id). The two `joined_via` columns record the most recent way in and are never both set; both are empty for the creator. A deactivated membership is always role member |
 | `invite` | id, enterprise_id, email, token, tier (nullable), expires_at, accepted_at, revoked_at, created_by_account_id, created_at | Single use. The email is emptied when the person it was sent to is erased; the row stays because it still counts towards the people limit |
 | `join_code` | id, enterprise_id, code, tier (nullable), max_uses, uses, expires_at, revoked_at, created_by_account_id, created_at | Shared code with a cap; `max_uses = 1` is a per-person code. A database check keeps `uses` at or below `max_uses` |
-| `seat_pool` | id, enterprise_id, tier (1–3), seats | Set by root admin until payments exist |
+| `seat_pool` | id, enterprise_id, tier (1–3), seats | How many licences of that tier the enterprise has bought. Unique on (enterprise_id, tier). Set by staff until payments exist. Lives in the `enterprises` app because the people limit (base plus seats bought) is computed there. Seats given are counted from `entitlement` rows with source `seat`, never stored |
 | `survey_version` | id, number, published_at, question_count | v1 only in MVP |
 | `question` | id, survey_version_id, position, text, min_value, max_value, metadata (JSONB) | 25 rows for v1, all 1–4; `metadata` holds later per-question fields |
 | `response` | id, account_id, membership_id (nullable), survey_version_id, status (draft/submitted), answers (JSONB), took_before (self-report), took_before_via (individual/company/other, only when took_before is yes), entitlement_id (one-to-one), pages_completed, started_at, submitted_at, possible_repeat (bool) | `answers` is `{"1": 3, "2": 4, ...}` keyed by question id; `membership_id` null means individual context and is added in Milestone 3 |
@@ -113,7 +113,7 @@ A deactivated member keeps access to their own responses through any account tha
 
 ## Key flows
 
-**Enterprise self-registration.** A person registers an account, creates an enterprise, and becomes its first admin in one flow. The enterprise starts with zero seats. Root admin sets seat pools after manual invoicing.
+**Enterprise self-registration.** A person registers an account, creates an enterprise, and becomes its first admin in one flow. The enterprise starts with zero seats. Staff set seat pools after a sale made off the site, until payments exist (Milestone 4b).
 
 **Joining an enterprise.** Two routes, both land on the same screen:
 1. Invite: admin enters an email; the system emails a single-use link that lasts 14 days. The person signs up or logs in, and can accept once their account holds that address as a verified contact; the link itself verifies nothing. A deactivated member is reactivated by a fresh invite.
@@ -202,6 +202,7 @@ Applied in `01-requirements.md` v2:
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-13 | `seat_pool` belongs to the `enterprises` app; seats given are counted from licences with source `seat`, never stored; an enterprise's people limit is its base plus the seats it has bought; `enterprises` tells `entitlements` about a join through a signal. Built for the US first; payments follow Milestone 4 | Milestone 4 re-plan with the founder; keeps the one-way dependency between the apps |
 | 2026-11-12 | A licence belongs to a person or a membership and fixes the context of its response; `response.membership_id` always equals its licence's membership. Enterprises have a slug and a people limit; accounts have a full name; app dependencies run `accounts` ← `enterprises` ← `entitlements` ← `responses` | Milestone 3 re-plan with the founder; see `05-build-plan.md` |
 | 2026-10-09 | Erasure strips the identity and keeps completed surveys, or deletes outright when there is none; funnel events have no link to accounts; Support staff is a Django group with debugging and insight permissions | Founder's rules; see `05-build-plan.md`. Counting accounts would lose erased people from conversion numbers |
 | 2026-10-09 | A verified email or phone has one owner; collisions are recovered (log in or reset), never auto-linked or auto-merged; no self-service account merge | Recycled and shared inboxes would otherwise take over accounts silently; a merge of two logins with data is the riskiest code in the project. See "Recovery and recycled contacts" |

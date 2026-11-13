@@ -17,14 +17,14 @@ Every item has an ID (`T-` for tasks, `D-` for decisions, `L-` for later feature
 
 ## Where things stand (2026-11-13)
 
-Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-12. Milestone 3 (organizations) was built on 2026-11-12 and 2026-11-13 and is live; what is left of it is your checklist on the live site (T-16). Milestone 4 must be re-planned with you before any of it is built (T-12). Every decision below was reviewed with the founder on 2026-11-12; the ones still listed were left here on purpose.
+Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-12. Milestone 3 (organizations) was built on 2026-11-12 and 2026-11-13 and is live; what is left of it is your checklist on the live site (T-16). Milestone 4 (licences for organizations) was re-planned with you on 2026-11-13 and is in progress. Payments come straight after it and need planning with you first (T-17). The site is being built for the US first; the India items below are deferred. Every decision below was reviewed with the founder on 2026-11-12; the ones still listed were left here on purpose.
 
 ## Waiting on you now
 
 | ID | What | Why it matters |
 | --- | --- | --- |
 | T-16 | Run the Milestone 3 live checklist (parts A to F in the build plan) | Six of Milestone 3's seven boxes can only be ticked on the live site |
-| T-12 | Re-plan Milestone 4, including D-16 | Nothing of Milestone 4 is built until its plan is agreed |
+| T-17 | Decide the payments basics: provider and test keys, prices in dollars, refund rule, tax | Payments are the milestone after Milestone 4 and cannot be planned without them |
 | T-2 | Set up the uptime checker (Better Stack) once Outlook is back | Nobody is told if the site goes down |
 | T-3 | Confirm you did the second-email checks (part F) | Two Milestone 1 boxes can then be ticked |
 | T-4 | Check the AWS support case for SES production access | Until it is approved, strangers cannot get a sign-up email |
@@ -44,7 +44,6 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | D-10 | Show dates in each person's time zone? | If people complain | Day only, in UTC |
 | D-11 | Keep `app.theaccelerare.com` or rename it? | Before the pilot, ideally before T-4 and T-10 | `app.` is a placeholder |
 | D-15 | Hide whether an email has an account (sign-up timing, reset warning) | If it becomes a concern | Accepted for now (2026-11-12) |
-| D-16 | How buying licences raises an organization's 25-person limit | Planning Milestone 4 | 25 until staff raise it by hand |
 | D-17 | Review the wording that tells a member what an organization's admins can see | With D-7, before the pilot | The wording as built; "fine for now" (2026-11-13) |
 
 ## Tasks still open
@@ -61,23 +60,23 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | T-9 | Upgrade PostgreSQL to a newer major version everywhere | Before the pilot |
 | T-10 | Email reputation records (DMARC, own bounce domain) | Before real email volume |
 | T-11 | Write the README | Founder, any time |
-| T-12 | Re-plan Milestone 4 before starting it | Before Milestone 4 |
 | T-13 | Silence a harmless VS Code warning in `deploy.yml` | Whenever |
 | T-14 | Reply-To on site emails: pick the inbox, then a small PR | When the address is chosen |
 | T-16 | Run the Milestone 3 live checklist | Now |
+| T-17 | Plan the payments milestone (4b) | After Milestone 4 |
 
 ## Later, not yet planned
 
 These are not in any milestone yet. The code is shaped so none of them needs a redesign.
 
-- **L-1** Payments (likely Razorpay for India), with a payment record that holds no personal identity.
+- **L-1** Payments: no longer here. Moved on 2026-11-13 to a milestone straight after Milestone 4 (T-17).
 - **L-2** Company single sign-on (SAML or OIDC).
 - **L-3** A helper-admin role for enterprises.
 - **L-4** Charts and dashboards.
 - **L-5** The algorithm, results and insights (Phase 2).
 - **L-6** A second version of the survey.
-- **L-7** Phone verification by SMS (needs an Indian SMS provider and DLT registration, which takes weeks).
-- **L-8** Moving the servers to Mumbai, with Terraform.
+- **L-7** Phone verification by SMS (needs an SMS provider; the Indian sender registration, which takes weeks, is deferred with India).
+- **L-8** Moving the servers to Mumbai, with Terraform (deferred with India, 2026-11-13).
 - **L-9** Faster pages for UK and India users (CDN or regional move), if latency becomes a problem.
 - **L-10** Sending email through Microsoft 365's Graph API instead of SES, if ever wanted.
 
@@ -87,7 +86,7 @@ These are not in any milestone yet. The code is shaped so none of them needs a r
 
 Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item below:
 
-- Do not build anything from a milestone later than the one in progress. As of 2026-11-13 Milestone 3 is code-complete and live, waiting only for the founder's live checklist (T-16). Milestone 4 is next and must be re-planned with the founder first (T-12); do not write Milestone 4 code before that. Merging on green without review was granted for Milestone 3 only: ask before using it again.
+- Do not build anything from a milestone later than the one in progress. As of 2026-11-13 Milestone 3 is code-complete and live, waiting only for the founder's live checklist (T-16). Milestone 4 is in progress: PRs 0 to 5 in `05-build-plan.md`, merged on green without waiting for review, with founder decisions still raised. That arrangement covers Milestone 4 only: ask before using it for payments (Milestone 4b, T-17), which must be planned with the founder before any of it is built. The site is built for the US first (2026-11-13): do not design anything India-specific unless the founder brings it back.
 - An item marked **Decision** is the founder's to make. Do not pick an answer. Present the options, recommend one if asked, and wait.
 - The founder reviewed every decision on 2026-11-12. Those still here were deliberately left for later; do not re-ask them unprompted unless the milestone that needs them is being planned.
 - Never put survey statements, answers or a person's email into this file, a test or an admin history label.
@@ -148,9 +147,6 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 ### T-11 README
 - **Status:** `README.md` is empty on purpose; the founder is writing it separately. Do not write it unless asked.
 
-### T-12 Re-plan Milestone 4 before starting it
-- **Status:** next up, not started; Milestone 3 is built (2026-11-13). `05-build-plan.md` Milestone 4 begins with two notes: what Milestone 3 already pulled forward (the membership licence, staff granting it by hand, the people limit), and this one: a seat is now a licence an enterprise bought and assigned to a member, consumed by one attempt and upgradeable in place. The section's model text predates that and must be rewritten with the founder before any Milestone 4 code. Depends on Milestone 3.
-
 ### T-13 VS Code warning on `env.IMAGE`
 - **Status:** cosmetic. `deploy.yml` sets `IMAGE` at run time through `$GITHUB_ENV`, so the editor flags `env.IMAGE`. Switching to a step output would silence it. Not worth a PR on its own.
 
@@ -164,6 +160,12 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **What to do:** work through "Live checklist (for the founder)" in `05-build-plan.md`, Milestone 3: parts A to F, one per box (join by code and take the survey; the same by invite; deactivate and reactivate; a second admin; the people limit; erasure). It needs the superuser login, a private window and two spare email addresses, and nothing from SSH, the AWS console or GitHub. While SES is sandboxed (T-4), an address that cannot get mail is marked verified in the Django admin ("Login (allauth)", "Email addresses").
 - **Done when:** the founder reports each part. Then a docs-only PR ticks the boxes, records the date in the decision log, updates the status lines (build plan, `CLAUDE.md`, this file) and removes this item. Anything that did not behave as written is fixed first.
 - **Source:** `05-build-plan.md`, Milestone 3, "Done when" and "Live checklist".
+
+### T-17 Plan the payments milestone (4b) with the founder
+- **Status:** open; it follows Milestone 4. The founder moved payments forward on 2026-11-13 (`05-build-plan.md`, Milestone 4b, and the decision log). Nothing is planned or built.
+- **The founder decides first:** the provider (Stripe was suggested for the US, not chosen) and an account with test keys; prices in dollars for Tier 1, 2 and 3, and whether organizations get a volume price; the refund rule (for example, only while the licence is unused); whether sales tax and numbered invoices are needed; whether merging on green applies to this milestone.
+- **Then:** a plan in the build plan in the style of Milestones 3 and 4, as that milestone's PR 0. The provider's keys go in Parameter Store **[console]**.
+- **Already decided:** see "What is already decided" under Milestone 4b. This replaces L-1.
 
 ## Decisions
 
@@ -206,12 +208,6 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 ### D-15 Revealing whether an email has an account
 - **Status:** accepted for now (confirmed 2026-11-12). Two leaks: sign-up answers "check your inbox" either way, but a real send takes longer (NOTES.md 2026-10-09); and while SES is sandboxed the reset page warns "could not send" only for addresses that have an account (NOTES.md 2026-10-10). The second fades with T-4. Revisit if account enumeration ever matters.
 
-### D-16 How purchases raise the people limit
-- **Status:** left for the Milestone 4 re-plan (founder, 2026-11-12: "we can deal with the Milestone 4 question later").
-- **Background:** the founder decided on 2026-11-12 that anyone may create an organization but it is very limited until it pays: at most 25 people in total by invite or join code (`Enterprise.people_limit`, default 25; every invite ever sent counts, plus every join by code). The founder's words: an unpaid organization gets a small number of invites, "and based on that [a purchase] you can send out more".
-- **To decide:** the rule that turns seats bought into places (for example places equal to seats, or seats plus a margin), whether the limit is removed entirely for a paying organization, and whether `people_limit` is then computed from `SeatPool` or still stored.
-- **Until then:** staff raise `people_limit` by hand in the Django admin.
-
 ### D-17 The wording that tells a member what an organization can see
 - **Status:** the founder read both texts on 2026-11-13 and accepted them as they are ("fine for now"), asking for a later review. Nothing is waiting on this. Review it with the privacy lawyer's list (D-7), before the pilot.
 - **Where the words are:** the join confirmation page, shown before someone joins an organization (`templates/enterprises/join_confirm.html`, Milestone 3 PR 10), and the organization version of the survey's "Before you begin" page (`templates/responses/disclosure.html`, PR 7). Both list what the organization's admins can see and what they never see. The code keeps those promises: `tests/test_tenant_isolation.py` holds the admin pages to them.
@@ -239,7 +235,7 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 
 None of these is in a milestone. Each has a seam in the current design (`02-architecture.md`, "Deferred extension points"); building one is a new plan, not a redesign.
 
-- **L-1 Payments (Phase 3).** Likely Razorpay for India. Writes licences through the same services the admin uses (`grant_individual` with source `purchase`, the seat-pool services). Already decided: licences do not expire, a retake needs another licence, upgrades happen in place. Needs a payment ledger (amount, currency, date, invoice number, provider reference, licence id and tier) with no personal identity, so an erasure never removes an accounting record; refunds revoke through the service; the funnel records `licence_granted` with source `purchase`; reminders for unused licences once the worker exists. See `05-build-plan.md`, "Phase 3 stub".
+- **L-1 Payments.** Moved on 2026-11-13 to Milestone 4b, straight after Milestone 4; see T-17. What follows is the earlier note, kept for what it decided ("Likely Razorpay for India" is deferred with India). Writes licences through the same services the admin uses (`grant_individual` with source `purchase`, the seat-pool services). Already decided: licences do not expire, a retake needs another licence, upgrades happen in place. Needs a payment ledger (amount, currency, date, invoice number, provider reference, licence id and tier) with no personal identity, so an erasure never removes an accounting record; refunds revoke through the service; the funnel records `licence_granted` with source `purchase`; reminders for unused licences once the worker exists. See `05-build-plan.md`, "Phase 3 stub".
 - **L-2 SSO per enterprise** (SAML or OIDC), optional beside local accounts. FR-5. A second login method on the account; memberships unchanged.
 - **L-3 Helper admin.** Requirements undefined. A third value in `membership.role` or a platform role table.
 - **L-4 Dashboards and charts.** FR-21. Read-only queries over responses and results.
