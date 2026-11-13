@@ -21,6 +21,9 @@ organization pages' own `Refused`, with a message the admin can be shown, or
 `NotFound` when the member or licence is not that organization's. A licence
 given this way has the source "seat" and is the only kind that counts against
 the stock; one staff granted by hand is a gift on top and only staff change it.
+An invite or a join code can carry a tier: give_seat_on_joining gives whoever
+joins with it a licence from the stock (signals.py calls it), or nothing if
+the stock has none left. They join either way.
 
 Lock order, everywhere a licence is given, taken back or used: the
 organization's row, then the membership, then the licences, then the response.
@@ -33,7 +36,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.enterprises import services as orgs
-from apps.enterprises.models import Membership
+from apps.enterprises.models import Enterprise, Membership
 from apps.funnel import services as funnel
 
 from .models import Entitlement
@@ -223,23 +226,67 @@ def assign_seat(admin_membership, member_membership, tier):
             raise Refused(
                 "This member has been deactivated. Reactivate them before giving them a licence."
             )
-        # Lock the member's active licences on their own (no join), then ask the
-        # questions in fresh statements, which see what was committed meanwhile.
-        held = Entitlement.objects.filter(membership=member, revoked_at__isnull=True)
-        list(held.select_for_update())
-        if held.filter(response__isnull=True).exists():
-            raise Refused(ALREADY_HAS_ONE)
-        if held.filter(response__status="draft").exists():
-            raise Refused(STILL_TAKING)
+        holding = _licence_in_hand(member)
+        if holding:
+            raise Refused(holding)
         _check_one_left(enterprise, tier)
-        entitlement = Entitlement.objects.create(
-            membership=member,
-            tier=tier,
-            source=Entitlement.Source.SEAT,
-            granted_by=admin.account,
-        )
-        funnel.record_event(funnel.Kind.LICENCE_GRANTED, tier=tier, source=Entitlement.Source.SEAT)
-        return entitlement
+        return _give_from_stock(member, tier, admin.account)
+
+
+def give_seat_on_joining(membership, tier):
+    """
+    Someone has just joined with an invite or a join code that carries a tier:
+    give them a licence of that tier out of the organization's stock, and
+    return it.
+
+    Returns None, and gives nothing, when the stock of that tier has none left
+    or when they already hold a licence they have not finished using (a
+    returning member keeps the one they had). It does not refuse: the person
+    has joined either way, and the Licences page tells the admins who joined
+    without a licence (enterprises.services.joined_without_licence).
+
+    Nobody is acting at this moment. The admin chose the tier when they made
+    the invite or the code, so `granted_by` is whoever made it.
+    """
+    _check_seat_tier(tier)
+    with transaction.atomic():
+        # The same order as assign_seat: organization, membership, licences.
+        enterprise = Enterprise.objects.select_for_update().get(pk=membership.enterprise_id)
+        member = Membership.objects.select_for_update().filter(pk=membership.pk).first()
+        if member is None or not member.is_active or _licence_in_hand(member):
+            return None
+        try:
+            _check_one_left(enterprise, tier)
+        except Refused:
+            return None
+        came_in_by = member.joined_via_invite or member.joined_via_code
+        return _give_from_stock(member, tier, came_in_by.created_by if came_in_by else None)
+
+
+def _licence_in_hand(member):
+    """
+    Why this member cannot be given a licence just now: the message, or "" if
+    they can. They hold one they have not used, or one whose survey they have
+    not finished (whoever it came from). The caller holds the membership's lock.
+    """
+    # Lock the member's active licences on their own (no join), then ask the
+    # questions in fresh statements, which see what was committed meanwhile.
+    held = Entitlement.objects.filter(membership=member, revoked_at__isnull=True)
+    list(held.select_for_update())
+    if held.filter(response__isnull=True).exists():
+        return ALREADY_HAS_ONE
+    if held.filter(response__status="draft").exists():
+        return STILL_TAKING
+    return ""
+
+
+def _give_from_stock(member, tier, granted_by):
+    """Create the licence and record it. The caller has checked the stock, under the lock."""
+    entitlement = Entitlement.objects.create(
+        membership=member, tier=tier, source=Entitlement.Source.SEAT, granted_by=granted_by
+    )
+    funnel.record_event(funnel.Kind.LICENCE_GRANTED, tier=tier, source=Entitlement.Source.SEAT)
+    return entitlement
 
 
 def take_back_seat(admin_membership, entitlement):

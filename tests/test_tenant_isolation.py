@@ -415,7 +415,8 @@ class TestAMemberIsNotAnAdmin:
             for membership in others:
                 assert membership.account.full_name not in text, url
                 assert membership.account.email not in text, url
-            for admins_only in ("current_members", "all_time_members", "places", "stock"):
+            admin_things = ("current_members", "all_time_members", "places", "stock")
+            for admins_only in (*admin_things, "without_licence"):
                 assert admins_only not in page.context, url
             for secret in (world.acme.code.code, world.acme.invite.email, world.acme.invite.token):
                 assert secret not in text, url
@@ -651,7 +652,17 @@ class TestTheResponsesPages:
 # --- the Licences page -----------------------------------------------------------
 
 # Everything the Licences page is told about a member and about one licence.
-LICENCE_MEMBER_FACTS = {"id", "name", "email", "erased", "active", "is_you", "can_give", "licences"}
+LICENCE_MEMBER_FACTS = {
+    "id",
+    "name",
+    "email",
+    "erased",
+    "active",
+    "is_you",
+    "can_give",
+    "licences",
+    "promised",
+}
 LICENCE_FACTS = {"id", "tier", "state", "from_stock", "can_take_back", "move_to"}
 # The stock lines Acme's admin is shown: only tiers it has bought.
 ACME_STOCK = [
@@ -704,6 +715,17 @@ class TestTheLicencesPage:
         for url in ("licences/", ""):
             assert client.get(address(world.acme, url)).context["stock"] == ACME_STOCK, url
         assert settled(html(client, address(world.acme, "licences/"))) == before
+
+    def test_the_warning_counts_only_its_own_members(self, client, world, admin):
+        """Someone joining Globex with a code whose licence had run out is Globex's business."""
+        orgs.set_seat_pool(world.globex.enterprise, 3, 0)
+        code = orgs.create_code(world.globex.admin, 5, tier=3)
+        joined = orgs.redeem_code(code.code, verified_account("late@example.com"))
+        assert orgs.joined_without_licence(world.globex.enterprise) == {joined.pk: 3}
+        for url in ("licences/", ""):
+            page = client.get(address(world.acme, url))
+            assert page.context["without_licence"] == 0, url
+            assert "data-without-licence" not in page.content.decode(), url
 
     def test_another_organizations_member_cannot_be_given_a_licence(self, client, world, admin):
         for member in world.globex.everyone:

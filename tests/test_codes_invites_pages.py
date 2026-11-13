@@ -144,9 +144,10 @@ class TestTheCodesPage:
         assert client.post(f"{CODES}999999/revoke/").status_code == 404
         assert fresh(code).revoked_at is None
 
-    def test_the_tier_is_never_asked_for(self, client, admin):
-        assert "tier" not in html(client, CODES).lower()
-        assert "tier" not in html(client, INVITES).lower()
+    def test_no_licence_comes_with_a_code_or_an_invite_unless_one_is_chosen(self, client, admin):
+        """The tier drop-down and what it does are in tests/test_tier_on_join.py."""
+        for address in (CODES, INVITES):
+            assert '<option value="" selected>No licence</option>' in html(client, address)
 
 
 # --- invites -------------------------------------------------------------------

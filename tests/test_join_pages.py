@@ -335,7 +335,7 @@ class TestTheConfirmation:
             "how far through a survey you are",
             "any survey you take personally, or for another organization",
             "Members who are not admins see nothing about you.",
-            "does not by itself give you a licence",
+            "To take the survey for Acme you also need a licence from it.",
         ):
             assert said in page, said
 

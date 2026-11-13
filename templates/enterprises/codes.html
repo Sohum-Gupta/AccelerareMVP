@@ -3,7 +3,7 @@
 {% block content %}
   <p class="mb-1 text-sm"><a href="{% url 'enterprises:dashboard' organization.slug %}">{{ organization.name }}</a></p>
   <h1>Join codes</h1>
-  <p class="text-sm text-slate-700">A join code lets anyone who has it become a member of {{ organization.name }}. Put it on a slide or in a message to your team. Joining does not give anyone a licence to take the survey.</p>
+  <p class="text-sm text-slate-700">A join code lets anyone who has it become a member of {{ organization.name }}. Put it on a slide or in a message to your team. A code can also give each person who joins a licence from your stock: choose its tier below.</p>
   <p class="text-sm text-slate-700">People enter the code at <strong class="break-all" data-join-address>{{ join_address }}</strong>. They log in or sign up first, and see what you will be able to see before they join.</p>
 
   {% include "enterprises/_places.html" %}
@@ -17,6 +17,7 @@
       {% endfor %}
       {% include "includes/field.html" with field=form.max_uses %}
       {% include "includes/field.html" with field=form.days %}
+      {% include "includes/field.html" with field=form.tier %}
       <button type="submit">Create code</button>
     </form>
   </section>
@@ -32,7 +33,8 @@
             {% if row.state == "revoked" %}Switched off on {{ row.revoked_at|date:"j F Y" }}
             {% elif row.state == "expired" %}Expired on {{ row.expires_at|date:"j F Y" }}
             {% elif row.state == "used_up" %}Used up
-            {% else %}Works until {{ row.expires_at|date:"j F Y" }}{% endif %}
+            {% else %}Works until {{ row.expires_at|date:"j F Y" }}{% endif %}{% if row.tier %} ·
+            Gives a {% include "responses/_tier.html" with tier=row.tier %} licence{% endif %}
           </p>
           {% if row.state == "active" %}
             <form method="post" action="{% url 'enterprises:code_revoke' organization.slug row.id %}">

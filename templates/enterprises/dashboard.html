@@ -38,6 +38,9 @@
       {% else %}
         <p class="text-sm text-slate-700">A member needs a licence to take the survey for {{ organization.name }}. {{ organization.name }} has none in stock yet. Contact Accelerare to buy some.</p>
       {% endif %}
+      {% if without_licence %}
+        <p class="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900" data-without-licence>{{ without_licence }} member{{ without_licence|pluralize }} joined with an invite or a join code that came with a licence, but your stock had none left, so {{ without_licence|pluralize:"they have,they have" }} no licence yet. You can give them one on the Licences page.</p>
+      {% endif %}
       <a href="{% url 'organization_licences' organization.slug %}">Manage licences</a>
     </section>
 
