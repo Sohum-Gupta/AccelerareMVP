@@ -6,6 +6,10 @@ language, before and after each change. Prefer the boring, built-in Django way.
 
 ## Read these first
 
+**Starting Milestone 6 in a new session? Read `docs/07-handoff-milestone-6.md` before anything else.**
+It says what the founder asked for, how each pull request is run, the decisions to put to the founder
+first, and the deadline.
+
 The planning docs in `docs/` are the source of truth. Read them in this order
 before doing any work:
 
