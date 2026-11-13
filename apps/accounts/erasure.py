@@ -30,9 +30,14 @@ that depend on it. For the same reason a status is written here as plain text
 ("draft", "active"), not as the other app's constant. What no relation reaches
 (an invite that was sent to the person's address) is handled by the app that
 owns it, which listens for the `account_erasing` signal below.
+
+What was removed is kept as numbers (Milestone 6). `plan_erasure` counts what
+will go and what will stay; the page that asks first shows those counts, and
+`erase_account` writes them into its audit row, with what the listening apps
+say they removed. Never a name: the row says "2 contacts", not which.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from allauth.account.models import EmailAddress
 from django.contrib.admin.models import LogEntry
@@ -51,30 +56,105 @@ from .models import Account, ContactPoint
 # `account` and `emails` (the addresses the account has verified). It is how an
 # app that depends on accounts removes its own copies of the person's address
 # (an organization's invites, say) without accounts having to import that app.
-# A receiver that raises stops the erasure and undoes all of it.
+# A receiver that raises stops the erasure and undoes all of it. A receiver may
+# return how many things it removed, as {"plain_name": number}; that goes into
+# the audit row beside the counts below.
 account_erasing = Signal()
 
 DELETE = "delete"
 ANONYMISE = "anonymise"
 
 
+# What each count is called on the page that asks first. The audit row keeps
+# the short name on the left.
+COUNT_LABELS = {
+    "contacts_removed": "Email addresses and phone numbers removed",
+    "unfinished_surveys_removed": "Unfinished surveys deleted",
+    "surveys_kept": "Submitted surveys kept, with no link to a person",
+    "licences_removed": "Licences deleted",
+    "licences_revoked": "Unused licences revoked",
+    "memberships_removed": "Organization memberships deleted",
+    "memberships_deactivated": "Organization memberships deactivated",
+}
+
+
 @dataclass(frozen=True)
 class Plan:
     action: str  # DELETE or ANONYMISE
     summary: str  # plain words, shown on the confirmation page
+    # What goes and what stays, as numbers: {"contacts_removed": 2, ...}.
+    counts: dict = field(default_factory=dict)
+    # True when another login is linked to this person and carries on.
+    other_login_kept: bool = False
+
+    def lines(self):
+        """The counts as (plain words, number), for the page that asks first."""
+        return [(COUNT_LABELS[name], number) for name, number in self.counts.items()]
 
 
-def _explain(account: Account, action: str, submitted: int) -> str:
-    licences = account.person.entitlements.count() if account.person_id else 0
+def _other_login(account: Account) -> bool:
+    """Whether another login that has not been erased is linked to this account's person."""
+    return (
+        account.person_id is not None
+        and account.person.accounts.exclude(pk=account.pk)
+        .filter(anonymised_at__isnull=True)
+        .exists()
+    )
+
+
+def _licences_nobody_can_use(account: Account) -> list:
+    """
+    The licences that are revoked when the account is stripped: the unused
+    ones of its person and of its memberships. "Unused" counts a licence whose
+    survey is unfinished, because that attempt is deleted. If another login is
+    linked to the person (a Milestone 5 link) and shares its licences, only the
+    ones that were this login's go; the other login keeps its own.
+    """
+
+    def unused(licences):
+        return licences.filter(revoked_at__isnull=True).exclude(response__status="submitted")
+
+    found = []
+    if account.person_id:
+        personal = unused(account.person.entitlements)
+        found.append(personal.filter(granted_to=account) if _other_login(account) else personal)
+    found += [unused(membership.entitlements) for membership in account.memberships.all()]
+    return found
+
+
+def _counts(account: Account, action: str, submitted: int) -> dict:
+    """What erasing this account removes and keeps, as numbers. Nothing here says who."""
+    counts = {
+        "contacts_removed": account.contact_points.count(),
+        "unfinished_surveys_removed": account.responses.filter(status="draft").count(),
+        "surveys_kept": submitted,
+    }
+    if action == DELETE:
+        # A person another login still uses is kept, with its licences.
+        shared = account.person_id and account.person.accounts.exclude(pk=account.pk).exists()
+        licences = 0 if shared or not account.person_id else account.person.entitlements.count()
+        licences += sum(m.entitlements.count() for m in account.memberships.all())
+        counts["licences_removed"] = licences
+        counts["memberships_removed"] = account.memberships.count()
+    else:
+        counts["licences_revoked"] = sum(q.count() for q in _licences_nobody_can_use(account))
+        counts["memberships_deactivated"] = account.memberships.filter(status="active").count()
+    return counts
+
+
+def _explain(account: Account, action: str, submitted: int, counts: dict, other: bool) -> str:
     memberships = account.memberships.count()
-    for membership in account.memberships.all():
-        licences += membership.entitlements.count()
+    linked = (
+        " Another login is linked to this person: it keeps working and keeps its own licences."
+        if other
+        else ""
+    )
     if action == DELETE:
         return (
             "This account has no completed survey, so it will be permanently deleted: "
-            f"its email, phone and name, its {licences} licence(s), its membership of "
-            f"{memberships} organization(s) and any unfinished attempt. "
-            "This cannot be undone."
+            f"its email, phone and name, its {counts['licences_removed']} licence(s), its "
+            f"membership of {memberships} organization(s) and any unfinished attempt."
+            f"{linked} This cannot be undone."
         )
     why = (
         f"This account has {submitted} completed survey(s), so it will not be deleted."
@@ -86,7 +166,7 @@ def _explain(account: Account, action: str, submitted: int) -> str:
         f"{why} Its email, phone number, name and login will be removed and its results kept "
         "with no link to a person. Any unfinished attempt is deleted and unused licences "
         f"are revoked. Its membership of {memberships} organization(s) is deactivated and "
-        'shown there as "Erased member". This cannot be undone.'
+        f'shown there as "Erased member".{linked} This cannot be undone.'
     )
 
 
@@ -113,7 +193,9 @@ def plan_erasure(account: Account, by: Account | None = None) -> Plan:
     submitted = account.responses.filter(status="submitted").count()
     has_admin_history = LogEntry.objects.filter(user=account).exists()
     action = ANONYMISE if submitted or has_admin_history else DELETE
-    return Plan(action, _explain(account, action, submitted))
+    counts = _counts(account, action, submitted)
+    other = _other_login(account)
+    return Plan(action, _explain(account, action, submitted, counts, other), counts, other)
 
 
 def _organizations_left_without_an_admin(account: Account) -> list[str]:
@@ -150,12 +232,20 @@ def erase_account(account: Account, by: Account | None = None) -> Plan:
                 kind=ContactPoint.Kind.EMAIL, verified_at__isnull=False
             ).values_list("value_normalised", flat=True)
         )
-        account_erasing.send(sender=Account, account=account, emails=emails)
+        heard = account_erasing.send(sender=Account, account=account, emails=emails)
         _scrub_history(account)
         _end_sessions(account)
-        # Who erased which account, by number. The row outlives the account:
-        # it holds nothing that says who the person was.
-        audit.record(by, "account.erased", account, results_kept=plan.action == ANONYMISE)
+        # Who erased which account, by number, and what went, as numbers. The
+        # row outlives the account: it holds nothing that says who the person was.
+        removed = dict(plan.counts)
+        for _receiver, said in heard:
+            if isinstance(said, dict):
+                removed.update(said)
+        if plan.other_login_kept:
+            removed["other_login_kept"] = True
+        audit.record(
+            by, "account.erased", account, results_kept=plan.action == ANONYMISE, **removed
+        )
         if plan.action == ANONYMISE:
             _anonymise(account)
         else:
@@ -208,23 +298,11 @@ def _anonymise(account: Account) -> None:
     """The strip list: email, phone, name, login."""
     now = timezone.now()
     account.responses.filter(status="draft").delete()
-    # The unfinished attempt is gone, so its licence is unused; nobody can use it.
-    # Same effect as entitlements.services.revoke, which accounts must not import.
-    if account.person_id:
-        unused = account.person.entitlements.filter(revoked_at__isnull=True, response__isnull=True)
-        others = account.person.accounts.exclude(pk=account.pk)
-        if others.filter(anonymised_at__isnull=True).exists():
-            # Another login is linked to this person and shares its licences
-            # (a Milestone 5 link). Only the ones that were this login's go;
-            # the other login keeps its own.
-            unused = unused.filter(granted_to=account)
+    # The unfinished attempt is gone, so its licence is unused; nobody can use
+    # it, nor the other unused ones: an erased person never comes back. Same
+    # effect as entitlements.services.revoke, which accounts must not import.
+    for unused in _licences_nobody_can_use(account):
         unused.update(revoked_at=now)
-    # The same for the unused licences of their memberships: an erased member
-    # never comes back, so nobody can use them.
-    for membership in account.memberships.all():
-        membership.entitlements.filter(revoked_at__isnull=True, response__isnull=True).update(
-            revoked_at=now
-        )
     # The membership link is kept, deactivated: the person has left, and the
     # organization keeps its count of who took the survey.
     # Like any deactivation, it also ends being an admin.

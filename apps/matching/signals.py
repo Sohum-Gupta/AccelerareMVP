@@ -17,4 +17,5 @@ from . import services
 
 @receiver(account_erasing, dispatch_uid="matching.forget_possible_duplicates")
 def forget_possible_duplicates(sender, account, **kwargs):
-    services.forget(account)
+    """An account is being erased. Says how many possible duplicates went with it."""
+    return {"possible_duplicates_removed": services.forget(account)}

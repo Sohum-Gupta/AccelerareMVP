@@ -319,7 +319,7 @@ class AccountAdmin(UserAdmin):
 
         context = {
             **self.admin_site.each_context(request),
-            "title": "Erase account",
+            "title": f"Erase {account.email}",
             "opts": self.model._meta,
             "account": account,
             "plan": plan,

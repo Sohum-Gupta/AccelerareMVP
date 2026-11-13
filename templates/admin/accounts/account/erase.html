@@ -1,21 +1,29 @@
 {% extends "admin/base_site.html" %}
 {% comment %}
 The confirmation page for erasing an account. The summary says in plain words
-which of the two outcomes will happen; nothing happens until the account's
-email is typed and a reason given.
+which of the two outcomes will happen, and the table under it says what goes
+and what stays, in numbers; nothing happens until the account's email is typed
+and a reason given.
 {% endcomment %}
 {% block breadcrumbs %}
-<div class="breadcrumbs">
-  <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
-  <a href="{% url 'admin:accounts_account_changelist' %}">Accounts</a> &rsaquo;
-  <a href="{% url 'admin:accounts_account_change' account.pk %}">{{ account.email }}</a> &rsaquo;
-  Erase
-</div>
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">Home</a></li>
+  <li><a href="{% url 'admin:accounts_account_changelist' %}">Accounts</a></li>
+  <li><a href="{% url 'admin:accounts_account_change' account.pk %}">{{ account.email }}</a></li>
+  <li aria-current="page">Erase</li>
+</ol>
 {% endblock %}
 {% block content %}
 <div id="content-main">
-  <h1>Erase {{ account.email }}</h1>
   <p style="font-size: 1.1em; max-width: 46rem;"><strong>{{ plan.summary }}</strong></p>
+  <table style="margin-bottom: 1.5em;" data-erase-counts>
+    <caption style="text-align: left;">In numbers. These are also kept in the audit log, with no name.</caption>
+    <tbody>
+      {% for label, number in plan.lines %}
+        <tr><th scope="row">{{ label }}</th><td>{{ number }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
   <form method="post">
     {% csrf_token %}
     {{ form.non_field_errors }}
