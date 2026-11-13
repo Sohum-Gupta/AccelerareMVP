@@ -43,6 +43,8 @@ urlpatterns = [
     # (signup, login) are shadowed by our own views under the same names.
     path("accounts/", include("allauth.account.urls")),
     path("survey/", include("apps.responses.urls")),
+    # Buying: the pages Stripe sends a person back to, and Stripe's own messages.
+    path("", include("apps.payments.urls")),
     # An organization's responses pages. They are served by the responses app
     # (the enterprises app may not import it), so they are listed here, before
     # the include, rather than in apps/enterprises/urls.py.
