@@ -1,0 +1,45 @@
+{% extends "admin/base_site.html" %}
+{% comment %}
+The page that asks before accounts are made Support staff, or taken off it.
+It lists who was selected, says what the change means, and sends the same
+selection back to the action with "confirmed". Superusers only.
+{% endcomment %}
+{% block breadcrumbs %}
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">Home</a></li>
+  <li><a href="{% url 'admin:accounts_account_changelist' %}">Accounts</a></li>
+  <li aria-current="page">{{ title }}</li>
+</ol>
+{% endblock %}
+{% block content %}
+<div id="content-main" style="max-width: 50rem;">
+  {% if making %}
+    <p><strong>What will happen.</strong> Each of these accounts will be able to log in to this admin as Support staff:</p>
+    <ul>
+      <li>They can grant and revoke licences, look up accounts and organizations, deactivate a membership, set an organization's stock of licences, and look at payments and background jobs.</li>
+      <li>They see which questions a survey has answered, never the answers.</li>
+      <li>They cannot erase an account, refund a payment, change a price, decide a possible duplicate, read the audit log or make anyone else staff.</li>
+    </ul>
+    <p>You can take it away again from the same list.</p>
+  {% else %}
+    <p><strong>What will happen.</strong> Each of these accounts will no longer be able to log in to this admin. Nothing else about the account changes: its own login to the site, its surveys and its organizations stay as they are.</p>
+  {% endif %}
+  <ul>
+    {% for account in accounts %}
+      <li>{{ account.email }}{% if account.full_name %} ({{ account.full_name }}){% endif %}{% if account.is_superuser %}: a superuser, so this will be refused{% endif %}</li>
+    {% endfor %}
+  </ul>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="{{ action }}">
+    <input type="hidden" name="confirmed" value="yes">
+    {% for account in accounts %}
+      <input type="hidden" name="_selected_action" value="{{ account.pk }}">
+    {% endfor %}
+    <div class="submit-row">
+      <input type="submit" value="{{ button }}" class="default">
+      <a href="{% url 'admin:accounts_account_changelist' %}" class="closelink">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

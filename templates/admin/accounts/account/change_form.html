@@ -1,9 +1,13 @@
 {% extends "admin/change_form.html" %}
 {% comment %}
-Adds the "Erase this account" button next to History. It only appears for
-superusers, and not on an account that has already been erased.
+Adds two buttons next to History: "Set a new password" and "Erase this
+account". They only appear for superusers, and not on an account that has
+already been erased.
 {% endcomment %}
 {% block object-tools-items %}
+  {% if password_url %}
+    <li><a href="{{ password_url }}">Set a new password…</a></li>
+  {% endif %}
   {% if erase_url %}
     <li><a href="{{ erase_url }}" class="deletelink">Erase this account…</a></li>
   {% endif %}

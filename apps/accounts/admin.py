@@ -3,6 +3,7 @@ from allauth.account.models import EmailAddress
 from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.models import CHANGE, DELETION, LogEntry
+from django.contrib.admin.options import ActionLocation
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -63,9 +64,15 @@ class AccountAdmin(UserAdmin):
     """
     Django's stock UserAdmin assumes a username field, so the fieldsets and
     search/ordering are redefined around email. It keeps the password-change
-    form and the hashed-password display. New accounts come from sign-up or
-    `createsuperuser`, which also create the Person and contacts; the admin's
-    own add form would not, so it is switched off.
+    form but not Django's display of the stored password: that shows the
+    hashing method, its settings and part of the hash, which nontechnical
+    staff read as a fault or a leak. The page says only whether a password is
+    set, with a link to set a new one for those who may. New accounts come
+    from sign-up or `createsuperuser`, which also create the Person and
+    contacts; the admin's own add form would not, so it is switched off.
+
+    Two actions on the list, for superusers, make an account Support staff or
+    take that away. Each asks first and leaves a history line on the account.
     """
 
     list_display = (
@@ -90,11 +97,19 @@ class AccountAdmin(UserAdmin):
         "contact_points__value_display",
     )
     ordering = ("email",)
-    readonly_fields = ("email", "person", "created_at", "last_login", "anonymised_at")
+    readonly_fields = (
+        "email",
+        "person",
+        "password_set",
+        "created_at",
+        "last_login",
+        "anonymised_at",
+    )
+    actions = ["make_support_staff", "remove_support_staff"]
     inlines = [ReadOnlyContactPoints]
 
     fieldsets = (
-        (None, {"fields": ("email", "full_name", "person", "password")}),
+        (None, {"fields": ("email", "full_name", "person", "password_set")}),
         ("Status", {"fields": ("is_active", "is_staff", "is_superuser", "anonymised_at")}),
         ("Permissions", {"fields": ("groups", "user_permissions")}),
         ("Dates", {"fields": ("created_at", "last_login")}),
@@ -111,6 +126,88 @@ class AccountAdmin(UserAdmin):
     @admin.display(boolean=True, description="Erased", ordering="anonymised_at")
     def erased(self, account):
         return account.anonymised_at is not None
+
+    @admin.display(description="Password")
+    def password_set(self, account):
+        """Whether a password is set, in plain words. Never the stored hash or how it is made."""
+        if not account.has_usable_password():
+            return "No password is set, so nobody can log in to this account with one."
+        return "A password is set. Nobody can see it, staff included."
+
+    # --- Support staff ----------------------------------------------------------------
+
+    def get_actions(self, request, action_location=ActionLocation.CHANGE_LIST):
+        actions = super().get_actions(request, action_location)
+        if not request.user.is_superuser:
+            # Who may enter the admin is for superusers to decide.
+            actions.pop("make_support_staff", None)
+            actions.pop("remove_support_staff", None)
+        return actions
+
+    @admin.action(description="Make the selected accounts Support staff")
+    def make_support_staff(self, request, queryset):
+        return self._support_staff(
+            request,
+            queryset,
+            services.make_support_staff,
+            action="make_support_staff",
+            title="Make these accounts Support staff?",
+            button="Yes, make them Support staff",
+            history="Made Support staff",
+            nothing="was already Support staff",
+        )
+
+    @admin.action(description="Take the selected accounts off Support staff")
+    def remove_support_staff(self, request, queryset):
+        return self._support_staff(
+            request,
+            queryset,
+            services.remove_support_staff,
+            action="remove_support_staff",
+            title="Take these accounts off Support staff?",
+            button="Yes, take them off Support staff",
+            history="Taken off Support staff",
+            nothing="was not Support staff",
+        )
+
+    def _support_staff(self, request, queryset, change, *, action, title, button, history, nothing):
+        """
+        Both actions: a page that lists who was selected and asks first, then
+        the change, one account at a time. An account the service refuses is
+        named with the reason and the others carry on.
+        """
+        if not request.user.is_superuser:
+            raise PermissionDenied
+        if request.POST.get("confirmed") != "yes":
+            context = {
+                **self.admin_site.each_context(request),
+                "title": title,
+                "opts": self.model._meta,
+                "accounts": queryset.order_by("email"),
+                "action": action,
+                "button": button,
+                "making": action == "make_support_staff",
+            }
+            return TemplateResponse(
+                request, "admin/accounts/account/support_staff_confirm.html", context
+            )
+        changed = 0
+        for account in queryset:
+            try:
+                did = change(account)
+            except ValidationError as error:
+                text = " ".join(error.messages)
+                self.message_user(request, f"Account #{account.pk}: {text}", messages.ERROR)
+                continue
+            if did:
+                # The account's history says who let them in, or took that away.
+                self.log_change(request, account, history)
+                changed += 1
+            else:
+                self.message_user(request, f"Account #{account.pk} {nothing}.", messages.WARNING)
+        if changed:
+            self.message_user(request, f"{history}: {changed} account(s).", messages.SUCCESS)
+        return None
 
     def get_readonly_fields(self, request, obj=None):
         fields = super().get_readonly_fields(request, obj)
@@ -140,6 +237,10 @@ class AccountAdmin(UserAdmin):
         account = self.get_object(request, object_id)
         if request.user.is_superuser and account is not None and account.anonymised_at is None:
             extra_context["erase_url"] = reverse("admin:accounts_account_erase", args=[object_id])
+            # Django's own page for setting a password, which asks for it twice.
+            extra_context["password_url"] = reverse(
+                "admin:auth_user_password_change", args=[object_id]
+            )
         return super().change_view(request, object_id, form_url, extra_context)
 
     def erase_view(self, request, object_id):

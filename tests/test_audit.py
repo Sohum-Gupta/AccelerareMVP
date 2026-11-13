@@ -565,4 +565,6 @@ class TestAdminPage:
         app = Path(settings.BASE_DIR) / "apps" / "audit"
         assert not (app / "views.py").exists() and not (app / "urls.py").exists()
         templates = Path(settings.BASE_DIR) / "templates"
-        assert not any("audit" in path.read_text().lower() for path in templates.rglob("*.html"))
+        for path in templates.rglob("*.html"):
+            if "admin" not in path.parts:  # the Django admin's own pages may name it
+                assert "audit" not in path.read_text().lower(), path

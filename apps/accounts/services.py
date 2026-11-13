@@ -19,6 +19,7 @@ Keeping both in step here means neither ever sees an address the other lacks.
 
 from allauth.account.models import EmailAddress
 from allauth.core import context as allauth_context
+from django.contrib.auth.models import Group
 from django.contrib.auth.password_validation import validate_password
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
@@ -353,3 +354,63 @@ def change_phone(account: Account, phone: str, country: str | None) -> ContactPo
         current.save(update_fields=["value_normalised", "value_display", "verified_at"])
         look_for_duplicates_later(account)
         return current
+
+
+# --- Support staff ------------------------------------------------------------------
+
+# The group whose members are Support staff. Its permissions are set after every
+# migrate by the responses app (responses/signals.py), which is last and so can
+# see every other app's permissions.
+SUPPORT_STAFF_GROUP = "Support staff"
+
+
+def is_support_staff(account: Account) -> bool:
+    """True if the account can log into the Django admin as Support staff."""
+    return account.is_staff and account.groups.filter(name=SUPPORT_STAFF_GROUP).exists()
+
+
+def make_support_staff(account: Account) -> bool:
+    """
+    Let this account into the Django admin as Support staff. That is two
+    things, and doing only one of them gives a colleague an admin with nothing
+    in it: the "staff" tick, and membership of the Support staff group. This
+    does both. Returns False if it was Support staff already.
+
+    Refused for an account that is erased or switched off, and for a
+    superuser, who already has more than Support staff do.
+    """
+    with transaction.atomic():
+        _lock(account)
+        account.refresh_from_db()
+        if account.anonymised_at is not None or not account.is_active:
+            raise ValidationError("This account is erased or switched off.")
+        if account.is_superuser:
+            raise ValidationError("This account is a superuser, which is already more.")
+        if is_support_staff(account):
+            return False
+        account.is_staff = True
+        account.save(update_fields=["is_staff"])
+        account.groups.add(Group.objects.get(name=SUPPORT_STAFF_GROUP))
+        return True
+
+
+def remove_support_staff(account: Account) -> bool:
+    """
+    Take an account out of the Django admin again: off the Support staff group
+    and the "staff" tick cleared. Returns False if it was not Support staff.
+    Refused for a superuser: that is changed on the account's own page.
+    """
+    with transaction.atomic():
+        _lock(account)
+        account.refresh_from_db()
+        if account.is_superuser:
+            raise ValidationError(
+                "This account is a superuser. Change that on the account's own page."
+            )
+        in_group = account.groups.filter(name=SUPPORT_STAFF_GROUP).exists()
+        if not account.is_staff and not in_group:
+            return False
+        account.groups.remove(*Group.objects.filter(name=SUPPORT_STAFF_GROUP))
+        account.is_staff = False
+        account.save(update_fields=["is_staff"])
+        return True
