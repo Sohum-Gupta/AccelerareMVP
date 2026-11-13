@@ -47,7 +47,23 @@ echo "==> Reloading Caddy's configuration"
 # container sees, but Caddy only reads it at start. `up -d` does not restart an
 # unchanged container, so ask it to reload. A broken Caddyfile fails here and
 # Caddy keeps serving with the previous configuration.
-docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+#
+# When `up -d` has just recreated Caddy (a new caddy:2 release was pulled),
+# its admin API takes a moment to start listening, and a reload sent too soon
+# is refused ("connection refused"). Retry only that, once a second for up to
+# 30 seconds; any other error, such as a broken Caddyfile, fails at once.
+attempt=1
+until reload_output="$(docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile 2>&1)"; do
+  if [[ "$reload_output" != *"connection refused"* ]] || (( attempt >= 30 )); then
+    printf '%s\n' "$reload_output" >&2
+    echo "Caddy reload failed (attempt $attempt)" >&2
+    exit 1
+  fi
+  echo "    Caddy is not listening yet; retrying in 1s (attempt $attempt)"
+  attempt=$((attempt + 1))
+  sleep 1
+done
+printf '%s\n' "$reload_output"
 
 echo "==> Deployment check"
 docker compose exec -T web python manage.py check --deploy --fail-level WARNING
