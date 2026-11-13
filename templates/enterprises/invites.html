@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Invites · {{ organization.name }} · Accelerare{% endblock %}
+{% block head %}
+  <script src="{% static 'js/copy-link.js' %}" defer></script>
+{% endblock %}
+{% block content %}
+  <p class="mb-1 text-sm"><a href="{% url 'enterprises:dashboard' organization.slug %}">{{ organization.name }}</a></p>
+  <h1>Invites</h1>
+  <p class="text-sm text-slate-700">An invite goes to one email address, works once and lasts {{ days }} days. Joining does not give anyone a licence to take the survey.</p>
+
+  {% include "enterprises/_places.html" %}
+
+  <section class="mb-6 rounded-md border border-slate-300 bg-white p-4" aria-labelledby="new-invite-title">
+    <h2 id="new-invite-title" class="mb-2 text-base font-semibold">Invite someone</h2>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% for error in form.non_field_errors %}
+        <p class="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">{{ error }}</p>
+      {% endfor %}
+      {% include "includes/field.html" with field=form.email %}
+      <button type="submit">Send invite</button>
+    </form>
+  </section>
+
+  <h2 class="mb-2 text-lg font-semibold">Invites sent</h2>
+  {% if rows %}
+    <ul class="divide-y divide-slate-200 rounded-md border border-slate-200 bg-white">
+      {% for row in rows %}
+        <li class="p-3" data-invite="{{ row.id }}">
+          <p class="mb-0 break-all font-medium">{% if row.email %}{{ row.email }}{% else %}Address removed{% endif %}</p>
+          <p class="mb-2 text-sm text-slate-600">
+            Sent {{ row.created_at|date:"j F Y" }} ·
+            {% if row.state == "accepted" %}Accepted on {{ row.accepted_at|date:"j F Y" }}
+            {% elif row.state == "revoked" %}Withdrawn on {{ row.revoked_at|date:"j F Y" }}
+            {% elif row.state == "expired" %}Expired on {{ row.expires_at|date:"j F Y" }}
+            {% elif row.state == "erased" %}Cannot be used: the person it was sent to has been erased
+            {% else %}Waiting · expires on {{ row.expires_at|date:"j F Y" }}{% endif %}
+          </p>
+          {% if row.state == "pending" %}
+            <label for="invite-link-{{ row.id }}" class="text-xs font-normal text-slate-600">Invite link (works only for an account that has verified this address)</label>
+            <div class="mb-2 flex gap-2">
+              <input type="text" readonly id="invite-link-{{ row.id }}" value="{{ row.link }}" class="min-w-0 text-sm">
+              <button type="button" class="button-secondary shrink-0 cursor-pointer rounded-md px-3 py-2 text-sm font-medium" data-copy="invite-link-{{ row.id }}" hidden>Copy link</button>
+            </div>
+            <form method="post" action="{% url 'enterprises:invite_revoke' organization.slug row.id %}">
+              {% csrf_token %}
+              <button type="submit" class="button-secondary">Withdraw invite</button>
+            </form>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-sm text-slate-700">No invites yet. Send one above to bring someone in.</p>
+  {% endif %}
+{% endblock %}
