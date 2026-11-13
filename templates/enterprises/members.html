@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Members · {{ organization.name }} · Accelerare{% endblock %}
+{% block content %}
+  {# Name, email, role, status, joined date and licence. Never a phone number, never a personal survey. #}
+  <p class="mb-1 text-sm"><a href="{% url 'enterprises:dashboard' organization.slug %}">{{ organization.name }}</a></p>
+  <h1>Members</h1>
+  <p class="text-sm text-slate-600">{{ current_members }} member{{ current_members|pluralize }} now · {{ all_time_members }} in total, including people who have left</p>
+
+  <ul class="divide-y divide-slate-200 rounded-md border border-slate-200 bg-white">
+    {% for row in rows %}
+      <li class="p-3" data-member="{{ row.id }}">
+        <p class="mb-0 font-medium">{% if row.name %}{{ row.name }}{% else %}No name yet{% endif %}{% if row.is_you %} <span class="font-normal text-slate-600">(you)</span>{% endif %}</p>
+        {% if row.email %}<p class="mb-0 break-all text-sm text-slate-700">{{ row.email }}</p>{% endif %}
+        <p class="mb-2 text-sm text-slate-600">
+          {% if row.is_admin %}Admin{% else %}Member{% endif %} ·
+          {% if row.active %}Active{% else %}Deactivated on {{ row.deactivated_at|date:"j F Y" }}{% endif %} ·
+          Joined {{ row.joined_at|date:"j F Y" }} ·
+          {% if row.tier %}Licence: {% include "responses/_tier.html" with tier=row.tier %}{% else %}No licence{% endif %}
+        </p>
+        {% if row.only_admin %}
+          <p class="mb-0 text-sm text-slate-600">The only admin. Make someone else an admin before changing this.</p>
+        {% elif row.active %}
+          <div class="flex flex-wrap items-center gap-2">
+            <form method="post" action="{% url 'enterprises:member_role' organization.slug row.id %}">
+              {% csrf_token %}
+              {% if row.is_admin %}
+                <input type="hidden" name="role" value="member">
+                <button type="submit" class="button-secondary">Make member</button>
+              {% else %}
+                <input type="hidden" name="role" value="admin">
+                <button type="submit" class="button-secondary">Make admin</button>
+              {% endif %}
+            </form>
+            <a href="{% url 'enterprises:member_deactivate' organization.slug row.id %}" class="text-sm">Deactivate</a>
+          </div>
+        {% elif not row.erased %}
+          <form method="post" action="{% url 'enterprises:member_reactivate' organization.slug row.id %}">
+            {% csrf_token %}
+            <button type="submit" class="button-secondary">Reactivate</button>
+          </form>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% endblock %}

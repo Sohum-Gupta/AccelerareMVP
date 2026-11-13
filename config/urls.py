@@ -40,5 +40,6 @@ urlpatterns = [
     # (signup, login) are shadowed by our own views under the same names.
     path("accounts/", include("allauth.account.urls")),
     path("survey/", include("apps.responses.urls")),
+    path("organizations/", include("apps.enterprises.urls")),
     path("join/invite/<str:token>/", enterprise_views.join_invite, name="join_invite"),
 ]

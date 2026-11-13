@@ -285,7 +285,10 @@ class TestHistory:
         grant_personal(carol)
         page = html(client, HISTORY)
         assert "You have 1 unused licence<" in page and f'href="{START}"' in page
-        assert "Organization" not in page and "/survey/start/acme/" not in page
+        # No box labels: they only appear once the person has an organization.
+        # (The header's "Organizations" link is on every page.)
+        assert ">Organization<" not in page and ">Personal<" not in page
+        assert "/survey/start/acme/" not in page
 
     def test_a_member_with_no_licence_is_told_one_is_needed(self, client, bob):
         page = html(client, HISTORY)

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Organizations · Accelerare{% endblock %}
+{% block content %}
+  {# The organizations this account is an active member of. Nothing about anyone else. #}
+  <h1>Organizations</h1>
+
+  {% if rows %}
+    <ul class="mb-6 divide-y divide-slate-200 rounded-md border border-slate-200 bg-white">
+      {% for row in rows %}
+        <li class="flex flex-wrap items-center justify-between gap-2 p-3">
+          <div>
+            <p class="mb-0 font-medium">{{ row.name }}</p>
+            <p class="mb-0 text-sm text-slate-600">{% if row.is_admin %}You are an admin{% else %}You are a member{% endif %}</p>
+          </div>
+          <a href="{% url 'enterprises:dashboard' row.slug %}" class="text-sm">Open</a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-sm text-slate-700">You are not in an organization yet.</p>
+  {% endif %}
+
+  <section class="rounded-md border border-slate-300 bg-white p-4" aria-labelledby="create-title">
+    <h2 id="create-title" class="mb-1 text-base font-semibold">Create an organization</h2>
+    <p class="text-sm text-slate-700">For a team or a company whose people will take the survey. You become its admin.</p>
+    <a href="{% url 'enterprises:new' %}" class="inline-block rounded-md bg-brand px-4 py-2 font-medium text-white no-underline hover:bg-brand-dark">Create an organization</a>
+  </section>
+{% endblock %}

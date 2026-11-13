@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Deactivate a member · {{ organization.name }} · Accelerare{% endblock %}
+{% block content %}
+  {# Asked first because deactivating deletes the member's unfinished survey for the organization. #}
+  {% if yourself %}
+    <h1>Leave {{ organization.name }}?</h1>
+    <p>You are about to deactivate your own membership.</p>
+    <ul class="mb-4 list-disc space-y-1 pl-5 text-sm">
+      <li>You will lose access to {{ organization.name }} straight away, and only another admin can bring you back.</li>
+      <li>If you have an unfinished survey for {{ organization.name }}, it is deleted.</li>
+      <li>Surveys you have submitted stay in your own history, and {{ organization.name }} still sees that you took them.</li>
+    </ul>
+  {% else %}
+    <h1>Deactivate {% if member.name %}{{ member.name }}{% else %}this member{% endif %}?</h1>
+    <p>Do this when someone has left {{ organization.name }}.</p>
+    <ul class="mb-4 list-disc space-y-1 pl-5 text-sm">
+      <li>They can no longer open {{ organization.name }} or take the survey for it.</li>
+      <li>If they have an unfinished survey for {{ organization.name }}, it is deleted.</li>
+      <li>Surveys they have submitted stay: you still see that they took them, and they keep their own history.</li>
+      <li>Their licence stays with their membership and works again if you reactivate them.</li>
+      <li>A join code will not let them back in. You can reactivate them from the members page.</li>
+    </ul>
+  {% endif %}
+  <form method="post" class="flex flex-wrap items-center gap-4">
+    {% csrf_token %}
+    <button type="submit">{% if yourself %}Leave the organization{% else %}Deactivate{% endif %}</button>
+    <a href="{% url 'enterprises:members' organization.slug %}">Cancel</a>
+  </form>
+{% endblock %}
