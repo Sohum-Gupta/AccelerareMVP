@@ -314,7 +314,11 @@ def history(request):
     """Every attempt of this account, newest first, with Start or Continue."""
     responses = request.user.responses.select_related("entitlement")
     draft = _open_draft(request.user)
-    active = Entitlement.objects.filter(person_id=request.user.person_id, revoked_at__isnull=True)
+    # Personal licences only (no membership): an organization's licence is not
+    # this page's business until the survey pages learn about context.
+    active = Entitlement.objects.filter(
+        person_id=request.user.person_id, membership__isnull=True, revoked_at__isnull=True
+    )
     context = {
         "rows": [_summary(response) for response in responses],
         "draft_id": draft.pk if draft is not None else None,

@@ -230,6 +230,7 @@ class TestSupportStaffGroup:
             "view_account",
             "view_person",
             "view_contactpoint",
+            "view_membership",  # to find a membership when granting it a licence
             "view_surveyversion",
             "view_question",
             "view_funnelevent",

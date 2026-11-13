@@ -26,6 +26,9 @@ DEBUGGING = [
     ("accounts", "account", ("view",)),
     ("accounts", "person", ("view",)),
     ("accounts", "contactpoint", ("view",)),
+    # Needed to grant a licence to a membership: the grant form finds one
+    # through the Memberships page's search.
+    ("enterprises", "membership", ("view",)),
     ("survey", "surveyversion", ("view",)),
     ("survey", "question", ("view",)),
 ]

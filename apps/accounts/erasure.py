@@ -65,6 +65,8 @@ class Plan:
 def _explain(account: Account, action: str, submitted: int) -> str:
     licences = account.person.entitlements.count() if account.person_id else 0
     memberships = account.memberships.count()
+    for membership in account.memberships.all():
+        licences += membership.entitlements.count()
     if action == DELETE:
         return (
             "This account has no completed survey, so it will be permanently deleted: "
@@ -180,8 +182,12 @@ def _hard_delete(account: Account) -> None:
     account.responses.all().delete()  # before licences: a response protects its licence
     if person is not None and not shared:
         person.entitlements.all().delete()
-    # A membership protects its account, so it goes first. Nothing of this
-    # person is worth keeping, so the organization keeps no trace of them either.
+    # A membership protects its account, and a licence protects its membership,
+    # so they go in that order. Nothing of this person is worth keeping (their
+    # licences are all unused: the unfinished attempts went above), so the
+    # organization keeps no trace of them either.
+    for membership in account.memberships.all():
+        membership.entitlements.all().delete()
     account.memberships.all().delete()
     account.delete()  # takes the contacts and allauth's email rows with it
     if person is not None and not shared:
@@ -196,6 +202,12 @@ def _anonymise(account: Account) -> None:
     # Same effect as entitlements.services.revoke, which accounts must not import.
     if account.person_id:
         account.person.entitlements.filter(revoked_at__isnull=True, response__isnull=True).update(
+            revoked_at=now
+        )
+    # The same for the unused licences of their memberships: an erased member
+    # never comes back, so nobody can use them.
+    for membership in account.memberships.all():
+        membership.entitlements.filter(revoked_at__isnull=True, response__isnull=True).update(
             revoked_at=now
         )
     # The membership link is kept, deactivated: the person has left, and the
