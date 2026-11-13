@@ -1,6 +1,6 @@
 # Build Plan — Survey Platform
 
-As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs; open items live in `06-backlog.md` · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded and Milestone 2 closed 2026-11-12 · Milestone 3 re-planned 2026-11-12 · Milestone 3 built and status synced 2026-11-13 · Milestone 4 re-planned 2026-11-13 · The founder's answers on Milestone 4's choices and the payments basics recorded 2026-11-13
+As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs; open items live in `06-backlog.md` · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded and Milestone 2 closed 2026-11-12 · Milestone 3 re-planned 2026-11-12 · Milestone 3 built and status synced 2026-11-13 · Milestone 4 re-planned 2026-11-13 · The founder's answers on Milestone 4's choices and the payments basics recorded 2026-11-13 · Milestone 4b planned and built 2026-11-13 · Milestone 5 re-planned 2026-11-13
 
 ## How to read this document
 
@@ -858,60 +858,116 @@ Do the five steps under "What the founder does" first (`06-backlog.md`, T-21). T
 
 ---
 
-## Milestone 5 — Background jobs, matching, audit log
+## Milestone 5 — Background jobs, possible duplicates, audit log
 
-**Goal:** slow or failure-prone work runs outside web requests; the matching rules run on verification and submission, auto-link on verified email, flag on weaker signals; root admin reviews and can undo; every admin action is audited.
+*Re-planned on 2026-11-13. This section replaces the original one, which no longer fitted what has been decided and built since October. What changed, and why, is under "What the re-plan corrects" and in the decision log.*
+
+**Goal:** work that is slow or may fail runs outside web requests, in a background worker; a member is emailed when they are given a licence; accounts that look like the same person are brought to a superuser, who links them or says they are different, and can undo a link; and what staff and organization admins do is kept in one audit log.
+
+**Status (2026-11-13).** Planned (PR 0, this section). Nothing is built.
+
+**How this milestone is run** (founder, 2026-11-13). As Milestones 3, 4 and 4b were: merged on green without waiting for review, a summary after each PR. The founder is away while it is built. The three defaults put to them beforehand were accepted ("those defaults are fine") and are the first three product rules below; the builder's further calls are listed to be overruled.
+
+**What the re-plan corrects**
+
+- *A box that contradicted the plan.* "Done when" said "two test accounts with the same verified email become one person". The plan's own text, and the decision of 2026-10-09, say there is no verified-email rule: a verified email has one owner, and a second claim is turned away with the recovery page, never linked. The box is replaced.
+- *Nothing links accounts automatically.* The only automatic rule left was "same verified phone", and no phone can be verified until SMS exists (`06-backlog.md`, L-7). So in this milestone every link is made by a superuser confirming a possible duplicate. The verified-phone rule is kept as a rule that finds nothing today.
+- *The invite email stays where it is.* The original plan moved it to the worker. Since Milestone 3 the invite page tells the admin at once whether the email went and offers the link to copy if it did not, and since Milestone 4's second part it counts the emails an invite has had. Sending in the background would take that answer away. The worker's first email is a new one instead: "you have been given a licence".
+- *Staff actions are audited without changing every service.* The Django admin already writes a history line for each staff action. The audit log copies each of those lines as it is written, and the services record what organization admins do, which nothing recorded before.
+- *Bounces and complaints from Amazon SES* need work in the AWS console (an SNS topic), so they become a backlog task (T-23), not part of this build.
+
+**The product rules**
+
+- **A member is emailed when an admin gives them a licence** (founder's default, accepted 2026-11-13). The email says which organization and that the survey can be started; it does not name the tier. It is sent in the background: the admin's page does not wait for it.
+- **Only superusers review possible duplicates** (founder's default, accepted). Support staff do not see them.
+- **Bounce and complaint events from SES are a backlog task** (founder's default, accepted).
+- **When two accounts look like the same person,** nothing happens to either. A "possible duplicate" appears in the Django admin for a superuser, saying what the two have in common. Neither person is told and nothing changes for them.
+- **What makes two accounts look alike** (from the architecture doc): the same phone number; the same full name when both belong to an organization; and, from the survey's own question, an email address or phone number the person typed to help find their earlier results that belongs to another account.
+- **A superuser decides.** "Same person" links the two: both logins keep working, and personal licences are shared between them, because a licence belongs to the person. "Different people" closes it and it is not raised again. A link can be undone.
+- **A possible repeat.** A survey taken for an organization is marked "possible repeat" for that organization's admins, as the join page already promises, when the person said they had taken the survey before, or when they (through this login or one linked to it) have an earlier submitted survey. An unreviewed possible duplicate marks nothing.
+- **The match box.** After answering "Yes, I have taken this survey before", the person may type an email address or phone number that would help find their earlier results. It is optional, and nothing depends on it. It is used once, to look for another account, and then removed, unless it led to a possible duplicate. Only superusers ever see it. Erasing the person removes it.
+- **The audit log** keeps who did what and when: every staff action in the Django admin from the day it is deployed, and what organization admins do (invites, join codes, members, licences, purchases). It holds no name, email or answer, only numbers and plain facts. Superusers read it in the Django admin.
+
+**Smaller rules, the builder's calls** (raised here so they can be overruled)
+
+- The two accounts of a possible duplicate are linked by moving the newer account onto the older account's person. Personal licences of both then belong to that one person. Each login still sees only its own surveys in "My surveys".
+- Undoing a link gives the second account its own person again and gives back the licences it had before the link and any it bought since. A licence staff granted by hand while they were linked stays with the first account, because nothing says which login it was meant for; the page says so before the button is pressed.
+- The same-name rule looks only at accounts that both belong to some organization (the same one or different ones), and compares the full name after lowercasing, removing accents and tidying spaces. No "close enough" matching.
+- A pair that was looked at and closed as "different people" is not raised again by any rule.
+- The licence email goes to the address the organization knows the member by (the invited address, else their login address), like every other place an organization's admin sees a member. Joining with an invite or code that comes with a licence sends no email: the person has just been told on the page.
+- A job is tried five times, waiting longer each time (2, 4, 8 and 16 minutes), then marked failed and shown to staff, who can run it again. A failed job stops nothing else.
+- A job's record holds no personal data: an email job stores the number of the licence, never the address, and looks the address up when it runs. If the person has been erased by then, it does nothing.
+- If the worker is not running, nothing breaks for people using the site: the licence is still given, the survey still submits. Emails and checks wait in the queue and run when it is back. The Django admin's Jobs page says how long the oldest job has waited.
+- `/health` stays exactly as it is. A second address, `/health/worker`, answers "ok", or "behind" when a job has waited more than ten minutes, so the uptime checker can watch the worker too once it is set up (`06-backlog.md`, T-2).
+- The results seam from the "Phase 2 stub" below (a `Result` table and a `compute_result` that returns nothing) is built here as the last small PR, so that the algorithm, when it comes, has somewhere to go.
 
 **What you build**
 
-- `apps/jobs/models.py`: `Job` (kind, payload JSON, status queued/running/done/failed, attempts, max_attempts default 5, run_after, locked_at nullable, last_error text, created_at). `jobs.enqueue(kind, payload, run_after=None)`. A registry decorator `@job("kind")` that maps kinds to handler functions.
-- `apps/jobs/management/commands/run_worker.py`: a loop that, inside a transaction, selects the oldest queued job with `run_after <= now()` using `select_for_update(skip_locked=True)`, marks it running, commits, runs the handler, then marks done or schedules a retry with backoff (`2 ** attempts` minutes) or failed after max attempts. Sleeps one second when idle. Handles `SIGTERM` by finishing the current job and exiting.
-- Handlers: `send_email(kind payload: template, to, context)`, `run_matching(account_id | response_id)`, `compute_result(response_id)` (no-op in MVP but wired), later `export_csv`.
-- `apps/matching/rules.py`: each rule is a function `(account) -> list[Candidate]` returning the other account ids and the signals that fired. Rules: verified phone match (auto-link, inert until SMS verification), unverified phone match (flag), self-report-plus-prior-response (flag, also sets `possible_repeat`), name-plus-memberships (flag). There is no verified-email rule: a verified email has one owner by constraint, and a second claim is handled by the Milestone 1 recovery flow (optionally recording a `flagged` candidate). Thresholds and the list of enabled rules in one `RULES` constant.
-- `apps/matching/models.py`: `MatchCandidate` (account_a, account_b, signals JSON, status auto_linked/flagged/confirmed/rejected, resolved_by nullable, resolved_at nullable; unique on the unordered pair). `apps/matching/services.py`: `run_for_account`, `auto_link(a, b)` (moves `b.person` to `a.person`, marks the old person `merged_into`), `confirm(candidate, actor)`, `reject(candidate, actor)`, `unlink(candidate, actor)` (reverses: creates or restores a separate person for b).
-- `apps/audit/models.py`: `AuditLog` (actor FK nullable, action, target_type, target_id, detail JSON, at). `audit.record(actor, action, target, detail)` called from every admin-facing service in the same transaction.
-- The self-report match box. Milestone 2 asks only Yes or No and how the survey was taken (individual, company, other). This milestone adds the optional box "anything that would help us find your earlier results" (an email or phone number), shown after a Yes and skippable with no consequence. It is used by the matching attempt and then cleared, unless it led to a link; erasing a person clears it too; only superusers can see it. A Yes with nothing to match is simply left alone: matching stays automatic on verified data, and no one is hassled.
-- Email bounces and complaints (decided 2026-11-12): SES publishes bounce and complaint events (through SNS); record them and stop sending to an address that hard-bounced or complained, with the list visible to staff in the admin. Until then, SES's account-level suppression list and a weekly look at the SES reputation page cover it.
-- Root admin: a `MatchCandidate` admin list filtered to flagged by default, with actions confirm/reject/unlink, each writing audit rows. Enterprise admin responses table shows the `possible_repeat` flag.
-- `submit` now enqueues `run_matching` and `compute_result`; verification now enqueues `run_matching`; invite emails go through `send_email`.
+- `apps/jobs/` (installed after `funnel`; it imports no other app, like `funnel`): `Job` (kind, payload JSON, status queued/running/done/failed, attempts, max_attempts 5, run_after, locked_at, last_error, created_at, finished_at). `jobs.enqueue(kind, payload, run_after=None)`; a registry, `@job("kind")`, mapping a kind to the function that does it (each app registers its own handlers in its `jobs.py`, loaded when Django starts); `jobs.run_due()` runs what is due once (the worker's loop and the tests both call it).
+- `apps/jobs/management/commands/run_worker.py`: claims the oldest due job with `select_for_update(skip_locked=True)`, marks it running, commits, runs it, then marks it done, or queued again for later, or failed. Sleeps a second when idle. On `SIGTERM` it finishes the job in hand and exits. A job left "running" for ten minutes (the worker died) is queued again. `--once` runs what is due and exits.
+- `deploy/docker-compose.yml`: a `worker` service, the same image as `web`, running `python manage.py run_worker`. `deploy.sh` needs no change: `docker compose up -d` starts it.
+- Django admin "Jobs": read-only list with status and kind filters, the oldest waiting job's age at the top, "Run again" for a failed job and "Queue a test job" (superusers); Support staff can look.
+- The licence email: `templates/entitlements/email/licence_given_*.txt`, queued by `assign_seat` inside its transaction, sent by a `send_licence_email` job.
+- `apps/audit/` (imports only `accounts`): `AuditLog` (actor, emptied if that account is deleted; action; target_type; target_id; detail JSON; at). `audit.record(actor, action, target, **detail)`. A receiver that copies every Django admin history line into it. Calls from the organization admins' services, inside their transactions. `erase_account` writes a row. Django admin "Audit log": read-only, filters by action and date, searchable by target; superusers only.
+- `apps/matching/` (after `entitlements`; it imports `accounts`, `enterprises` and `entitlements`): `MatchCandidate` (account_a, account_b with a < b, signals JSON, status flagged/confirmed/rejected/unlinked, resolved_by, resolved_at, what was moved when linking; unique on the pair). `rules.py`: one function per rule and a `RULES` list. `services.py`: `run_for_account(account)`, `confirm(candidate, by)`, `reject(candidate, by)`, `unlink(candidate, by)`. A `run_matching` job, queued when an email is verified and when a survey is submitted. Django admin "Possible duplicates": flagged first, each action behind a page that says what will happen; superusers only.
+- `Entitlement.granted_to` (the account a personal licence was granted to or bought by; empty for older ones), so that undoing a link knows whose a licence is.
+- `apps/responses`: `Response.possible_repeat` is set on submission. `Response.match_hint` (text, emptied after use) and the optional box on the start page under "Yes".
+- `apps/results/`: `Result`, `compute_result` returning `None`, a `compute_result` job queued on submission, `recompute_results`.
 
 **Technical detail**
 
-- `skip_locked` is what lets two workers run safely later. One worker now; the code already supports more.
-- Idempotency: `run_matching` for an account that already has candidates recorded must not duplicate them (the unique pair constraint plus `get_or_create`). `send_email` is the one handler that is not naturally idempotent; accept that a retry after a crash *during* send may double-send, and keep retries conservative.
-- Name normalisation for the weak rule: lowercase, strip diacritics, collapse whitespace, compare full name only. Do not attempt fuzzy matching in the MVP.
-- Phone matching: phone numbers are unverified until SMS verification exists, so a phone match creates a flagged candidate for staff to review in the admin and never links accounts on its own; once phones are verified a verified phone matches automatically like email. The `took_before_via` answer is a hint for where to look (a company answer points at enterprise memberships).
-- Audit: until `AuditLog` exists, the Django admin's own history (`LogEntry`) records licence grants, revokes and account erasures (the erase action writes its entry by hand under the label "Account #id" so the history holds no email). `AuditLog` must cover those actions systematically, and `erase_account` writes an `AuditLog` row.
-- Auto-link must never run on an unverified contact point. The rule reads `verified_at IS NOT NULL` and the test asserts it.
-- `unlink` is the hardest function here. Define it as: candidate must be auto_linked or confirmed; give `account_b` a fresh Person (or its original one if `merged_into` points back cleanly); move any person-level entitlements granted *after* the link back only if they were granted explicitly to b (keep a `granted_to_account` hint on Entitlement for this). Write the decision in the audit detail. Keep it simple and documented rather than clever.
-- Worker in production is the `worker` container from the infrastructure doc. Locally, a second terminal. Add a `/health` detail that reports the age of the oldest queued job so a stuck worker is visible.
+- *Queued in the same transaction.* `enqueue` writes the job row in the caller's transaction. If giving the licence is undone, the job row goes with it, so there is never an email for something that did not happen.
+- *At least once.* A worker can die after doing a job and before recording it. The job then runs again, so every handler must be safe to run twice. Looking for duplicates is (the pair is unique). Working out a result is. An email is not, and there a second copy after a crash is accepted.
+- *`skip_locked`* is what lets a second worker run safely later; there is one today.
+- *What a job may store.* `last_error` holds the kind of error only, never the mail server's reply, which can quote an address. The log line that tells Sentry is written the same way.
+- *Linking.* `confirm` locks both accounts, moves account B onto account A's person, moves B's old person's licences to A's person, records their numbers on the candidate, and marks the old person `merged_into`. `unlink` puts B back on its old person and moves back those licences that are not revoked, plus any whose `granted_to` is B. Both write audit rows. Nothing about responses changes: a response belongs to an account.
+- *A link never happens on an unverified signal alone.* Rules only ever create a flagged candidate; `confirm` is the only thing that links, and only a superuser can call it. A test asserts that running every rule changes no account's person.
+- *Audit rows are written in the same transaction as the action,* so there is never a record of something that was undone, nor an action without its record. The copy of an admin history line is written in the same database save as the line itself.
+- *Dependencies still run one way.* `jobs` and `audit` are at the bottom, like `funnel`. An app that needs something done later calls `jobs.enqueue` with a kind and plain numbers; the handler lives in the app that knows how.
+- *Erasure.* Erasing an account removes its candidates (they are about a person who is gone), empties `match_hint`, and leaves audit rows with the actor emptied or pointing at the stripped account. `erase_account` already keeps a shared person when another login is linked to it.
 
 **Tests**
 
-- Worker: enqueue three jobs, run one loop iteration three times, all done in order; a handler that raises is retried with increasing `run_after` and marked failed after five attempts with the error text stored.
-- Email: a second account attempting to verify an already-verified email is refused by the constraint and sees the recovery page; nothing is linked. Same email but one unverified → nothing.
-- Phone rule: same verified phone links; same unverified phone flags only.
-- Self-report: a submission with `took_before=True` by an account with an earlier submitted response sets `possible_repeat` and creates a flagged candidate.
-- Name rule: same name, both with memberships → flagged; same name, no memberships → nothing.
-- Confirm, reject and unlink each write an audit row; unlink leaves the two accounts with distinct persons.
-- Enterprise admin sees the `possible_repeat` flag but nothing about the other account.
+- The queue: three jobs run in order; a failing handler is retried with a longer wait each time and marked failed after five, with only the kind of error stored; a job queued inside a transaction that is undone does not exist; a job left running is queued again; two workers at once (threads) never run the same job twice; an unknown kind fails without stopping the others.
+- The licence email: giving a licence queues one job and sends nothing until the worker runs; the email goes to the address the organization knows the member by and names no tier; an erased member gets nothing; a failed send is retried; joining with a licence sends none.
+- The audit log: every organization-admin service writes a row with the right actor and no name or email in it; an undone action leaves no row; a Django admin action is copied; erasing the actor empties the link and keeps the row; only superusers can read it.
+- Possible duplicates: the same phone flags a pair once, however often the rule runs; the same name flags only when both belong to an organization; a match-box address belonging to another account flags and the box is then emptied, and emptied too when it finds nothing; a rejected pair is not raised again; no rule changes any account's person.
+- Linking: confirming shares personal licences between the two logins and each still sees only its own surveys; unlinking gives each its own back; a licence bought by B while linked returns to B; each step writes an audit row; Support staff cannot open the pages.
+- Possible repeat: set when the person said yes, and when the same or a linked login has an earlier submitted survey; not set by an unreviewed pair; an organization's admin sees the mark and nothing about any other account.
+- Tenant isolation: nothing about a possible duplicate, the match box or the audit log is on any organization page.
+
+**PR plan** (one branch and one pull request each, in this order)
+
+0. `m5-replan`: this section; T-23 (SES bounces) added to the backlog. Docs only.
+1. `m5-jobs`: the queue, the worker command, the Jobs admin page with "Queue a test job", `/health/worker`, and the worker container.
+2. `m5-licence-email`: the "you have been given a licence" email, sent by the worker.
+3. `m5-audit`: the audit log, fed by the organization admins' services, the Django admin's history and erasure.
+4. `m5-matching`: possible duplicates from phone and name, the superuser's review, linking and unlinking, `possible_repeat`.
+5. `m5-match-box`: the optional box on the survey's start page, and its rule.
+6. `m5-results-seam`: `Result`, a `compute_result` that returns nothing, its job.
+7. `m5-docs-live-checks`: docs synced with what was built, and the founder's live checklist.
 
 **Done when**
 
-- [ ] Worker container runs on the server and processes an email job; the invite email now arrives via the worker.
-- [ ] Two test accounts with the same verified email become one person on the live site; root admin can unlink them.
-- [ ] Audit log shows every admin action taken so far.
-- [ ] All tests pass.
+*The first four boxes are the founder's live checks.*
+
+- [ ] The worker runs on the server: a test job queued from the Django admin shows as done within a few seconds.
+- [ ] An admin gives a member a licence, and the member receives the email (at an address Amazon SES can deliver to while it is sandboxed).
+- [ ] Two test accounts with the same phone number appear as a possible duplicate; a superuser confirms it and the second login can use the first one's unused personal licence; "Unlink" puts them apart again.
+- [ ] The audit log shows those actions and who did each, with no name or email in it.
+- [ ] All tests pass, including every tenant isolation test.
 
 **Why this order / what to understand**
 
-*Why a job queue at all.* Submitting a survey should take 200 milliseconds and never fail. Matching might take a second; email might take five seconds or fail because the mail server is down. If those run inside the submit request, the user waits, or sees an error for a submission that actually saved. Moving them to a queue decouples "the user's action succeeded" from "the follow-up work happened." The follow-up can retry; the user is already on the thank-you page.
+*Why a job queue at all.* Giving a licence should take a fraction of a second and never fail because a mail server is slow. If the email were sent inside the request, the admin would wait for it, or see an error for a licence that was in fact given. A queue separates "what you did worked" from "the follow-up happened". The follow-up can be tried again; the admin is already on the next page.
 
-*At-least-once and idempotency.* A worker can crash after running a job but before marking it done. The job runs again. So every handler must be safe to run twice. "Compute the result for response 42" is safe (same input, same output, overwrite). "Send an email" is not, which is why email is the one place you accept a small risk rather than engineering exactly-once delivery.
+*Why the queue is a table, not a new service.* The usual answer is Redis and Celery: two more things to run, watch and pay for. A table in the database you already have, and one small loop that reads it, does the same job at this size and is something you can open in the Django admin and read.
 
-*Why the rules are data-shaped.* `RULES` is a list you can edit. When the founder decides name matching is too noisy, you remove one entry; nothing else changes. When phone verification ships, the phone rule starts firing with no code change because it already checks `verified_at`.
+*At-least-once and safe-to-repeat.* A worker can crash after doing a job and before writing "done". The job runs again. So every job must be safe to do twice. "Look for duplicates of account 7" is: the same pair cannot be stored twice. "Send an email" is not, which is why email is the one place a small risk is accepted.
 
-*Why audit is in the same transaction.* An audit row that says "deleted account 7" written *after* the delete committed can be lost if the process dies in between, and then there is no record. In the same transaction, either both happen or neither.
+*Why nothing links on its own.* A phone number changes hands; two people share a name. Linking two logins shares what one of them paid for with the other. That is a decision for a person who can look at both, and it has to be undoable.
+
+*Why the audit log is in the same transaction.* A row saying "took back licence 12" written after the take-back was saved can be lost if the process dies in between, and then there is no record. In the same transaction, both happen or neither does.
 
 ---
 
@@ -1000,6 +1056,8 @@ Do the five steps under "What the founder does" first (`06-backlog.md`, T-21). T
 
 Not a milestone, but worth doing in milestone 5 when the worker exists:
 
+*(Built as the last small PR of Milestone 5, re-planned on 2026-11-13.)*
+
 - `apps/results/models.py`: `Result` (response FK, algorithm_version, payload JSON, computed_at). `apps/results/algorithm.py`: `ALGORITHM_VERSION = "0.0.0"` and `compute_result(response) -> dict | None` returning `None`. The `compute_result` job calls it and stores a row only if the return is not `None`.
 - `apps/results/tiering.py`: `visible_fields(payload, tier) -> dict`, currently returning everything; the tier map is a dictionary from field name to minimum tier, filled in when the algorithm's output shape is known.
 - A management command `recompute_results --version X` that enqueues `compute_result` for every submitted response, for re-runs.
@@ -1027,7 +1085,7 @@ Not a milestone. Self-serve purchase for individuals and enterprises (likely Raz
 | 4 | Licences for organizations (seat pools) | 3 | An organization's admins give out the licences it has bought; counts are right (built 2026-11-13; the founder's live checks remain) |
 | 4, part 2 | Licences set aside for invites and codes | 4 | A licence promised by an invite or a code is really there; an invite can be sent again or moved (built 2026-11-13; the founder's live checks remain) |
 | 4b | Payments | 4 | A purchase adds licences without staff typing (built 2026-11-13; closed until the founder adds the Stripe test key, then their live checks) |
-| 5 | Jobs, matching, audit | 4b | Worker live; repeats flagged and linked; actions audited |
+| 5 | Jobs, possible duplicates, audit | 4b | Worker live; a member is emailed their licence; possible duplicates reviewed and linked by a superuser; actions audited (re-planned 2026-11-13) |
 | 6 | Root admin, export, erasure audit | 5 | Root console complete; CSV; erasure audited and documented |
 | 7 | Hardening and pilot | 6 | First customer |
 
@@ -1048,6 +1106,8 @@ Moved on 2026-11-12 to `06-backlog.md`, the one list of open tasks and parked de
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-13 | Milestone 5 re-planned into eight PRs (0 to 7). Nothing links two accounts automatically: possible duplicates go to a superuser, who links, rejects or unlinks. The "Done when" box about a shared verified email is replaced, because the decision of 2026-10-09 already ruled that out. The invite email stays in the request; the worker's first email is "you have been given a licence". Staff actions reach the audit log by copying the Django admin's history lines; organization admins' actions are recorded by the services. The results seam of the Phase 2 stub is built here | The October plan contradicted itself on verified email, relied on phone verification that does not exist, and predated the invite page's "sent or copy the link" answer and its count of emails |
+| 2026-11-13 | A member is emailed when an admin gives them a licence; only superusers review possible duplicates; recording SES bounces and complaints becomes a backlog task (T-23). Replaces the 2026-11-12 row "Milestone 5 records SES bounces and complaints" for now | Founder's defaults, put to them before the re-plan and accepted ("those defaults are fine"). The SES part needs the AWS console |
 | 2026-11-13 | Milestone 4b is code-complete and deployed: PRs 0 to 5 (#78 to #82 and the closing docs PR). Buying stays closed on the live site until the founder adds the Stripe test key (`06-backlog.md`, T-21), and its three live checks then wait for the founder (T-22). Nothing has been run against Stripe itself | The site was built to work with or without the keys, so the code did not have to wait for the Stripe account |
 | 2026-11-13 | Milestone 4b (payments) is planned in six PRs (0 to 5): Stripe's hosted payment page; prices in the database; a ledger row written before the money moves and holding no identity; the licence given exactly once, from the return page or Stripe's message, whichever comes first; refunds from the Django admin. The defaults the founder accepted beforehand are the product rules; the builder's further calls are under "Smaller rules" | The founder answered the basics and accepted the defaults ("those defaults are fine") before going away, and asked for it to be planned and built without waiting |
 | 2026-11-13 | The buy pages are open to everyone on the live site while Stripe is on test keys | Founder: "treat it like it's live with customers"; nobody is looking at the site yet, and on test keys no money can move |
