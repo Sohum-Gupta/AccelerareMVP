@@ -16,6 +16,25 @@ from django.db import transaction
 logger = logging.getLogger(__name__)
 
 
+def describe_mail_error(error: Exception) -> str:
+    """
+    What may be logged about a refused email: the kind of error and the mail
+    server's numeric reply codes. Never the error's own text, because a refusal
+    quotes the address it refused ("Email address is not verified: x@y"), and a
+    person's email must not reach the logs or Sentry.
+    """
+    codes = set()
+    if getattr(error, "smtp_code", None) is not None:
+        codes.add(error.smtp_code)
+    # SMTPRecipientsRefused carries {address: (code, reply)}; keep the codes only.
+    for reply in getattr(error, "recipients", {}).values():
+        codes.add(reply[0])
+    summary = type(error).__name__
+    if codes:
+        summary += " " + ", ".join(str(code) for code in sorted(codes))
+    return summary
+
+
 class AccountAdapter(DefaultAccountAdapter):
     def is_open_for_signup(self, request):
         """
@@ -44,8 +63,8 @@ class AccountAdapter(DefaultAccountAdapter):
         """
         try:
             super().send_mail(template_prefix, email, context)
-        except (SMTPException, OSError):
-            logger.exception("Could not send an email")
+        except (SMTPException, OSError) as error:
+            logger.error("Could not send an email (%s)", describe_mail_error(error))
             request = allauth_context.request
             if request is not None:
                 request.mail_failed = True
