@@ -10,7 +10,8 @@ Who sees what (the founder's rules of 2026-11-12):
   licence tier. Never a phone number, and never anything about a survey someone
   took personally.
 * An admin brings people in with join codes and email invites, and sees how
-  many places the organization has left.
+  many places the organization has left. An invite or a code can carry a tier:
+  whoever joins with it is given a licence of that tier from the stock.
 
 How that is kept true:
 
@@ -112,6 +113,8 @@ def dashboard(request, slug):
             for line in services.seat_summary(membership.enterprise)
             if line["bought"] or line["given"]
         ]
+        # How many joined with an invite or code that came with a licence and got none.
+        context["without_licence"] = len(services.joined_without_licence(membership.enterprise))
     return render(request, "enterprises/dashboard.html", context)
 
 
@@ -269,6 +272,7 @@ def _code_row(code, now):
         "code": services.display_code(code.code),
         "uses": code.uses,
         "max_uses": code.max_uses,
+        "tier": code.tier,
         "created_at": code.created_at,
         "expires_at": code.expires_at,
         "revoked_at": code.revoked_at,
@@ -281,14 +285,20 @@ def _code_row(code, now):
 def codes(request, slug):
     """
     The organization's join codes, working ones first, and the form that makes
-    a new one: how many people it lets in and how many days it lasts.
+    a new one: how many people it lets in, how many days it lasts, and the
+    licence (if any) each person who joins with it is given.
     """
     membership = scoping.for_admin(request, slug)
     form = JoinCodeForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         expires_at = timezone.now() + timedelta(days=form.cleaned_data["days"])
         try:
-            code = services.create_code(membership, form.cleaned_data["max_uses"], expires_at)
+            code = services.create_code(
+                membership,
+                form.cleaned_data["max_uses"],
+                expires_at,
+                tier=form.cleaned_data["tier"],
+            )
         except services.Refused as error:
             form.add_error(None, str(error))
         else:
@@ -335,6 +345,7 @@ def _invite_row(invite, now, request):
     return {
         "id": invite.pk,
         "email": invite.email,
+        "tier": invite.tier,
         "created_at": invite.created_at,
         "expires_at": invite.expires_at,
         "accepted_at": invite.accepted_at,
@@ -357,7 +368,9 @@ def invites(request, slug):
     if request.method == "POST" and form.is_valid():
         email = form.cleaned_data["email"]
         try:
-            invite, sent = services.invite_by_email(membership, email, request=request)
+            invite, sent = services.invite_by_email(
+                membership, email, tier=form.cleaned_data["tier"], request=request
+            )
         except services.Refused as error:
             form.add_error(None, str(error))
         else:
@@ -446,7 +459,12 @@ def _confirmation(request, enterprise, *, email, code=""):
 def _joined(request, membership):
     arrival.forget(request)
     enterprise = membership.enterprise
-    messages.success(request, f"You have joined {enterprise.name}.")
+    said = f"You have joined {enterprise.name}."
+    # The invite or code may have come with a licence (read through the reverse
+    # name: this app does not import the licences app).
+    if membership.entitlements.filter(revoked_at__isnull=True, response__isnull=True).exists():
+        said += " You have a licence to take the survey for it."
+    messages.success(request, said)
     return redirect("enterprises:dashboard", enterprise.slug)
 
 

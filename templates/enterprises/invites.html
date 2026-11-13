@@ -7,7 +7,7 @@
 {% block content %}
   <p class="mb-1 text-sm"><a href="{% url 'enterprises:dashboard' organization.slug %}">{{ organization.name }}</a></p>
   <h1>Invites</h1>
-  <p class="text-sm text-slate-700">An invite goes to one email address, works once and lasts {{ days }} days. Joining does not give anyone a licence to take the survey.</p>
+  <p class="text-sm text-slate-700">An invite goes to one email address, works once and lasts {{ days }} days. An invite can also give the person a licence from your stock when they join: choose its tier below.</p>
 
   {% include "enterprises/_places.html" %}
 
@@ -19,6 +19,7 @@
         <p class="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">{{ error }}</p>
       {% endfor %}
       {% include "includes/field.html" with field=form.email %}
+      {% include "includes/field.html" with field=form.tier %}
       <button type="submit">Send invite</button>
     </form>
   </section>
@@ -35,7 +36,8 @@
             {% elif row.state == "revoked" %}Withdrawn on {{ row.revoked_at|date:"j F Y" }}
             {% elif row.state == "expired" %}Expired on {{ row.expires_at|date:"j F Y" }}
             {% elif row.state == "erased" %}Cannot be used: the person it was sent to has been erased
-            {% else %}Waiting · expires on {{ row.expires_at|date:"j F Y" }}{% endif %}
+            {% else %}Waiting · expires on {{ row.expires_at|date:"j F Y" }}{% endif %}{% if row.tier %} ·
+            Comes with a {% include "responses/_tier.html" with tier=row.tier %} licence{% endif %}
           </p>
           {% if row.state == "pending" %}
             <label for="invite-link-{{ row.id }}" class="text-xs font-normal text-slate-600">Invite link (works only for an account that has verified this address)</label>

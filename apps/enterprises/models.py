@@ -209,7 +209,8 @@ class Invite(models.Model):
     email = models.EmailField(blank=True)
     # The secret in the link. Long and random; never shown in a list.
     token = models.CharField(max_length=64, unique=True)
-    # Stored but unused until Milestone 4 gives it a meaning (a seat at that tier).
+    # If set, accepting the invite also gives a licence of this tier out of the
+    # organization's stock, while it has one left (Milestone 4).
     tier = models.PositiveSmallIntegerField(null=True, blank=True)
     expires_at = models.DateTimeField()
     accepted_at = models.DateTimeField(null=True, blank=True)
@@ -254,6 +255,8 @@ class JoinCode(models.Model):
     )
     # Ten characters, uppercase, no hyphen; shown as XXXXX-XXXXX.
     code = models.CharField(max_length=10, unique=True)
+    # If set, each person who joins with the code is also given a licence of
+    # this tier out of the organization's stock, while it has one left.
     tier = models.PositiveSmallIntegerField(null=True, blank=True)
     max_uses = models.PositiveIntegerField()
     uses = models.PositiveIntegerField(default=0)

@@ -20,6 +20,10 @@
     {% endif %}
   </section>
 
+  {% if without_licence %}
+    <p class="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900" data-without-licence>{{ without_licence }} member{{ without_licence|pluralize }} joined with an invite or a join code that came with a licence, but your stock had none left, so {{ without_licence|pluralize:"they have,they have" }} no licence yet. They are marked below: give them one when your stock has one.</p>
+  {% endif %}
+
   <h2 class="mb-2 text-lg font-semibold">Members</h2>
   <ul class="divide-y divide-slate-200 rounded-md border border-slate-200 bg-white">
     {% for row in rows %}
@@ -53,6 +57,9 @@
         {% empty %}
           <p class="mt-1 mb-0 text-sm text-slate-600">No licence</p>
         {% endfor %}
+        {% if row.promised %}
+          <p class="mt-1 mb-0 text-sm text-amber-900" data-promised>Joined with an invite or a join code for a {% include "responses/_tier.html" with tier=row.promised %} licence, but none was left.</p>
+        {% endif %}
 
         {% if row.can_give and give_tiers %}
           <form method="post" action="{% url 'organization_licence_give' organization.slug row.id %}" class="mt-2 flex items-center gap-2">

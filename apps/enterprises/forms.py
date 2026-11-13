@@ -11,11 +11,32 @@ from .services import (
     DEFAULT_CODE_DAYS,
     MAX_CODE_USES,
     NAME_MAX_LENGTH,
+    TIERS,
     normalise_code,
 )
 
 # The longest a join code may last, in days.
 MAX_CODE_DAYS = 365
+
+
+def tier_field(label):
+    """
+    The optional "licence to give on joining" drop-down of the invite and join
+    code forms: "No licence" (the default) or a tier, which the form hands
+    over as None or a number.
+    """
+    return forms.TypedChoiceField(
+        label=label,
+        required=False,
+        coerce=int,
+        empty_value=None,
+        choices=[("", "No licence"), *((tier, f"Tier {tier} licence") for tier in TIERS)],
+        help_text=(
+            "Taken from your stock at the moment they join. "
+            "If none is left then, they still join, without a licence."
+        ),
+        error_messages={"invalid_choice": "Choose a tier from the list, or no licence."},
+    )
 
 
 class EnterpriseForm(forms.Form):
@@ -60,10 +81,11 @@ class JoinCodeForm(forms.Form):
             "max_value": f"Choose a number of days from 1 to {MAX_CODE_DAYS}.",
         },
     )
+    tier = tier_field("Licence for each person who joins")
 
 
 class InviteForm(forms.Form):
-    """The "Invite someone" form: one email address."""
+    """The "Invite someone" form: one email address, and the licence that comes with it."""
 
     email = forms.EmailField(
         label="Email address",
@@ -74,6 +96,7 @@ class InviteForm(forms.Form):
             "invalid": "Enter a valid email address.",
         },
     )
+    tier = tier_field("Licence to give them when they join")
 
 
 class JoinForm(forms.Form):

@@ -218,6 +218,7 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
   4. "results level" and "its level" stand in for the tier names, which are still placeholders (D-4).
   5. The join page says nothing about Accelerare itself seeing the answers; only the survey's page does.
 - **When the wording changes:** the four "admins can also see" survey lines must stay the same on both pages (the join page says "that survey" where the other says "this survey"); `tests/test_join_pages.py` compares the two files and fails if they drift. `tests/test_survey_context_pages.py` and `tests/test_join_pages.py` also quote the wording.
+- **Changed since the founder read it (Milestone 4 PR 4, 2026-11-13):** the last sentence of the join confirmation page. It said "Joining makes you a member. It does not by itself give you a licence to take the survey", which stopped being true once an invite or a join code could carry a licence. It now says "Joining makes you a member. To take the survey for <organization> you also need a licence from it. It may give you one as you join, or later." The lists of what admins can and cannot see are unchanged. Include this sentence in the later review.
 - **Source:** raised with the founder on 2026-11-13 after Milestone 3 PRs 7 and 10.
 
 ### Small things to revisit only if they come up

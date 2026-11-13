@@ -30,6 +30,11 @@ The rules (decided by the founder on 2026-11-12):
   proves nothing, so a forwarded link is useless to anyone else. An invite
   brings a deactivated member back. If the email cannot be sent, the invite is
   kept and the admin can copy the link.
+* A tier on an invite or a join code (decided by the founder on 2026-11-13):
+  the admin may choose one, and each person who joins with it is given a
+  licence of that tier out of the stock. If none is left they still join,
+  without a licence. This app only announces the join (`member_joined`); the
+  licences app, which depends on this one, listens and gives the licence.
 
 Who is acting: a function that an organization's admin can call takes `by`, the
 acting admin's own Membership, and checks again that it is an active admin of
@@ -55,6 +60,8 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Sum
+from django.db.models.functions import Coalesce
+from django.dispatch import Signal
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
@@ -89,6 +96,15 @@ MAX_SEATS = 1_000_000
 # Spelled out here because this app may not import the licences app; it reaches
 # licences through the reverse name `membership.entitlements`.
 SEAT_SOURCE = "seat"
+
+
+# Sent when someone joins with a code or an invite (redeem_code, accept_invite),
+# with `membership` and `tier`: the tier the code or invite carries, or None.
+# The licences app listens and gives the new member a licence out of the stock.
+# It is a signal because this app may not import that one, the same pattern as
+# `account_erasing` in accounts/erasure.py. See _announce_join for what happens
+# when a listener fails.
+member_joined = Signal()
 
 
 class Refused(Exception):
@@ -158,6 +174,27 @@ def seats_given(enterprise):
     )
     given.update(rows)
     return given
+
+
+def joined_without_licence(enterprise):
+    """
+    {membership id: tier} for the active members whose invite or join code came
+    with a licence of that tier and who have never held a licence for the
+    organization: the stock had none left when they joined. Counted, never
+    stored, so a member drops out as soon as an admin gives them a licence.
+    """
+    promised = Coalesce("joined_via_invite__tier", "joined_via_code__tier")
+    rows = (
+        Membership.objects.filter(
+            enterprise=enterprise,
+            status=Membership.Status.ACTIVE,
+            entitlements__isnull=True,
+        )
+        .annotate(promised=promised)
+        .filter(promised__isnull=False)
+        .values_list("pk", "promised")
+    )
+    return dict(rows)
 
 
 def seat_summary(enterprise):
@@ -321,8 +358,9 @@ def set_seat_pool(enterprise, tier, seats):
 def create_code(admin_membership, max_uses, expires_at=None, tier=None):
     """
     Make a join code for the admin's organization. `max_uses` is how many people
-    it lets in; it expires in 30 days unless another date is given. The tier is
-    stored for Milestone 4 and means nothing yet.
+    it lets in; it expires in 30 days unless another date is given. With a
+    tier, each person who joins with the code is given a licence of that tier
+    out of the organization's stock, while it has one left.
     """
     if isinstance(max_uses, bool) or not isinstance(max_uses, int):
         raise Refused("Enter how many people may use the code, as a whole number.")
@@ -370,7 +408,9 @@ def redeem_code(code, account):
 
     Refused, in this order, when: the code is unknown; the account already
     belongs (AlreadyMember) or was deactivated there; the code is revoked,
-    expired or used up; or the organization has no places left.
+    expired or used up; or the organization has no places left. If the code
+    carries a tier, joining also brings a licence of that tier while the stock
+    has one left; with none left the person still joins.
     """
     found = _find_code(code)
     with transaction.atomic():
@@ -382,9 +422,11 @@ def redeem_code(code, account):
         _check_code_lets_in(join_code, enterprise, account)
         join_code.uses += 1
         join_code.save(update_fields=["uses"])
-        return Membership.objects.create(
+        membership = Membership.objects.create(
             account=account, enterprise=enterprise, joined_via_code=join_code
         )
+        _announce_join(membership, join_code.tier)
+        return membership
 
 
 def check_code(code, account):
@@ -443,7 +485,8 @@ def invite_by_email(admin_membership, email, tier=None, *, request=None):
     Refused when the address is not an address, already belongs to an active
     member, or already has an open invite, and when the organization has no
     places left. The invite uses a place from the moment it exists, whatever
-    becomes of it.
+    becomes of it. With a tier, whoever accepts it is given a licence of that
+    tier out of the stock, if it has one left at that moment.
 
     The email goes out after the invite is saved, and only when a request is
     given (a view passes it; it is what the link's address is built from).
@@ -539,6 +582,8 @@ def accept_invite(token, account):
     expired; or the account has not verified the address the invite was sent to
     (WrongAddress). A deactivated member is brought back, as an ordinary member.
     Accepting needs no free place: the invite took its place when it was sent.
+    If the invite carries a tier, joining also brings a licence of that tier
+    while the stock has one left; with none left the person still joins.
     """
     found = _find_invite(token)
     with transaction.atomic():
@@ -549,18 +594,21 @@ def accept_invite(token, account):
         invite.accepted_at = timezone.now()
         invite.save(update_fields=["accepted_at"])
         if existing is None:
-            return Membership.objects.create(
+            membership = Membership.objects.create(
                 account=account, enterprise=enterprise, joined_via_invite=invite
             )
-        # A deactivated member coming back. The invite is now how they got in.
-        existing.status = Membership.Status.ACTIVE
-        existing.deactivated_at = None
-        existing.joined_via_invite = invite
-        existing.joined_via_code = None
-        existing.save(
-            update_fields=["status", "deactivated_at", "joined_via_invite", "joined_via_code"]
-        )
-        return existing
+        else:
+            # A deactivated member coming back. The invite is now how they got in.
+            existing.status = Membership.Status.ACTIVE
+            existing.deactivated_at = None
+            existing.joined_via_invite = invite
+            existing.joined_via_code = None
+            existing.save(
+                update_fields=["status", "deactivated_at", "joined_via_invite", "joined_via_code"]
+            )
+            membership = existing
+        _announce_join(membership, invite.tier)
+        return membership
 
 
 def check_invite(token, account):
@@ -683,6 +731,25 @@ def _check_tier(tier):
     # bool is an int in Python; True must not pass as tier 1.
     if isinstance(tier, bool) or not isinstance(tier, int) or tier not in TIERS:
         raise Refused("The tier must be 1, 2 or 3.")
+
+
+def _announce_join(membership, tier):
+    """
+    Tell the apps that depend on this one that someone has just joined. The
+    caller is inside the join's transaction and holds the organization's lock.
+
+    A join never fails because of what a listener does: an empty stock is the
+    organization's bookkeeping, not the new member's problem. So the listeners
+    run inside a savepoint. If one fails, whatever it wrote is undone, the
+    failure is logged for staff (naming nobody), and the join goes ahead.
+    """
+    try:
+        with transaction.atomic():
+            member_joined.send(sender=Membership, membership=membership, tier=tier)
+    except Exception:  # whatever went wrong, the person still joins
+        logger.exception(
+            "A listener to member_joined failed; membership %s joined anyway", membership.pk
+        )
 
 
 def _check_can_join(account):
