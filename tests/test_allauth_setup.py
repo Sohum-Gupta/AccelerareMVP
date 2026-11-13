@@ -14,7 +14,12 @@ from .test_account_services import make_account
 
 
 @pytest.mark.django_db
-def test_new_passwords_are_hashed_with_argon2():
+def test_new_passwords_are_hashed_with_argon2(settings):
+    # The suite runs with a fast hasher (config/settings/test.py). This test
+    # puts back the list the site really uses, which is what it is about.
+    from config.settings import base
+
+    settings.PASSWORD_HASHERS = base.PASSWORD_HASHERS
     account = make_account()
     assert account.password.startswith("argon2")
     assert account.check_password("a-long-test-password")
