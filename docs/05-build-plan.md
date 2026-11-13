@@ -701,22 +701,116 @@ When both parts pass, tell Claude: the two boxes are ticked in a docs-only PR.
 
 ## Milestone 4b — Payments
 
-*Moved here on 2026-11-13 by the founder, from Phase 3, to follow Milestone 4. The founder answered the basics the same day (below). The full plan, in the style of Milestones 3 and 4, is this milestone's PR 0 and is not written yet; no code before it.*
+*Moved here on 2026-11-13 by the founder, from Phase 3, to follow Milestone 4. The founder answered the basics the same day, and this plan was written from them (PR 0). The provider is Stripe, on test keys.*
+
+**Goal:** a person can buy a licence and pay to upgrade one, and an organization's admin can buy licences into its stock, without staff typing anything; staff can refund from the Django admin; and every payment leaves a record that holds no personal identity.
+
+**Status (2026-11-13).** Planned (PR 0, this section). Nothing is built.
+
+**How this milestone is run** (founder, 2026-11-13). As Milestones 3 and 4 were: each PR is merged once CI is green and checked on the live site, with a summary after each. The founder is away while it is built and asked for product choices to be sent to their phone. None was needed for this plan: the basics and the defaults below were all accepted beforehand ("those defaults are fine"), and the smaller calls are listed to be overruled.
 
 **Why it moved.** While deciding who should type an organization's stock into the admin, the founder asked why anyone types it at all. The answer was that the site cannot take payments; the founder's decision was to build payments next rather than later.
 
-**What was already decided.** The site is built for the US first (2026-11-13), so a US payment provider and US dollars; India (Razorpay, GST) is a later conversation. A purchase writes licences through the same services the admin uses: `grant_individual` with source `purchase` for a person, and the seat pool for an organization. Licences do not expire, a retake needs another licence, and upgrades happen in place. The payment record carries no personal identity, so erasing a person never removes an accounting record.
+**The product rules, as decided by the founder on 2026-11-13**
 
-**The basics, as decided by the founder on 2026-11-13** (was `06-backlog.md`, T-17's list)
+- **Provider.** Stripe, "for now", through Stripe's own hosted payment page (Stripe Checkout): the person is sent to Stripe to pay and comes back. Accelerare never sees or stores a card number. Test keys until the founder has tried a purchase and says to switch to real ones.
+- **Open to everyone.** The buy pages are open on the live site even while Stripe is on test keys ("treat it like it's live with customers"). On test keys only Stripe's test cards work and no money moves.
+- **Prices.** $1, $2 and $3 for Tier 1, 2 and 3, as placeholders. They live in the database, staff change them in the Django admin, and the amount is sent to Stripe with each purchase, so a price change needs no code and nothing set up in Stripe. No volume price: a large deal is still invoiced by hand and staff type the stock.
+- **A person** buys one licence per purchase, at the tier they choose.
+- **An upgrade** raises a personal licence's tier and charges the difference between the two prices. It works before or after the survey is taken (afterwards it is how someone sees more of their results).
+- **An organization.** Any of its admins buys a number of licences of one tier per purchase. They go into the stock, and from there everything is as in Milestone 4. A licence already in an organization's stock cannot be upgraded by paying, in this first version.
+- **Refunds.** Only for a licence that has not been used, within 30 days of the payment. Staff do it with a Refund button in the Django admin: one step refunds through Stripe and takes the licence back, and leaves a history line. For an organization, only licences still in its stock (not given to a member, not set aside) can be refunded. Only superusers can refund.
+- **Sales tax.** None is collected at first. Switching on Stripe's automatic tax later is a setting, not a code change (`06-backlog.md`, D-20: review with an accountant before real prices).
+- **Receipts and invoices.** A person gets Stripe's emailed receipt. An organization's purchase also gets a numbered invoice from Stripe.
+- **The record.** Every payment is a row that holds amounts, dates, the tier and Stripe's references, and no name, email or card detail. Erasing a person never removes or changes it.
 
-- **Provider.** Stripe, "for now". The founder opens the account and supplies test keys; real keys are used only after the founder has tried a purchase on test keys and says so.
-- **Prices.** $1, $2 and $3 for Tier 1, 2 and 3, as placeholders "for now". They are kept in one place and can be changed without a code change. No volume price for organizations for now: a large deal is invoiced by the founder by hand and staff type the stock, as today.
-- **Upgrades.** Raising a licence's tier charges the difference between the two prices.
-- **Refunds.** Only while the licence is unused, and within 30 days of the purchase. Staff do it with a Refund button in the Django admin, which refunds through Stripe and takes the licence back in one step and leaves a history line. For an organization, only licences still in its stock can be refunded.
-- **Sales tax and invoices.** No tax is collected at first, but the checkout is built so that Stripe's tax setting can be switched on without a code change. A person gets Stripe's emailed receipt; an organization gets a numbered invoice as well. Both are to be reviewed with an accountant before real prices are set (`06-backlog.md`, D-20).
-- **How it is run.** Merged on green without waiting for review, as Milestones 3 and 4 were.
+**Smaller rules, the builder's calls** (raised here so they can be overruled)
 
-**What it will need, roughly:** a buy page for a person and for an organization's admin; the hand-off to the provider's checkout and back; a receiver for the provider's "payment succeeded" message that adds the licences exactly once even if the message arrives twice; the payment ledger; refunds that take the licence back through the service; the funnel event `licence_granted` with source `purchase`; the provider's keys in Parameter Store **[console]**.
+- Buying needs a verified email, like everything else that matters on the site.
+- A person may buy a licence while they still hold an unused one; nothing stops them holding two. Each is one attempt.
+- Any personal licence that is not withdrawn can be upgraded, including one staff granted by hand. A licence held through an organization cannot.
+- "Not used" for a refund means the survey has not been started on it at all. Once the first page has been begun, the Refund button refuses.
+- An upgrade can be refunded on its own (the licence goes back down a tier). The original purchase can be refunded only after any upgrade on top of it has been.
+- An organization buys at most 1,000 licences in one purchase.
+- If Stripe is not set up (no key), the buy pages say buying online is not open yet and how to reach Accelerare; nothing else on the site changes.
+- The licence appears as soon as the person is back from Stripe: the page they return to asks Stripe whether the payment went through, and Stripe's own message to the site does the same job if they close the browser first. Either way the licence is given exactly once.
+- A refund made in Stripe's own dashboard instead of the Django admin is noticed. The site takes the licence back if the rules above allow it; if they do not (the survey was started, the licences were given out), the payment is marked "needs attention" in the admin with the reason, and nothing is taken from anyone automatically.
+- A payment that arrives for something that can no longer be given (the account was erased while paying, the licence was withdrawn before an upgrade was paid) is kept, marked "needs attention", and staff refund it.
+- Support staff can see prices and payments in the Django admin and change neither. Superusers change prices and refund.
+- Not built in this version, on purpose: a page listing a person's or an organization's past payments (Stripe emails the receipt), saved cards, subscriptions, coupons, and handling of a disputed charge (Stripe emails the founder; staff then withdraw the licence by hand).
+
+**What you build**
+
+- A new app, `apps/payments/` (installed after `entitlements` and before `funnel`; the apps still depend one way: `accounts` ← `enterprises` ← `entitlements` ← `payments`, with `responses` last and importing none of it).
+- `apps/payments/models.py`: `Price` (tier, unique; `amount_cents`), three rows made by a data migration at 100, 200 and 300. `Purchase`: `kind` (personal, upgrade, stock), `status` (pending, paid, part refunded, refunded, failed), `tier`, `from_tier` (upgrades only), `quantity`, `unit_amount_cents`, `amount_cents`, `currency`, `refunded_cents`, `refunded_quantity`, `stripe_session_id` (unique), `stripe_payment_intent_id`, `stripe_invoice_id`, `needs_attention` and a plain-words `note`, `created_at`, `paid_at`, and three links that are all emptied rather than followed if what they point at goes: `buyer` (the account that pressed Buy), `entitlement` (the licence bought or upgraded) and `enterprise` (stock purchases; kept, organizations are never deleted). `Refund`: the purchase, `amount_cents`, `quantity`, `stripe_refund_id`, `made_by`, `created_at`. No `__str__` holds an email or a name.
+- `apps/payments/stripe_api.py`: the only file that talks to Stripe: `create_checkout`, `get_checkout`, `refund_payment`, `read_event`. Each returns plain values. Everything else in the app, and every test, sees Stripe only through these four functions.
+- `apps/payments/services.py`: `prices()`, `upgrade_cost(entitlement, tier)`, `start_personal(account, tier, request)`, `start_upgrade(account, entitlement, tier, request)`, `start_stock(admin_membership, tier, quantity, request)` (each makes a pending `Purchase`, opens a Stripe Checkout and returns the address to send the person to), `fulfil(checkout)` (gives what was paid for, once), `refund(purchase, by, quantity=None)` and `record_outside_refund(charge)`. A refused action raises `Refused` with plain words for the page.
+- `apps/enterprises/services.py`: `add_seats(enterprise, tier, quantity)` and `remove_seats(enterprise, tier, quantity)`, beside `set_seat_pool`, under the organization's lock. `remove_seats` refuses to take more than are left.
+- Pages: `/buy/` (the three tiers with their prices and a Buy button each; under them the person's own licences with "Upgrade to Tier N" buttons), `/buy/done/` and `/buy/cancelled/` (where Stripe sends the person back), and for an organization's admin `/organizations/<slug>/licences/buy/` (tier and number). Links to them from "My surveys", from the "You need a licence" notice, from the result page (to upgrade), and from the organization's Licences page and dashboard, replacing "Accelerare adds licences by hand for now".
+- `/payments/stripe/webhook/`: where Stripe tells the site that a payment went through (`checkout.session.completed`) or was refunded (`charge.refunded`). It checks Stripe's signature on every message and ignores anything else.
+- Django admin (the hub): "Prices" (three rows; superusers change the amount, typed in dollars), "Payments" (read-only list with filters for status, kind and "needs attention", searchable by Stripe's references and the organization's name; the page of one payment has a "Refund…" button for superusers, which asks first and says exactly what will happen) and its refunds listed beneath. Every refund writes a history line that names nobody.
+- Settings: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `STRIPE_AUTOMATIC_TAX`, all optional everywhere, so the order of deploys and keys does not matter. `.env.example`, `NOTES.md`'s porting checklist and the runbook gain them.
+
+**Technical detail**
+
+- *Nothing is trusted from the browser.* The Buy button sends only a tier (and a number, for an organization). The price is read from the database on the server, the `Purchase` row is written first, and Stripe is told the amount by the server. The page the person returns to carries only Stripe's session id, which is looked up among that person's own purchases and then checked with Stripe.
+- *Given exactly once.* `fulfil` locks the `Purchase` row and does nothing unless it is still pending, so the return page and Stripe's message can both arrive, in either order or twice each, and the licence is given once. It also checks that Stripe says "paid" and that the amount and currency are the ones on the row.
+- *What fulfilling does.* Personal: `grant_individual(person, tier, "purchase")`, which records the funnel event. Upgrade: `change_tier`, only if the licence is still active and still at the tier the upgrade started from. Stock: `add_seats`, under the organization's lock, which also raises the people limit as Milestone 4 decided. Anything that cannot be given marks the row "needs attention" and gives nothing.
+- *Refunding.* Inside one transaction: lock the purchase, check the rules, take back what was sold (`revoke`, `change_tier` back down, or `remove_seats`), then ask Stripe for the refund. If Stripe refuses, the transaction is undone and nothing was taken back. Stripe is given a key that makes a repeated request the same refund, not a second one.
+- *Stripe's messages.* The body is checked against `STRIPE_WEBHOOK_SECRET` with Stripe's library before anything is read. A message of a kind the site does not use is answered "fine" and ignored. A failure while handling one answers with an error so that Stripe sends it again, and the handlers are safe to run twice. Nothing from a message is written to a log: it holds an email address.
+- *Erasure.* A `Purchase` holds no identity. Deleting an account empties `buyer`; deleting its licences empties `entitlement`; the amounts, dates and Stripe's references stay. Stripe itself keeps the email it sent the receipt to; that is Stripe's record as the payment processor, and belongs on the privacy lawyer's list (`06-backlog.md`, D-7).
+- *Sentry already receives no request bodies and no local variables*, so a failed webhook does not send Stripe's message there.
+- *Tax.* `STRIPE_AUTOMATIC_TAX` set to true adds Stripe's automatic tax to every checkout. Turning it on also needs tax registration set up in Stripe's dashboard, which is the accountant's question (D-20).
+- *Money is whole cents in an integer column,* never a decimal with fractions, and never worked out in the browser.
+
+**What the founder does** **[console]** (Stripe's dashboard and the AWS console; `06-backlog.md`, T-21)
+
+1. A Stripe account, in test mode. From Developers, API keys: the secret key (`sk_test_…`).
+2. That key into AWS Parameter Store as `/survey/prod/STRIPE_SECRET_KEY` (SecureString), and into the laptop's `.env` as `STRIPE_SECRET_KEY`.
+3. In Stripe, Developers, Webhooks: add the address `https://app.theaccelerare.com/payments/stripe/webhook/` with the events `checkout.session.completed` and `charge.refunded`. Its signing secret (`whsec_…`) into Parameter Store as `/survey/prod/STRIPE_WEBHOOK_SECRET`.
+4. The next deploy picks both up (`deploy/render_env.py` turns every parameter under `/survey/prod/` into a server variable). A docs-only merge does not deploy, so it takes a code merge or "Run workflow" on the Deploy action.
+5. In Stripe, Settings, Emails: switch on receipts for successful payments. Stripe does not email receipts in test mode; that is checked when real keys go in.
+
+**Tests**
+
+- Prices: three rows after migrating; a superuser changes one in the admin and the buy page shows it; Support staff cannot.
+- Starting: each of the three kinds writes one pending row with the server's price and sends Stripe the same amount; an unverified account, a tier that does not exist, a number out of range, someone else's licence, a licence held through an organization, an upgrade to the same or a lower tier, and a member who is not an admin are all refused before Stripe is called; with no key the pages say buying is not open.
+- Fulfilling: each kind gives what was paid for; twice, or from the return page and the webhook at the same moment (threads), gives it once; "unpaid" gives nothing; a wrong amount gives nothing and marks the row; an upgrade whose licence changed meanwhile is marked and gives nothing; a stock purchase raises the people limit.
+- The webhook: a message with a bad signature or none is refused; a good one fulfils; a kind the site does not use is ignored; without the secret set it answers "not set up".
+- Refunds: an unused personal licence within 30 days is refunded and withdrawn; a started one, one past 30 days, and one with an upgrade on top are refused; an upgrade's refund puts the tier back; a stock refund takes only what is left and refuses more; if Stripe refuses, nothing is taken back; a refund made in Stripe's dashboard is noticed, taken back when allowed and marked when not; only a superuser sees the button.
+- Tenant isolation, written before the page: organization A's admin cannot open B's buy page or buy into B's stock (404), and a member who is not an admin cannot open the page.
+- Erasure: erasing a buyer both ways keeps every `Purchase` and `Refund` row with its amounts.
+- Nothing personal: no payment page, admin label, history line or log line contains an email or a name.
+
+**PR plan** (one branch and one pull request each, in this order)
+
+0. `m4b-plan`: this section; T-17 closed and T-21 (the founder's Stripe steps) opened in the backlog. Docs only.
+1. `m4b-payments-models`: the app, its three models and migrations, the prices, the three settings, `stripe_api.py`, the read-only admin with editable prices, `add_seats` and `remove_seats`, erasure tests.
+2. `m4b-checkout`: the three `start_…` services, `fulfil`, the webhook, the return and cancelled pages.
+3. `m4b-buy-pages`: the personal and organization buy pages and every link to them; isolation tests first.
+4. `m4b-refunds`: the Refund button, `refund`, refunds made in Stripe's dashboard, "needs attention".
+5. `m4b-docs-live-checks`: docs synced with what was built, and the founder's live checklist.
+
+**Done when**
+
+*The first three boxes are the founder's live checks, with Stripe's test card.*
+
+- [ ] On the live site, with the test keys in place: a person buys a Tier 1 licence with Stripe's test card `4242 4242 4242 4242`, is brought back, and can start the survey at once; then upgrades it to Tier 2 and pays only the difference.
+- [ ] An organization's admin buys three Tier 2 licences; the stock and the people limit both go up by three; the payment is in the Django admin with no name or email on it.
+- [ ] A superuser refunds an unused licence from the Django admin: the money goes back in Stripe's dashboard and the licence is withdrawn; a used one is refused.
+- [ ] All tests pass, including every tenant isolation test.
+
+**Why this order / what to understand**
+
+*Why Stripe's hosted page.* Taking card numbers on your own page makes you responsible for keeping them safe, with audits to prove it. Sending the person to Stripe's page means the card never touches this site. The cost is that the person leaves for a moment and comes back, which is what the return page and the webhook are for.
+
+*Why two ways of hearing "it was paid".* The person's browser coming back is fast but unreliable: they may close the tab on Stripe's page the instant they have paid. Stripe's own message to the site (a "webhook") is reliable but can be a few seconds late. Using both means the licence is there when they land and is still given if they never land. The price of having two is that both may arrive, which is why giving the licence is written to be safe to do twice.
+
+*Why the row is written before the money moves.* If the site only learned of a purchase when Stripe said "paid", it would have to trust what Stripe's message said was bought. Writing a pending row first, with the server's own price, means the message only has to say which row was paid.
+
+*Why prices are in the database.* The founder will change them, more than once, and should not need a developer or Stripe's dashboard to do it.
+
+*Why the record has no name in it.* Accounting records are kept for years; a person can ask to be erased tomorrow. Keeping the two apart means neither rule has to bend.
 
 ---
 
@@ -888,7 +982,7 @@ Not a milestone. Self-serve purchase for individuals and enterprises (likely Raz
 | 3 | Organizations, memberships, join | 2 | Organization admins onboard members and see who took the survey; licences per membership (built 2026-11-13; the founder's live checks remain) |
 | 4 | Licences for organizations (seat pools) | 3 | An organization's admins give out the licences it has bought; counts are right (built 2026-11-13; the founder's live checks remain) |
 | 4, part 2 | Licences set aside for invites and codes | 4 | A licence promised by an invite or a code is really there; an invite can be sent again or moved (built 2026-11-13; the founder's live checks remain) |
-| 4b | Payments | 4 | A purchase adds licences without staff typing (moved here from Phase 3 on 2026-11-13; the basics are decided, the plan is its PR 0) |
+| 4b | Payments | 4 | A purchase adds licences without staff typing (moved here from Phase 3 on 2026-11-13; planned the same day, in six PRs) |
 | 5 | Jobs, matching, audit | 4b | Worker live; repeats flagged and linked; actions audited |
 | 6 | Root admin, export, erasure audit | 5 | Root console complete; CSV; erasure audited and documented |
 | 7 | Hardening and pilot | 6 | First customer |
@@ -910,6 +1004,8 @@ Moved on 2026-11-12 to `06-backlog.md`, the one list of open tasks and parked de
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-13 | Milestone 4b (payments) is planned in six PRs (0 to 5): Stripe's hosted payment page; prices in the database; a ledger row written before the money moves and holding no identity; the licence given exactly once, from the return page or Stripe's message, whichever comes first; refunds from the Django admin. The defaults the founder accepted beforehand are the product rules; the builder's further calls are under "Smaller rules" | The founder answered the basics and accepted the defaults ("those defaults are fine") before going away, and asked for it to be planned and built without waiting |
+| 2026-11-13 | The buy pages are open to everyone on the live site while Stripe is on test keys | Founder: "treat it like it's live with customers"; nobody is looking at the site yet, and on test keys no money can move |
 | 2026-11-13 | The licence changes (Milestone 4, second part) are code-complete and deployed: PRs 0 to 2 (#75, #76 and the PR that wrote this line). Its two live checks wait for the founder (`06-backlog.md`, T-18). One rule changed while building: an invite's 14 days restart only when its email actually goes out, not on a send the mail server refused | A refused send reaches nobody, so it should neither count towards the five nor keep an invite, and the licence set aside for it, alive |
 | 2026-11-13 | The licence changes are planned as "Milestone 4, second part": three PRs (0 to 2), built before payments. Its builder's calls are listed there under "Smaller rules": what emailing again and moving do to the link and the 14 days, that a move uses no extra place, that only accepted emails count towards the five, and that a join and its licence now happen together or not at all | They change how the stock is counted, which a purchase adds to. The founder asked for small choices to be made sensibly and listed rather than asked one at a time |
 | 2026-11-13 | The founder's answers to the seven choices made while building Milestone 4 (was `06-backlog.md`, D-18). Kept as built: a member holds one licence in hand at a time, whoever it came from; what the Licences page lists and offers; a member who comes back with an invite keeps an unused licence and gets no second one. Overruled: the page read before joining must say when the invite or code comes with a licence; and a tier may no longer be put on an invite or a code while the stock has none (next row). The wording of the sentence on that page was left to the builder, and the "joined without a licence" warning goes away with the new design | The founder took them one at a time. The full text of each is under "Smaller rules" in the Milestone 4 section |
