@@ -11,6 +11,7 @@ from django import forms
 from apps.entitlements.services import TIERS
 
 from .models import Response
+from .services import MATCH_HINT_MAX_LENGTH
 
 
 class SelfReportForm(forms.Form):
@@ -25,6 +26,17 @@ class SelfReportForm(forms.Form):
         required=False,
     )
 
+    match_hint = forms.CharField(
+        label="An email address or phone number you used then (optional)",
+        required=False,
+        max_length=MATCH_HINT_MAX_LENGTH,
+        help_text=(
+            "Only if you took it with a different login. We use it once, to look for "
+            "your earlier account, and then delete it. Nothing depends on it."
+        ),
+        widget=forms.TextInput(attrs={"autocomplete": "off"}),
+    )
+
     def clean(self):
         data = super().clean()
         if data.get("took_before") == "yes" and not data.get("took_before_via"):
@@ -33,9 +45,11 @@ class SelfReportForm(forms.Form):
 
     @property
     def answer(self):
-        """(took_before, via) as the service wants them; call after is_valid()."""
+        """(took_before, via, match_hint) as the service wants them; call after is_valid()."""
         took_before = self.cleaned_data["took_before"] == "yes"
-        return took_before, self.cleaned_data["took_before_via"] if took_before else ""
+        if not took_before:
+            return False, "", ""
+        return True, self.cleaned_data["took_before_via"], self.cleaned_data["match_hint"]
 
     @classmethod
     def for_draft(cls, response):
@@ -46,6 +60,8 @@ class SelfReportForm(forms.Form):
             initial={
                 "took_before": "yes" if response.took_before else "no",
                 "took_before_via": response.took_before_via,
+                # Usually empty again by now: it is deleted once it has been used.
+                "match_hint": response.match_hint,
             }
         )
 

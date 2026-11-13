@@ -69,6 +69,10 @@ def run_for_account(account):
     account = _live(Account.objects.filter(pk=getattr(account, "pk", account))).first()
     if account is None:
         return []
+    # What is in the box under "Yes, I have taken this survey before" now. It
+    # is used once, by the rules below, and emptied at the end. Reached through
+    # the account: this app does not import the responses app.
+    typed = list(account.responses.exclude(match_hint="").values_list("pk", "match_hint"))
     found = {}
     for name, _, rule in rules.RULES:
         for other in rule(account):
@@ -81,6 +85,10 @@ def run_for_account(account):
         candidate = _flag(account.pk, other, found[other])
         if candidate is not None:
             waiting.append(candidate)
+    for number, text in typed:
+        # Only if it still says what was used: something typed since then
+        # queued a look of its own and is emptied by that one.
+        account.responses.filter(pk=number, match_hint=text).update(match_hint="")
     return waiting
 
 

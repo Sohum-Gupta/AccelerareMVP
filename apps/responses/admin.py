@@ -35,6 +35,7 @@ SUPERUSER_FIELDS = (
     "answers",
     "took_before",
     "took_before_via",
+    "match_hint",
     "started_at",
     "submitted_at",
     "possible_repeat",

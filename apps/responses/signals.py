@@ -18,6 +18,7 @@ from django.contrib.auth.models import Group, Permission
 from django.db.models.signals import post_migrate
 from django.dispatch import receiver
 
+from apps.accounts.erasure import account_erasing
 from apps.matching.services import people_changed
 
 from . import services
@@ -83,3 +84,13 @@ def mark_possible_repeats(sender, accounts, **kwargs):
     again for both logins. It runs inside the link's own transaction.
     """
     services.mark_possible_repeats(accounts)
+
+
+@receiver(account_erasing, dispatch_uid="responses.forget_match_hints")
+def forget_match_hints(sender, account, **kwargs):
+    """
+    An account is being erased. Anything still in the box under "Yes, I have
+    taken this survey before" is an address or a number the person typed, so
+    it goes, on the surveys that are kept as much as on those that are not.
+    """
+    account.responses.exclude(match_hint="").update(match_hint="")

@@ -88,6 +88,7 @@
         </fieldset>
         <div data-self-report-via>
           {% include "includes/field.html" with field=form.took_before_via %}
+          {% include "includes/field.html" with field=form.match_hint %}
         </div>
         <button type="submit">{% if resuming %}Save and continue{% else %}Start the survey{% endif %}</button>
       </form>

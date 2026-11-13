@@ -48,6 +48,8 @@ from apps.survey.services import PAGE_SIZE, current_version
 
 from .models import Response
 
+MATCH_HINT_MAX_LENGTH = 254  # as long as an email address may be; the column's length
+
 
 class Refused(Exception):
     """A write the rules do not allow. str(error) is plain words for the person."""
@@ -150,27 +152,38 @@ def start_response(account, membership=None):
         return response
 
 
-def save_self_report(response, took_before, via=""):
+def save_self_report(response, took_before, via="", match_hint=""):
     """
     Record "Have you taken this survey before?" (True or False) and, if yes, how
     (one of Response.TookBeforeVia). Allowed on a draft until page 1 is locked.
+
+    With a yes the person may also give `match_hint`: an email address or phone
+    number they used then. It is optional and nothing depends on it. It is kept
+    only until the background worker has used it, once, to look for their
+    other account (queued here), and is then emptied.
     """
     if not isinstance(took_before, bool):
         raise Invalid("Please answer yes or no.")
+    match_hint = " ".join(str(match_hint or "").split())
     if took_before:
         if via not in Response.TookBeforeVia.values:
             raise Invalid(
                 "Please say how you took it: as an individual, through a company, or other."
             )
+        if len(match_hint) > MATCH_HINT_MAX_LENGTH or "\x00" in match_hint:
+            raise Invalid("That is too long for an email address or a phone number.")
     else:
-        via = ""
+        via = match_hint = ""
     with transaction.atomic():
         response = _lock(response)
         if response.pages_completed:
             raise Locked("This answer cannot be changed once page 1 is locked.")
         response.took_before = took_before
         response.took_before_via = via
-        response.save(update_fields=["took_before", "took_before_via"])
+        response.match_hint = match_hint
+        response.save(update_fields=["took_before", "took_before_via", "match_hint"])
+        if match_hint:
+            accounts.look_for_duplicates_later(response.account)
         return response
 
 
