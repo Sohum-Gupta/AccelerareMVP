@@ -79,6 +79,7 @@ from apps.accounts import services as accounts
 from apps.accounts.adapter import describe_mail_error
 from apps.accounts.models import Account, ContactPoint
 from apps.accounts.normalisers import normalise_email
+from apps.audit import services as audit
 
 from .models import Enterprise, Invite, JoinCode, Membership, SeatPool
 
@@ -321,6 +322,10 @@ def create_enterprise(account, name, *, staff=None):
         Membership.objects.create(
             account=account, enterprise=enterprise, role=Membership.Role.ADMIN
         )
+        if staff is None:
+            # Staff creating one do it in the Django admin, whose own history
+            # line is copied into the audit log.
+            audit.record(account, "organization.created", enterprise)
         return enterprise
 
 
@@ -472,7 +477,7 @@ def create_code(admin_membership, max_uses, expires_at=None, tier=None):
             code = "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
             try:
                 with transaction.atomic():
-                    return JoinCode.objects.create(
+                    join_code = JoinCode.objects.create(
                         enterprise_id=admin.enterprise_id,
                         code=code,
                         tier=tier,
@@ -482,6 +487,15 @@ def create_code(admin_membership, max_uses, expires_at=None, tier=None):
                     )
             except IntegrityError:
                 continue  # the same ten characters already exist; draw again
+            audit.record(
+                admin.account_id,
+                "join_code.created",
+                join_code,
+                organization=enterprise.pk,
+                tier=tier,
+                max_uses=max_uses,
+            )
+            return join_code
 
 
 def revoke_code(code, by=None):
@@ -493,6 +507,7 @@ def revoke_code(code, by=None):
         if code.revoked_at is None:
             code.revoked_at = timezone.now()
             code.save(update_fields=["revoked_at"])
+            _audit(by, "join_code.revoked", code, code.enterprise_id)
         return code
 
 
@@ -625,6 +640,8 @@ def invite_by_email(admin_membership, email, tier=None, *, request=None):
             # Counted before it is sent, and given back if the send fails.
             emails_sent=1 if request is not None else 0,
         )
+        # The invite's number and tier; never the address it goes to.
+        _audit(admin, "invite.created", invite, enterprise.pk, tier=tier)
     sent = _send_counted(invite, request) if request is not None else False
     return invite, sent
 
@@ -645,7 +662,11 @@ def resend_invite(invite, by, *, request):
         _check_still_open(invite)
         _count_an_email(invite)
         invite.save(update_fields=["emails_sent"])
-    return invite, _send_counted(invite, request)
+    sent = _send_counted(invite, request)
+    # Recorded after the attempt, because the attempt is all that happened:
+    # nothing else about the invite changes, and the row says whether it went.
+    _audit(by, "invite.emailed_again", invite, invite.enterprise_id, sent=sent)
+    return invite, sent
 
 
 def move_invite(invite, email, by, *, request):
@@ -690,6 +711,8 @@ def move_invite(invite, email, by, *, request):
         invite.email = address
         invite.token = secrets.token_urlsafe(32)
         invite.save(update_fields=["email", "token", "emails_sent"])
+        # That it was moved; neither the old address nor the new one.
+        _audit(by, "invite.moved", invite, enterprise.pk)
     return invite, _send_counted(invite, request)
 
 
@@ -787,6 +810,7 @@ def revoke_invite(invite, by=None):
         if invite.revoked_at is None:
             invite.revoked_at = timezone.now()
             invite.save(update_fields=["revoked_at"])
+            _audit(by, "invite.withdrawn", invite, invite.enterprise_id)
         return invite
 
 
@@ -907,6 +931,13 @@ def deactivate_membership(membership, by=None):
         # and a deactivation take turns and no draft can slip past this delete.
         deleted, _ = membership.responses.filter(status="draft").delete()
         membership.draft_deleted = deleted > 0
+        _audit(
+            by,
+            "member.deactivated",
+            membership,
+            membership.enterprise_id,
+            draft_deleted=membership.draft_deleted,
+        )
         return membership
 
 
@@ -921,6 +952,7 @@ def reactivate_membership(membership, by=None):
         membership.status = Membership.Status.ACTIVE
         membership.deactivated_at = None
         membership.save(update_fields=["status", "deactivated_at"])
+        _audit(by, "member.reactivated", membership, membership.enterprise_id)
         return membership
 
 
@@ -938,6 +970,7 @@ def set_role(membership, role, by=None):
             _keep_one_admin(membership)
         membership.role = role
         membership.save(update_fields=["role"])
+        _audit(by, "member.role_changed", membership, membership.enterprise_id, role=role)
         return membership
 
 
@@ -950,6 +983,18 @@ def _check_tier(tier):
     # bool is an int in Python; True must not pass as tier 1.
     if isinstance(tier, bool) or not isinstance(tier, int) or tier not in TIERS:
         raise Refused("The tier must be 1, 2 or 3.")
+
+
+def _audit(by, action, target, enterprise_id, **detail):
+    """
+    Record in the audit log what an organization's admin did. `by` is the
+    acting admin's membership, or None when staff did it from the Django
+    admin: nothing is written then, because the admin's own history line says
+    who did it and is copied into the audit log. The caller is inside the
+    action's transaction, so the action and its record are saved together.
+    """
+    if by is not None:
+        audit.record(by.account_id, action, target, organization=enterprise_id, **detail)
 
 
 def _announce_join(membership, tier):

@@ -56,6 +56,9 @@ INSTALLED_APPS = [
     # The queue of background jobs and the worker that does them. Like funnel,
     # it imports no other app; the others hand it work by name.
     "apps.jobs",
+    # Who did what and when. It imports no other app either; the others tell
+    # it what happened, and it copies the Django admin's own history lines.
+    "apps.audit",
     # Last on purpose: its post_migrate hook needs every other app's permissions.
     "apps.responses",
 ]

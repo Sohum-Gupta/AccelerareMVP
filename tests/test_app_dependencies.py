@@ -56,6 +56,11 @@ def test_the_job_queue_imports_no_other_app():
     assert imported_apps("jobs") == set()
 
 
+def test_the_audit_log_imports_no_other_app():
+    """Every app may tell it what happened; it needs to know nothing about them."""
+    assert imported_apps("audit") == set()
+
+
 def test_the_apps_are_installed_in_dependency_order_with_responses_last():
     installed = [name for name in settings.INSTALLED_APPS if name.startswith("apps.")]
     positions = [installed.index(f"apps.{app}") for app in ORDER]

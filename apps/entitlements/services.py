@@ -36,6 +36,7 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.audit import services as audit
 from apps.enterprises import services as orgs
 from apps.enterprises.models import Enterprise, Membership
 from apps.funnel import services as funnel
@@ -237,6 +238,14 @@ def assign_seat(admin_membership, member_membership, tier):
             raise Refused(holding)
         _check_one_left(enterprise, tier)
         licence = _give_from_stock(member, tier, admin.account)
+        audit.record(
+            admin.account_id,
+            "licence.given",
+            licence,
+            organization=enterprise.pk,
+            membership=member.pk,
+            tier=tier,
+        )
         if member.account_id != admin.account_id:
             # Tell the member by email, later and outside this request: the job
             # is written in this transaction, so it exists only if the licence
@@ -311,12 +320,21 @@ def take_back_seat(admin_membership, entitlement):
     Returns (entitlement, draft_deleted), like revoke.
     """
     with transaction.atomic():
-        enterprise, _ = orgs.lock_for_admin(admin_membership)
+        enterprise, admin = orgs.lock_for_admin(admin_membership)
         licence = _locked_seat(enterprise, entitlement)
         response = _locked_response(licence)
         if response is not None and response.status != "draft":
             raise Refused(SUBMITTED_SO_KEPT)
-        return revoke(licence)
+        licence, draft_deleted = revoke(licence)
+        audit.record(
+            admin.account_id,
+            "licence.taken_back",
+            licence,
+            organization=enterprise.pk,
+            tier=licence.tier,
+            draft_deleted=draft_deleted,
+        )
+        return licence, draft_deleted
 
 
 def change_seat_tier(admin_membership, entitlement, tier):
@@ -328,7 +346,7 @@ def change_seat_tier(admin_membership, entitlement, tier):
     """
     _check_seat_tier(tier)
     with transaction.atomic():
-        enterprise, _ = orgs.lock_for_admin(admin_membership)
+        enterprise, admin = orgs.lock_for_admin(admin_membership)
         licence = _locked_seat(enterprise, entitlement)
         if tier == licence.tier:
             return licence
@@ -338,7 +356,17 @@ def change_seat_tier(admin_membership, entitlement, tier):
                 "The survey on this licence has been submitted, so its tier can only go up."
             )
         _check_one_left(enterprise, tier)
-        return change_tier(licence, tier)
+        was = licence.tier
+        licence = change_tier(licence, tier)
+        audit.record(
+            admin.account_id,
+            "licence.tier_changed",
+            licence,
+            organization=enterprise.pk,
+            from_tier=was,
+            to_tier=tier,
+        )
+        return licence
 
 
 def _check_seat_tier(tier):
