@@ -22,7 +22,12 @@ What must hold on every organization page:
 
 Each PR that adds organization pages adds its addresses to the lists below
 (PR 8: the list, the dashboard and the members page; PR 9: codes and invites;
-PR 11: the responses table).
+PR 11: the responses table and the page of one response).
+
+The responses pages are where a survey first appears on an organization page,
+so they get a class of their own at the bottom: an admin sees the surveys
+taken for their organization, never one taken personally or for anyone else,
+and of each one only who, when, its status and its level. Never an answer.
 """
 
 import re
@@ -49,12 +54,22 @@ PERSONAL_TIER = 3
 
 # Pages of one organization, as the part of the address after /organizations/<slug>/.
 MEMBER_PAGES = [""]  # any active member may open these
-ADMIN_PAGES = ["members/", "codes/", "invites/"]  # only an admin may open these
+ADMIN_PAGES = ["members/", "codes/", "invites/", "responses/"]  # only an admin may open these
 # Forms on those pages that make something new (admin only), with what each is sent.
 ADMIN_FORMS = [
     ("codes/", {"max_uses": "5", "days": "30"}),
     ("invites/", {"email": "someone.new@example.com"}),
 ]
+
+
+def response_page(response):
+    """The page of one response (admin only), as the part after /organizations/<slug>/."""
+    return f"responses/{response.pk}/"
+
+
+def admin_pages(org):
+    """Every admin page of an organization, including the page of one of its responses."""
+    return [*ADMIN_PAGES, response_page(org.responses[0])]
 
 
 def member_actions(membership):
@@ -179,7 +194,8 @@ def database_objects_given_to(page):
 class TestAnAdminSeesOnlyTheirOwnOrganization:
     def test_no_page_mentions_the_other_organization(self, client, world):
         client.force_login(world.acme.admin.account)
-        pages = ["/organizations/"] + [address(world.acme, p) for p in MEMBER_PAGES + ADMIN_PAGES]
+        pages = ["/organizations/"]
+        pages += [address(world.acme, p) for p in MEMBER_PAGES + admin_pages(world.acme)]
         for url in pages:
             text = html(client, url)
             assert "Acme" in text, url
@@ -250,7 +266,7 @@ class TestOutsidersGetNotFound:
         return account
 
     def test_every_page_is_not_found(self, client, world, outsider):
-        for page in MEMBER_PAGES + ADMIN_PAGES:
+        for page in MEMBER_PAGES + admin_pages(world.acme):
             assert client.get(address(world.acme, page)).status_code == 404, page
 
     def test_every_action_is_not_found_and_changes_nothing(self, client, world, outsider):
@@ -261,7 +277,7 @@ class TestOutsidersGetNotFound:
     def test_it_looks_exactly_like_an_organization_that_does_not_exist(
         self, client, world, outsider
     ):
-        for page in MEMBER_PAGES + ADMIN_PAGES:
+        for page in MEMBER_PAGES + admin_pages(world.acme):
             real = client.get(address(world.acme, page))
             missing = client.get(f"/organizations/no-such-place/{page}")
             assert real.status_code == missing.status_code == 404
@@ -279,7 +295,7 @@ class TestFormerMembersAndStrangers:
         gone = world.acme.members[0]
         orgs.deactivate_membership(gone, by=world.acme.admin)
         client.force_login(gone.account)
-        for page in MEMBER_PAGES + ADMIN_PAGES:
+        for page in MEMBER_PAGES + admin_pages(world.acme):
             assert client.get(address(world.acme, page)).status_code == 404, page
         assert "Acme" not in html(client, "/organizations/")
 
@@ -289,7 +305,7 @@ class TestFormerMembersAndStrangers:
         orgs.deactivate_membership(world.acme.admin, by=fresh(second))
         client.force_login(world.acme.admin.account)
         target = world.acme.members[1]
-        for page in MEMBER_PAGES + ADMIN_PAGES:
+        for page in MEMBER_PAGES + admin_pages(world.acme):
             assert client.get(address(world.acme, page)).status_code == 404, page
         posts = member_actions(target) + actions_on(world.acme)[3:] + ADMIN_FORMS
         for page, data in posts:
@@ -300,7 +316,7 @@ class TestFormerMembersAndStrangers:
 
     def test_a_logged_out_visitor_is_sent_to_log_in(self, client, world):
         urls = ["/organizations/", "/organizations/new/"]
-        urls += [address(world.acme, page) for page in MEMBER_PAGES + ADMIN_PAGES]
+        urls += [address(world.acme, page) for page in MEMBER_PAGES + admin_pages(world.acme)]
         for url in urls:
             page = client.get(url)
             assert page.status_code == 302 and "/accounts/login/" in page.url, url
@@ -321,7 +337,7 @@ class TestAMemberIsNotAnAdmin:
         return world.acme.members[0]
 
     def test_the_admin_pages_are_not_found(self, client, world, member):
-        for page in ADMIN_PAGES:
+        for page in admin_pages(world.acme):
             real = client.get(address(world.acme, page))
             missing = client.get(f"/organizations/no-such-place/{page}")
             assert real.status_code == 404 and real.content == missing.content, page
@@ -363,7 +379,7 @@ class TestWhatNoPageShows:
         """Every page of Acme, opened by its admin (who can open them all)."""
         client.force_login(world.acme.admin.account)
         urls = ["/organizations/", "/organizations/new/"]
-        urls += [address(world.acme, page) for page in MEMBER_PAGES + ADMIN_PAGES]
+        urls += [address(world.acme, page) for page in MEMBER_PAGES + admin_pages(world.acme)]
         urls.append(address(world.acme, f"members/{world.acme.members[0].pk}/deactivate/"))
         for url in urls:
             page = client.get(url)
@@ -397,7 +413,7 @@ class TestWhatNoPageShows:
     def test_a_personal_survey_changes_nothing_on_any_page(self, client, world):
         """The pages read the same before and after a member takes a survey personally."""
         client.force_login(world.acme.admin.account)
-        urls = [address(world.acme, page) for page in MEMBER_PAGES + ADMIN_PAGES]
+        urls = [address(world.acme, page) for page in MEMBER_PAGES + admin_pages(world.acme)]
         before = [settled(html(client, url)) for url in urls]
         member = world.acme.members[0]
         grant_personal(member.account, 2)
@@ -409,3 +425,160 @@ class TestWhatNoPageShows:
             assert all(r.status == "submitted" and r.membership_id for r in org.responses)
             assert all(r.status == "submitted" and r.membership_id is None for r in org.personal)
             assert Membership.objects.filter(enterprise=org.enterprise).count() == 3
+
+
+# --- the responses pages ---------------------------------------------------------
+
+# Everything an admin is told about one response. Nothing else may be added
+# without the founder's say: this list is the promise the disclosure page makes.
+RESPONSE_FACTS = {
+    "id",
+    "name",
+    "email",
+    "erased",
+    "member_active",
+    "submitted",
+    "started_at",
+    "submitted_at",
+    "tier",
+    "withdrawn",
+    "possible_repeat",
+}
+
+
+@pytest.mark.django_db
+class TestTheResponsesPages:
+    @pytest.fixture
+    def admin(self, client, world):
+        client.force_login(world.acme.admin.account)
+        return world.acme.admin
+
+    def shown(self, client, world):
+        return client.get(address(world.acme, "responses/")).context["rows"]
+
+    def test_the_table_lists_exactly_the_surveys_taken_for_the_organization(
+        self, client, world, admin
+    ):
+        ids = {row["id"] for row in self.shown(client, world)}
+        assert ids == {response.pk for response in world.acme.responses}
+        text = html(client, address(world.acme, "responses/"))
+        for member in world.acme.members:
+            assert member.account.full_name in text and member.account.email in text
+
+    def test_a_survey_taken_personally_is_never_listed(self, client, world, admin):
+        """Not even while it is being taken, and not in the count."""
+        member = world.acme.members[0]
+        grant_personal(member.account, PERSONAL_TIER)
+        surveys.start_response(member.account)
+        page = client.get(address(world.acme, "responses/"))
+        assert {row["id"] for row in page.context["rows"]} == {r.pk for r in world.acme.responses}
+        assert page.context["total"] == 2
+
+    def test_every_filter_and_order_still_lists_only_its_own(self, client, world, admin):
+        own = {response.pk for response in world.acme.responses}
+        for query in (
+            "?status=submitted",
+            "?status=draft",
+            f"?tier={ORGANIZATION_TIER}",
+            f"?tier={PERSONAL_TIER}",
+            "?repeat=yes",
+            "?sort=member",
+            "?sort=started",
+            "?sort=-submitted",
+            "?status=nonsense&tier=9&sort=answers",
+        ):
+            page = client.get(address(world.acme, "responses/") + query)
+            assert page.status_code == 200, query
+            assert {row["id"] for row in page.context["rows"]} <= own, query
+            assert database_objects_given_to(page) == [], query
+
+    def test_another_organizations_response_is_not_found(self, client, world, admin):
+        missing = client.get(address(world.acme, "responses/999999/"))
+        assert missing.status_code == 404
+        for response in world.globex.responses + world.globex.personal:
+            for org in (world.acme, world.globex):
+                page = client.get(address(org, response_page(response)))
+                assert page.status_code == 404, "404, never 403"
+        # The same answer as for a response that does not exist at all.
+        theirs = client.get(address(world.acme, response_page(world.globex.responses[0])))
+        assert theirs.content == missing.content
+
+    def test_a_members_personal_survey_is_not_found(self, client, world, admin):
+        for response in world.acme.personal:
+            page = client.get(address(world.acme, response_page(response)))
+            assert page.status_code == 404
+
+    def test_the_page_of_one_response_is_about_that_response_only(self, client, world, admin):
+        first, second = world.acme.members
+        page = client.get(address(world.acme, response_page(world.acme.responses[0])))
+        text = page.content.decode()
+        assert first.account.full_name in text and first.account.email in text
+        assert second.account.full_name not in text and second.account.email not in text
+        assert page.context["row"]["id"] == world.acme.responses[0].pk
+
+    def test_an_admin_is_told_only_the_agreed_facts(self, client, world, admin):
+        for row in self.shown(client, world):
+            assert set(row) == RESPONSE_FACTS
+        page = client.get(address(world.acme, response_page(world.acme.responses[0])))
+        assert set(page.context["row"]) == RESPONSE_FACTS
+
+    def test_never_the_self_report_or_how_far_a_draft_has_got(self, client, world, admin):
+        """A draft with a "yes, through my company" self-report and two pages locked."""
+        member = new_member(world.acme.enterprise, "three@acme.example.com")
+        grant(member, 2)
+        draft = surveys.save_self_report(
+            surveys.start_response(member.account, member), True, "company"
+        )
+        questions = Question.objects.filter(survey_version=draft.survey_version)
+        for question in questions.order_by("position")[:10]:
+            draft = surveys.save_answer(draft, question.pk, 4)
+            if question.position % 5 == 0:
+                draft = surveys.complete_page(draft, question.position // 5)
+        assert draft.pages_completed == 2 and draft.took_before
+        before = html(client, address(world.acme, "responses/"))
+
+        for url in ("responses/", response_page(draft)):
+            text = html(client, address(world.acme, url)).split("<main")[1]
+            assert "In progress" in text
+            for leak in (
+                "ompany",
+                "taken this survey before?",
+                "Page 2",
+                "page 3",
+                "2 of 5",
+                "10 of",
+            ):
+                assert leak not in text, f"{url} shows {leak!r}"
+
+        # Answering more changes nothing an admin can see.
+        for question in questions.order_by("position")[10:15]:
+            draft = surveys.save_answer(draft, question.pk, 1)
+        surveys.complete_page(draft, 3)
+        assert settled(html(client, address(world.acme, "responses/"))) == settled(before)
+
+    def test_the_answers_are_not_even_read_from_the_database(self, client, world, admin):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        for url in ("responses/", response_page(world.acme.responses[0])):
+            with CaptureQueriesContext(connection) as queries:
+                html(client, address(world.acme, url))
+            about_responses = [q["sql"] for q in queries if "responses_response" in q["sql"]]
+            assert about_responses, url
+            for sql in about_responses:
+                for column in ("answers", "took_before", "took_before_via", "pages_completed"):
+                    assert f'"{column}"' not in sql, f"{url} reads {column}"
+
+    def test_a_deactivated_members_survey_stays_and_an_erased_member_has_no_name(
+        self, client, world, admin
+    ):
+        from apps.accounts import erasure
+
+        gone, erased = world.acme.members
+        orgs.deactivate_membership(gone, by=world.acme.admin)
+        name, email = erased.account.full_name, erased.account.email
+        erasure.erase_account(erased.account)
+        text = html(client, address(world.acme, "responses/"))
+        assert len(self.shown(client, world)) == 2
+        assert gone.account.full_name in text
+        assert "Erased member" in text and name not in text and email not in text

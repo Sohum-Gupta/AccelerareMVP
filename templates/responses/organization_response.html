@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Response · {{ organization.name }} · Accelerare{% endblock %}
+{% block content %}
+  {# One survey taken for this organization, as its admins see it. Never an answer, the self-report or the progress. #}
+  <p class="mb-1 text-sm"><a href="{% url 'enterprises:dashboard' organization.slug %}">{{ organization.name }}</a> · <a href="{% url 'organization_responses' organization.slug %}">Responses</a></p>
+  <h1>Survey response</h1>
+  <dl class="mb-6 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-md border border-slate-300 bg-white p-4 text-sm">
+    <dt class="font-medium">Member</dt>
+    <dd>{% if row.name %}{{ row.name }}{% else %}No name yet{% endif %}{% if not row.member_active and not row.erased %} (no longer a member){% endif %}</dd>
+    {% if row.email %}
+      <dt class="font-medium">Email</dt>
+      <dd class="break-all">{{ row.email }}</dd>
+    {% endif %}
+    <dt class="font-medium">Status</dt>
+    <dd>{% if row.submitted %}Submitted{% else %}In progress{% endif %}</dd>
+    <dt class="font-medium">Started</dt>
+    <dd>{{ row.started_at|date:"j F Y" }}</dd>
+    <dt class="font-medium">Submitted</dt>
+    <dd>{% if row.submitted %}{{ row.submitted_at|date:"j F Y" }}{% else %}Not yet{% endif %}</dd>
+    <dt class="font-medium">Results level</dt>
+    <dd>{% include "responses/_tier.html" with tier=row.tier %}{% if row.withdrawn %} (licence withdrawn){% endif %}</dd>
+    <dt class="font-medium">Possible repeat</dt>
+    <dd>{% if row.possible_repeat %}Yes: it looks as though this person has taken the survey before{% else %}No{% endif %}</dd>
+  </dl>
+  <section class="rounded-md border border-slate-300 bg-white p-4" aria-labelledby="results-title">
+    <h2 id="results-title" class="mb-1 text-base font-semibold">Results</h2>
+    {% if row.withdrawn %}
+      <p class="mb-0 text-sm text-slate-700">The licence for this survey was withdrawn, so it has no results. Contact Accelerare if you think this is a mistake.</p>
+    {% elif row.submitted %}
+      <p class="mb-0 text-sm text-slate-700">Results will appear here in a later update. The answers themselves are never shown to an organization.</p>
+    {% else %}
+      <p class="mb-0 text-sm text-slate-700">There are no results until the survey is submitted. The answers themselves are never shown to an organization.</p>
+    {% endif %}
+  </section>
+{% endblock %}
