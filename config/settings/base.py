@@ -122,7 +122,7 @@ AUTHENTICATION_BACKENDS = [
 # URL names rather than paths, so the pages can move. The login page is
 # allauth's until PR 4 replaces it under the same name.
 LOGIN_URL = "account_login"
-LOGIN_REDIRECT_URL = "account_profile"
+LOGIN_REDIRECT_URL = "responses:history"
 LOGOUT_REDIRECT_URL = "/"
 
 # allauth. Email is the only login identifier; there is no username field on

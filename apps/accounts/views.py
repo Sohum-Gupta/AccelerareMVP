@@ -9,6 +9,7 @@ from django.views.decorators.http import require_POST
 from . import arrival, services
 from .forms import AddEmailForm, FullNameForm, PhoneForm, SignupForm
 from .models import ContactPoint
+from .normalisers import phone_country
 
 
 def signup(request):
@@ -45,8 +46,16 @@ def _render_profile(request, add_email_form=None, phone_form=None, name_form=Non
     emails = [c for c in contacts if c.kind == ContactPoint.Kind.EMAIL]
     phone = next((c for c in contacts if c.kind == ContactPoint.Kind.PHONE), None)
     if phone_form is None:
-        # E.164 is a safe thing to put back in the box: a leading + overrides the country.
-        phone_form = PhoneForm(initial={"phone": phone.value_normalised} if phone else None)
+        # E.164 is a safe thing to put back in the box: a leading + overrides the
+        # country. The country is filled in to match it, so that retyping the
+        # number without its code is still read as a number from that country.
+        initial = None
+        if phone:
+            initial = {
+                "phone": phone.value_normalised,
+                "country": phone_country(phone.value_normalised),
+            }
+        phone_form = PhoneForm(initial=initial)
     context = {
         "name_form": name_form or FullNameForm(initial={"full_name": account.full_name}),
         "emails": emails,

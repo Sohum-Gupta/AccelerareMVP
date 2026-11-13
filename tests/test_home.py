@@ -1,6 +1,7 @@
 """
 The site's front door, "/". There is no landing page yet: it sends a logged-in
-person to their profile and anyone else to the login page. The header's
+person to "My surveys" (since 2026-11-13; it was the profile) and anyone else
+to the login page. The header's
 "Accelerare" link and logging out both lead there, and used to show "Not Found".
 """
 
@@ -11,6 +12,7 @@ from .test_profile import verified_account
 
 LOGIN = "/accounts/login/"
 PROFILE = "/accounts/profile/"
+MY_SURVEYS = "/survey/history/"
 
 
 def test_the_front_door_has_the_shortest_address():
@@ -24,10 +26,10 @@ def test_someone_logged_out_is_sent_to_log_in(client):
 
 
 @pytest.mark.django_db
-def test_someone_logged_in_is_sent_to_their_profile(client):
+def test_someone_logged_in_is_sent_to_their_surveys(client):
     client.force_login(verified_account())
     answer = client.get("/")
-    assert answer.status_code == 302 and answer.url == PROFILE
+    assert answer.status_code == 302 and answer.url == MY_SURVEYS
 
 
 @pytest.mark.django_db
@@ -46,7 +48,7 @@ def test_the_header_link_leads_there_from_every_kind_of_page(client):
     client.force_login(verified_account())
     page = client.get(PROFILE)
     assert '<a href="/" class="text-lg' in page.content.decode()
-    assert client.get("/", follow=True).redirect_chain[-1][0] == PROFILE
+    assert client.get("/", follow=True).redirect_chain[-1][0] == MY_SURVEYS
 
 
 @pytest.mark.django_db
