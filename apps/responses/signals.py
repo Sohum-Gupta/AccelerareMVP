@@ -19,11 +19,12 @@ from django.db.models.signals import post_migrate
 from django.dispatch import receiver
 
 from apps.accounts.erasure import account_erasing
+from apps.accounts.services import SUPPORT_STAFF_GROUP
 from apps.matching.services import people_changed
 
 from . import services
 
-GROUP_NAME = "Support staff"
+GROUP_NAME = SUPPORT_STAFF_GROUP  # one name, kept in the accounts app
 
 # (app label, model, actions). Two jobs, named so they can become two groups
 # later (debugging staff, insights staff); "Support staff" does both for now.
