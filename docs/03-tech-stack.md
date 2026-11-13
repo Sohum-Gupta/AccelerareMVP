@@ -65,7 +65,7 @@ survey-platform/
 │   ├── entitlements/       # Entitlement; giving licences from the stock; the organization's Licences page
 │   ├── payments/           # Price, Purchase, Refund; the one file that talks to Stripe (stripe_api.py)
 │   ├── funnel/             # FunnelEvent; admin funnel summary
-│   ├── matching/           # MatchCandidate; rules.py; merge and unmerge
+│   ├── matching/           # MatchCandidate (a possible duplicate); rules.py; run_for_account, confirm (link), reject, unlink; superusers' admin pages
 │   ├── results/            # Result; compute_result interface; tier filter
 │   ├── exports/            # CSV views per scope
 │   ├── audit/              # AuditLog, record() to write a row, and a copy of every Django admin history line; imports no other app

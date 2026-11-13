@@ -333,7 +333,7 @@ def _give(purchase):
         raise Refused("the account that paid no longer exists.")
     if purchase.kind == Purchase.Kind.PERSONAL:
         purchase.entitlement = licences.grant_individual(
-            buyer.person, purchase.tier, Entitlement.Source.PURCHASE
+            buyer.person, purchase.tier, Entitlement.Source.PURCHASE, granted_to=buyer
         )
         return
     licence = Entitlement.objects.select_for_update().filter(pk=purchase.entitlement_id).first()

@@ -71,12 +71,21 @@ def _check_source(source):
         raise ValidationError("The source must be purchase or manual.")
 
 
-def grant_individual(person, tier, source, granted_by=None):
-    """Give a person one personal licence at the given tier."""
+def grant_individual(person, tier, source, granted_by=None, *, granted_to=None):
+    """
+    Give a person one personal licence at the given tier. `granted_to` is the
+    login it was granted to or bought by. Left out, it is the person's login
+    when they have only one; with two linked logins it must be said.
+    """
     _check_tier(tier)
     _check_source(source)
+    if granted_to is None:
+        logins = list(person.accounts.all()[:2])
+        granted_to = logins[0] if len(logins) == 1 else None
+    elif granted_to.person_id != person.pk:
+        raise ValidationError("That login does not belong to that person.")
     entitlement = Entitlement.objects.create(
-        person=person, tier=tier, source=source, granted_by=granted_by
+        person=person, tier=tier, source=source, granted_by=granted_by, granted_to=granted_to
     )
     funnel.record_event(funnel.Kind.LICENCE_GRANTED, tier=tier, source=source)
     return entitlement

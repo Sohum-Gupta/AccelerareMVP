@@ -211,9 +211,14 @@ def _anonymise(account: Account) -> None:
     # The unfinished attempt is gone, so its licence is unused; nobody can use it.
     # Same effect as entitlements.services.revoke, which accounts must not import.
     if account.person_id:
-        account.person.entitlements.filter(revoked_at__isnull=True, response__isnull=True).update(
-            revoked_at=now
-        )
+        unused = account.person.entitlements.filter(revoked_at__isnull=True, response__isnull=True)
+        others = account.person.accounts.exclude(pk=account.pk)
+        if others.filter(anonymised_at__isnull=True).exists():
+            # Another login is linked to this person and shares its licences
+            # (a Milestone 5 link). Only the ones that were this login's go;
+            # the other login keeps its own.
+            unused = unused.filter(granted_to=account)
+        unused.update(revoked_at=now)
     # The same for the unused licences of their memberships: an erased member
     # never comes back, so nobody can use them.
     for membership in account.memberships.all():

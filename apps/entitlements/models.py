@@ -58,6 +58,17 @@ class Entitlement(models.Model):
         on_delete=models.SET_NULL,
         related_name="+",
     )
+    # For a personal licence: the login it was granted to or bought by. A
+    # licence belongs to the person, and two logins of one person share them.
+    # If a link between two logins is undone, this says whose each licence is.
+    # Empty for a membership's licence, and if that login is deleted.
+    granted_to = models.ForeignKey(
+        "accounts.Account",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
     granted_at = models.DateTimeField(auto_now_add=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
 

@@ -193,8 +193,10 @@ class EntitlementAdmin(admin.ModelAdmin):
                 if membership is not None:
                     created = services.grant_for_membership(membership, tier, source, request.user)
                 else:
-                    person = form.cleaned_data["account"].person
-                    created = services.grant_individual(person, tier, source, request.user)
+                    account = form.cleaned_data["account"]
+                    created = services.grant_individual(
+                        account.person, tier, source, request.user, granted_to=account
+                    )
                 obj.pk = created.pk  # so the admin's redirect finds the new row
         except ValidationError as error:
             self.message_user(request, " ".join(error.messages), messages.ERROR)

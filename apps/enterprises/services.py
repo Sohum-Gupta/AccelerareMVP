@@ -1009,6 +1009,9 @@ def _announce_join(membership, tier):
     and can try again, and nobody is let in without what they were promised.
     """
     member_joined.send(sender=Membership, membership=membership, tier=tier)
+    # Belonging to an organization is part of what makes two accounts with the
+    # same name look like one person, so look again now (in the background).
+    accounts.look_for_duplicates_later(membership.account)
 
 
 def _left(enterprise, tier):

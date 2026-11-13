@@ -1,10 +1,11 @@
 """
 The apps depend on each other in one direction only:
 
-    accounts <- enterprises <- entitlements <- payments <- responses
+    accounts <- enterprises <- entitlements <- payments <- matching <- responses
 
-(Nothing imports payments; it sits before responses only because responses
-must stay last.)
+(Nothing imports payments, and matching does not need it; they sit before
+responses only because responses must stay last. Only responses imports
+matching.)
 
 An app may import the ones to its left, never the ones to its right; it reaches
 those through reverse relations (`account.memberships`, `membership.responses`).
@@ -19,7 +20,7 @@ import pytest
 from django.conf import settings
 
 APPS = Path(settings.BASE_DIR) / "apps"
-ORDER = ["accounts", "enterprises", "entitlements", "payments", "responses"]
+ORDER = ["accounts", "enterprises", "entitlements", "payments", "matching", "responses"]
 
 
 def imported_apps(app):
@@ -59,6 +60,11 @@ def test_the_job_queue_imports_no_other_app():
 def test_the_audit_log_imports_no_other_app():
     """Every app may tell it what happened; it needs to know nothing about them."""
     assert imported_apps("audit") == set()
+
+
+def test_matching_keeps_to_accounts_and_licences():
+    """It reaches memberships and surveys through an account's reverse names, never by import."""
+    assert imported_apps("matching") == {"accounts", "entitlements", "audit", "jobs"}
 
 
 def test_the_apps_are_installed_in_dependency_order_with_responses_last():
