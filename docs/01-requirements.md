@@ -81,7 +81,7 @@ Numbered so later docs and code can cite them. "Must" items block the MVP; "shou
 **Viewing and export**
 
 18. FR-18 (must): Each role sees a filterable, sortable table of the responses in its scope (own, enterprise, all), with status, date, tier, and enterprise columns.
-19. FR-19 (must): Clicking a response shows every question and answer in full. *Overridden on 2026-10-09 for the person's own scope: a person never sees their answers after submitting, only date, status, tier and results. Root admin keeps the full view; enterprise admin scope is undecided.*
+19. FR-19 (must): Clicking a response shows every question and answer in full. *Overridden on 2026-10-09 for the person's own scope: a person never sees their answers after submitting, only date, status, tier and results. Root admin keeps the full view. Enterprise admins see status, dates and tier (and results from Milestone 5), never the answers (decided 2026-11-12).*
 20. FR-20 (must): Enterprise admins and root admin can export their scope as CSV.
 21. FR-21 (deferred): Charts, aggregates, dashboards.
 
