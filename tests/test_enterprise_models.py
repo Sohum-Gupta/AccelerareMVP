@@ -341,12 +341,16 @@ class TestAdmin:
     def test_a_working_code_is_not_on_the_list_page(self, client, root, things):
         assert "ABCDEFGHJK" not in client.get("/admin/enterprises/joincode/").content.decode()
 
-    def test_support_staff_cannot_see_them_yet(self, client, things):
-        # Their view of organizations arrives with the staff tools (PR 12).
+    def test_support_staff_see_memberships_only_for_now(self, client, things):
+        # They need memberships to grant one a licence (PR 5). Their view of the
+        # rest arrives with the staff tools (PR 12).
         support = Account.objects.create_user("support@example.com", PASSWORD)
         support.is_staff = True
         support.save()
         support.groups.add(Group.objects.get(name=GROUP_NAME))
         client.force_login(support)
-        for page in PAGES:
+        assert client.get("/admin/enterprises/membership/").status_code == 200
+        for page in ("enterprise", "invite", "joincode"):
             assert client.get(f"/admin/enterprises/{page}/").status_code == 403
+        pk = things["membership"].pk
+        assert client.post(f"/admin/enterprises/membership/{pk}/change/", {}).status_code == 403

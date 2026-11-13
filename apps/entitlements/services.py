@@ -6,6 +6,13 @@ message the admin can show. A licence is "unused" while it is active and no
 response has consumed it. Access means an unused licence, or an open draft whose
 licence has not been revoked. The queries reach responses through the reverse
 names ("response"), so this module never imports the responses app.
+
+Context. A licence is personal (it belongs to a person) or for one organization
+(it belongs to a membership). The functions that ask "may this account take the
+survey" take the context as `membership`: None for personal, or the account's
+membership for that organization. The two never mix: a membership licence is
+invisible to the personal context and the other way round. A deactivated
+membership keeps its licences but cannot use them until it is reactivated.
 """
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
@@ -25,13 +32,39 @@ def _check_tier(tier):
         raise ValidationError("The tier must be 1, 2 or 3.")
 
 
-def grant_individual(person, tier, source, granted_by=None):
-    """Give a person one licence at the given tier."""
-    _check_tier(tier)
+DEACTIVATED_MEMBERSHIP = (
+    "That membership is deactivated. Reactivate it before granting it a licence."
+)
+
+
+def _check_source(source):
     if source not in Entitlement.Source.values:
         raise ValidationError("The source must be purchase or manual.")
+
+
+def grant_individual(person, tier, source, granted_by=None):
+    """Give a person one personal licence at the given tier."""
+    _check_tier(tier)
+    _check_source(source)
     entitlement = Entitlement.objects.create(
         person=person, tier=tier, source=source, granted_by=granted_by
+    )
+    funnel.record_event(funnel.Kind.LICENCE_GRANTED, tier=tier, source=source)
+    return entitlement
+
+
+def grant_for_membership(membership, tier, source, granted_by=None):
+    """
+    Give a membership one licence at the given tier: the member can then take the
+    survey for that organization, and only for it. Refused for a deactivated
+    membership, which could not use it.
+    """
+    _check_tier(tier)
+    _check_source(source)
+    if not membership.is_active:
+        raise ValidationError(DEACTIVATED_MEMBERSHIP)
+    entitlement = Entitlement.objects.create(
+        membership=membership, tier=tier, source=source, granted_by=granted_by
     )
     funnel.record_event(funnel.Kind.LICENCE_GRANTED, tier=tier, source=source)
     return entitlement
@@ -82,19 +115,40 @@ def change_tier(entitlement, tier):
     return entitlement
 
 
-def unused_licence(account):
-    """The account person's oldest active licence that no response has used, or None."""
+def _usable(account, membership):
+    """
+    The licences this account could use in this context, revoked or not: its
+    person's for the personal context (membership None), the membership's for an
+    organization. None of them if the membership is someone else's or is
+    deactivated.
+    """
+    if membership is None:
+        if account.person_id is None:
+            return Entitlement.objects.none()
+        return Entitlement.objects.filter(person_id=account.person_id)
+    if membership.account_id != account.pk or not membership.is_active:
+        return Entitlement.objects.none()
+    return Entitlement.objects.filter(membership=membership)
+
+
+def unused_licence(account, membership=None):
+    """
+    The oldest active licence in this context that no response has used, or None.
+    The context is personal (membership None) or one organization.
+    """
     return (
-        Entitlement.objects.filter(
-            person=account.person, revoked_at__isnull=True, response__isnull=True
-        )
+        _usable(account, membership)
+        .filter(revoked_at__isnull=True, response__isnull=True)
         .order_by("granted_at", "id")
         .first()
     )
 
 
-def has_survey_access(account):
-    open_draft = Entitlement.objects.filter(
-        response__account=account, response__status="draft", revoked_at__isnull=True
-    ).exists()
-    return open_draft or unused_licence(account) is not None
+def has_survey_access(account, membership=None):
+    """True if the account may take (or carry on with) the survey in this context."""
+    open_draft = (
+        _usable(account, membership)
+        .filter(response__account=account, response__status="draft", revoked_at__isnull=True)
+        .exists()
+    )
+    return open_draft or unused_licence(account, membership) is not None
