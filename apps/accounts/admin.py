@@ -105,7 +105,7 @@ class AccountAdmin(UserAdmin):
         "last_login",
         "anonymised_at",
     )
-    actions = ["make_support_staff", "remove_support_staff"]
+    actions = ["make_support_staff", "remove_support_staff", "look_for_duplicates"]
     inlines = [ReadOnlyContactPoints]
 
     fieldsets = (
@@ -142,7 +142,44 @@ class AccountAdmin(UserAdmin):
             # Who may enter the admin is for superusers to decide.
             actions.pop("make_support_staff", None)
             actions.pop("remove_support_staff", None)
+            # Possible duplicates are for superusers to see, so also to look for.
+            actions.pop("look_for_duplicates", None)
         return actions
+
+    @admin.action(description="Look for possible duplicates of the selected accounts")
+    def look_for_duplicates(self, request, queryset):
+        """
+        Queue a look, in the background, for other accounts that may be the
+        same person as each selected one. The site does this by itself when
+        something changes for an account; this is for accounts that nothing
+        has happened to since that was built. It can only bring a pair to
+        "Possible duplicates": it never changes an account. No page asks
+        first, because there is nothing to undo.
+        """
+        if not request.user.is_superuser:
+            raise PermissionDenied
+        # An erased or switched-off account is never part of a pair.
+        live = queryset.filter(is_active=True, anonymised_at__isnull=True)
+        queued = 0
+        for account in live:
+            services.look_for_duplicates_later(account)
+            # The account's history says who asked for the look.
+            self.log_change(request, account, "Looked for possible duplicates")
+            queued += 1
+        skipped = queryset.count() - queued
+        if queued:
+            self.message_user(
+                request,
+                f"Looking for possible duplicates of {queued} account(s) in the background. "
+                'Any that are found appear under "Possible duplicates" within a minute.',
+                messages.SUCCESS,
+            )
+        if skipped:
+            self.message_user(
+                request,
+                f"{skipped} account(s) were left out: erased or switched off.",
+                messages.WARNING,
+            )
 
     @admin.action(description="Make the selected accounts Support staff")
     def make_support_staff(self, request, queryset):

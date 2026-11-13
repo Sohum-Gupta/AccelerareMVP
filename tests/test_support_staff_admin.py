@@ -241,3 +241,69 @@ class TestTheActions:
         listing = client.get(LIST).content.decode()
         assert "Make the selected accounts Support staff" in listing
         assert "Take the selected accounts off Support staff" in listing
+
+
+# --- T-25: look for possible duplicates of accounts that already existed -----------------------
+
+
+@pytest.mark.django_db
+class TestLookForDuplicates:
+    """
+    The look for duplicates runs by itself when something changes for an
+    account. Accounts that nothing has happened to since it was built are
+    looked at only when a superuser asks, with this action.
+    """
+
+    def pair(self):
+        from .test_matching import PHONE, someone
+
+        return someone("ann@example.com", PHONE), someone("ann.other@example.com", PHONE)
+
+    def test_it_queues_a_look_for_each_account_and_the_worker_finds_the_pair(self, client, root):
+        from apps.jobs import services as jobs
+        from apps.jobs.models import Job
+        from apps.matching.models import MatchCandidate
+
+        ann, ann2 = self.pair()
+        response = act(client, "look_for_duplicates", ann, ann2, confirmed=False)
+        assert "Looking for possible duplicates of 2 account(s)" in said(response)
+        queued = Job.objects.filter(kind=services.LOOK_FOR_DUPLICATES)
+        assert sorted(job.payload["account_id"] for job in queued) == [ann.pk, ann2.pk]
+        lines = LogEntry.objects.filter(change_message="Looked for possible duplicates")
+        assert sorted(line.object_id for line in lines) == sorted([str(ann.pk), str(ann2.pk)])
+        assert all(line.user == root for line in lines)
+        assert not MatchCandidate.objects.exists()  # nothing until the worker runs
+        jobs.run_due()
+        found = MatchCandidate.objects.get()
+        assert (found.account_a, found.account_b) == (ann, ann2) and found.status == "flagged"
+
+    def test_it_changes_no_account(self, client, root):
+        from apps.jobs import services as jobs
+
+        ann, ann2 = self.pair()
+        before = list(Account.objects.order_by("pk").values("pk", "person_id", "is_staff"))
+        act(client, "look_for_duplicates", ann, ann2, confirmed=False)
+        jobs.run_due()
+        assert list(Account.objects.order_by("pk").values("pk", "person_id", "is_staff")) == before
+
+    def test_erased_and_switched_off_accounts_are_left_out_and_counted(self, client, root, bob):
+        from apps.jobs.models import Job
+
+        off = verified_account("carol@example.com")
+        Account.objects.filter(pk=off.pk).update(is_active=False)
+        text = said(act(client, "look_for_duplicates", bob, off, confirmed=False))
+        assert "of 1 account(s)" in text and "1 account(s) were left out" in text
+        assert [job.payload for job in Job.objects.all()] == [{"account_id": bob.pk}]
+
+    def test_support_staff_do_not_have_it_and_cannot_force_it(self, client, support, bob):
+        from apps.jobs.models import Job
+
+        client.force_login(support)
+        assert "Look for possible duplicates" not in client.get(LIST).content.decode()
+        act(client, "look_for_duplicates", bob, confirmed=False)
+        assert not Job.objects.exists()
+
+    def test_a_superuser_sees_it_in_the_list_of_actions(self, client, root):
+        assert "Look for possible duplicates of the selected accounts" in (
+            client.get(LIST).content.decode()
+        )
