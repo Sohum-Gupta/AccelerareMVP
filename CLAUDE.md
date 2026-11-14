@@ -43,8 +43,10 @@ before doing any work:
    reports, a load check, "Send a test error" in the Django admin) is code-complete and deployed: PRs 0
    to 7 (2,054 tests). Nobody has tried it by hand on the live site, no lawyer has read the privacy
    page, and the AWS console items are not done: what remains is the founder's (T-28 and
-   `docs/09-pilot-checklist.md`). **Nothing is in progress: Phase 1 is built, and Phase 2 (the
-   algorithm) has not been asked for, so do not start it.** Merging on green without waiting for a
+   `docs/09-pilot-checklist.md`). **Nothing is in progress: Phase 1 is built. Phase 2 (results)
+   is planned as Milestones 8 to 13 in the build plan ("Phase 2 — Results", 2026-11-13), but building
+   it has not been asked for, so do not start it.** Its plan is written in general words because the
+   algorithm is private; the real detail is in the founder's `private/` folder. Merging on green without waiting for a
    review ended with Milestone 7; ask before doing it for anything else. Product choices are asked of
    the founder first.
    `main` is protected on GitHub: every change goes through a pull request whose `test` check has
@@ -77,6 +79,9 @@ before doing any work:
   it) and keep AWS console, SSH and GitHub steps to a minimum. Flag any plan step that needs them.
 - Never put survey statements, answers or a person's email into a committed file, a test, or an admin history label.
   The real statements are private; tests use `tests/fixtures/questions_sample.json`.
+- Never put the real algorithm (which answers count towards what, its names, cut-offs, rules or texts) into a
+  committed file, a test, a commit message or a pull request. It will be loaded as private files through the
+  Django admin (`docs/06-backlog.md`, D-6); the docs describe it in general words only.
 - The privacy page (`templates/privacy.html`) says what the site keeps, who sees it and what an erasure
   removes. A change to any of those changes the page in the same pull request.
 - Tests live in `tests/`, run with `uv run pytest` (parallel by default; add `-n 0` to run one at a time).
