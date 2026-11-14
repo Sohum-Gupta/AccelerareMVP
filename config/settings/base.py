@@ -224,6 +224,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # production.py each say what it is.
 SITE_URL = env("SITE_URL", default="")
 
+# The address the privacy page tells people to write to, to have their account
+# deleted. Optional: while it is empty the page says who to ask instead. The
+# site's own emails come from a noreply address, so this must be an inbox that
+# somebody reads (docs/06-backlog.md, T-14).
+CONTACT_EMAIL = env("CONTACT_EMAIL", default="")
+
 
 # Payments (Stripe)
 # All three are optional, on a laptop and on the server, so the code can be

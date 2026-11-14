@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.http import HttpResponse
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.views.decorators.cache import never_cache
 
 from apps.jobs import services as jobs
@@ -27,6 +27,15 @@ def worker_health(request):
     if jobs.waiting()["behind"]:
         return HttpResponse("behind", status=503, content_type="text/plain")
     return HttpResponse("ok", content_type="text/plain")
+
+
+def privacy(request):
+    """
+    The privacy page: what the site keeps, who can see it, how to have it
+    deleted. Open to everyone, logged in or not. The address to write to is a
+    setting (CONTACT_EMAIL) and may be empty: the page then says who to ask.
+    """
+    return render(request, "privacy.html", {"contact_email": settings.CONTACT_EMAIL})
 
 
 @never_cache
