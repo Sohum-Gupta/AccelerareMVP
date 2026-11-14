@@ -23,7 +23,7 @@ Do these in any order. Each has an entry in `06-backlog.md` with the detail.
 | [ ] | Have the privacy lawyer read the privacy page, the deletion procedure and the wording members see | A lawyer | D-7, D-17 |
 | [ ] | Decide the site's real address | GoDaddy, **[console]** | D-11 |
 | [ ] | Review tax and invoices with an accountant, then real prices and Stripe's live keys | An accountant; Stripe; **[console]** Parameter Store | D-20 |
-| [ ] | Decide whether to close the SSH port | **[console]**; a change to the deploy | T-29 |
+| [ ] | Review the SSH port again: it is left open with key-only login for now (founder, 2026-11-13) | **[console]**; a change to the deploy | D-21 |
 
 Two of these stop a pilot outright if they are not done. While SES is in its sandbox, an invite to a stranger's address is not delivered (T-4). And while the privacy page prints no address, a person has nobody to write to (T-14).
 

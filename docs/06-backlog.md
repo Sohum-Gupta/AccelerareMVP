@@ -39,7 +39,7 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | --- | --- | --- | --- |
 | D-2 | If a company asks us to delete all its members' data, what happens? | With D-7, before the pilot | Undecided; ask the privacy lawyer |
 | D-4 | Names for the tiers | Any time | Keep "Tier 1/2/3" and "Free" for now (2026-11-12) |
-| D-6 | How the scoring algorithm and insights stay private | When the algorithm is built (Phase 2) | Undecided |
+| D-6 | How the scoring algorithm and insights stay private | Before Phase 2 can be built | Undecided; four options were put to you on 2026-11-13 and you will choose in a later session |
 | D-7 | The privacy lawyer's list (what is anonymous enough, privacy text, backups, company agreements, consent) | Before the pilot | Not yet asked |
 | D-8 | Should people get their own "delete my account" button? | With D-7 | No; staff erase from the admin |
 | D-9 | Split Support staff into two groups, and should they read the statements? | When the team grows | One group; they can read the statements |
@@ -48,6 +48,7 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | D-15 | Hide whether an email has an account (sign-up timing, reset warning) | If it becomes a concern | Accepted for now (2026-11-12) |
 | D-20 | Review sales tax and invoices with an accountant, and with it whether to use Stripe's "Managed Payments" (Stripe handles tax, fraud and disputes for 3.5% more) | Before real prices are set | No tax collected; Stripe's receipt, and a numbered invoice for an organization; Managed Payments not used |
 | D-17 | Review the wording that tells a member what an organization's admins can see | With D-7, before the pilot | The wording as built; "fine for now" (2026-11-13) |
+| D-21 | Close the server's SSH port, or leave it open with key-only login? | Before real customer data | Leave it open (decided for now, 2026-11-13) |
 
 ## Tasks still open
 
@@ -72,7 +73,6 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | T-26 | Uptime checker, four small things: watch the worker too, avoid false alarms during a deploy, a second place for alerts, and the free plan's terms | When you next open Better Stack |
 | T-27 | Run the Milestone 6 live checklist | Now |
 | T-28 | Run the Milestone 7 live checklist, then the pilot checklist | Now; part B raises a Sentry alert on purpose |
-| T-29 | Decide whether to close the SSH port | Before the pilot, on a quiet day |
 
 ## Later, not yet planned
 
@@ -193,17 +193,10 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 ### T-28 Run the Milestone 7 live checklist, then the pilot checklist
 - **Status:** open, waiting on the founder, since 2026-11-13. Milestone 7 is code-complete and deployed (PRs 0 to 7, #107 to #113 and the closing docs PR). **Nothing in it has been tried by a person on the live site. No error report has been seen in Sentry. The privacy page is live and no lawyer has read it.**
 - **What to do first:** "Live checklist (for the founder)" in `05-build-plan.md`, Milestone 7: part A (a wrong address shows "Page not found"), part B ("Send a test error…" on the Background jobs page, then look in Sentry for two `DeliberateError` reports), part C (read `/privacy/`), and the optional part D (eleven wrong join codes). **Part B raises a Sentry alert on purpose.**
-- **Then:** `09-pilot-checklist.md`. Its Part 1 is the table of what must be done before a real customer's data (T-4, T-6, T-7, T-8, T-14, T-26, T-29, D-7, D-11, D-20); Part 3 is the drill that stops the web container **[SSH]**, which takes the site down for a few minutes; Part 4 is how to bring on the first organization from the Django admin.
+- **Then:** `09-pilot-checklist.md`. Its Part 1 is the table of what must be done before a real customer's data (T-4, T-6, T-7, T-8, T-14, T-26, D-7, D-11, D-20, D-21); Part 3 is the drill that stops the web container **[SSH]**, which takes the site down for a few minutes; Part 4 is how to bring on the first organization from the Django admin.
 - **If something fails:** if no error arrives in Sentry, `SENTRY_DSN` in Parameter Store is empty or wrong (`04-infrastructure.md`). If only the worker's is missing, the worker's log line is not being picked up as an error: tell Claude.
 - **Done when:** the founder reports parts A to C; a docs-only PR then ticks boxes 1 and 4 of Milestone 7. Boxes 2, 3 and 5 are ticked as the pilot checklist is worked through.
 - **Source:** `05-build-plan.md`, Milestone 7; `09-pilot-checklist.md`.
-
-### T-29 The SSH port
-- **Status:** open; decided on 2026-11-12 to revisit in Milestone 7, and on 2026-11-13 left as it is for now. **[console]**
-- **Today:** port 22 on the server is open to anywhere, with key-only login. The deploy reaches the server over SSH.
-- **The choice:** leave it (accepted for the trial); restrict the port to known addresses (GitHub's deploy runners do not have a fixed one, so this needs a different way to deploy); or close it and use AWS Session Manager for both people and the deploy.
-- **Why not tonight:** any of these changes how every deploy reaches the server. A mistake stops deploys, or locks everyone out. Do it on a quiet day, with the founder at the AWS console.
-- **Needed by:** before the pilot, as a decision; the change itself can follow.
 
 ### T-27 Run the Milestone 6 live checklist
 - **Status:** open, waiting on the founder, since 2026-11-13. Milestone 6 is code-complete and deployed (PRs 0 to 6, #100 to #105 and the closing docs PR). **Nothing in it has been tried by a person on the live site, and no downloaded file has been opened in a spreadsheet program by a person** (the tests read the files with Python's `csv` module).
@@ -242,8 +235,18 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Where:** `templates/responses/_tier.html`, the one place tier names are rendered. Renaming is a template change plus the tests that assert the words.
 
 ### D-6 Keeping the algorithm and insights private
-- **Status:** reviewed 2026-11-12, left for later. undecided; Milestone 5. The repository and the ghcr.io image are public and the founder wants them to stay so.
-- **Options recorded:** a second private repository installed as a package (makes the image private, so the server needs `docker login ghcr.io` with a `read:packages` token; NOTES.md 2026-10-07 entry on ghcr visibility), or a file loaded at run time, the way the survey wording is loaded through the admin (Milestone 2 PR 9).
+- **Status:** undecided. **Decision:** the founder's. On 2026-11-13 the founder was given the four options below and said they will choose in a later session. Phase 2 cannot be built until this is settled. Do not pick one.
+- **What is fixed (founder, 2026-11-13):** the GitHub repository stays public, and the algorithm must not be public. The image the server downloads (ghcr.io) is public today, so anything inside the repository or the image is public.
+- **The options, as put to the founder:**
+  1. *Load it as data through the Django admin.* The algorithm is a file of numbers and rules (weights, cut-offs, the wording of each insight) that a superuser uploads on an admin page, the way the survey wording is loaded (Milestone 2, PR 9). The public code only knows how to apply such a file. Nothing changes in AWS or GitHub, no SSH, and staff can update it. It only works if the algorithm can be written as data; arbitrary code cannot be uploaded this way.
+  2. *A private repository, installed when the image is built.* The algorithm is ordinary Python in a second, private repository that the deploy pulls in. The image must then become private, so the server needs `docker login ghcr.io` with a `read:packages` token (NOTES.md, 2026-10-07), and the public tests run against a stand-in.
+  3. *A file placed on the server* and attached to the app when it starts. Repository and image stay public, but getting the file there needs SSH or an AWS bucket, CI never tests it, and a rebuilt server loses it unless someone remembers.
+  4. *A separate private service* that the site calls. A second thing to deploy, watch and secure; too much for one developer at this size.
+- **Recommendation given:** option 1 if the algorithm is a scoring scheme (weights, cut-offs and texts), option 2 if it is logic that has to be written as a program. The wording of the insights is probably private too, and in option 1 it travels in the same file.
+- **The question that decides it,** which only the founder can answer: is the algorithm a set of weights, cut-offs and texts, or a program? Seeing its shape (not its content) is enough to say which option fits.
+- **A limit of every option:** anyone who takes the survey sees their own results, so the mapping from answers to results can be partly worked out from outside.
+- **Already decided:** a free account sees no results, only the tier name (2026-11-13; was D-5).
+- **Where it plugs in:** `apps/results/algorithm.py` (`compute_result`, `ALGORITHM_VERSION`), `apps/results/tiering.py`; see `05-build-plan.md`, "Phase 2 stub".
 
 ### D-7 The privacy lawyer's list
 - **Status:** reviewed 2026-11-12, left for later. not yet asked. Needed before the pilot (Milestone 7).
@@ -287,6 +290,18 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Questions for the accountant:** does the founder's home state, or any state where customers are, tax this kind of sale (an online assessment and its results); at what volume of sales in another state does a duty to collect begin; what an invoice to a business must show; whether the $1, $2, $3 placeholder prices are before or after tax once real prices are chosen.
 - **If tax must be collected:** switch on Stripe's tax setting **[console]** (Stripe's dashboard, not AWS), register where required, and set `STRIPE_AUTOMATIC_TAX` to `true` in Parameter Store. Buying then needs no code change. **Refunds do:** the Refund button sends back the price before tax, because the site's record holds the price before tax, so the tax part of a refund would stay with Accelerare. That is a small change to `payments.services.refund` (refund the tax too), to be made before the setting is switched on. Record the answer in the decision log of `05-build-plan.md`.
 - **Source:** the founder's answers of 2026-11-13; `05-build-plan.md`, Milestone 4b.
+
+### D-21 The server's SSH port
+- **Status:** decided for now (founder, 2026-11-13): **leave it as it is**, and review it later as a decision. Raised in Milestone 7 (it was task T-29 for an afternoon).
+- **Today:** port 22 on the server is open to the whole internet and accepts a key file only, never a password. Two keys exist: the founder's, and one that only GitHub's deploy uses. The deploy reaches the server over SSH.
+- **The risk:** not a guessed password (there is none), but a stolen key (a lost laptop, a leaked GitHub secret) or a flaw in the SSH software itself.
+- **The options, as put to the founder:**
+  - *A. Leave it* (chosen for now). Keep the server's software updated.
+  - *B. Allow only known addresses.* GitHub deploys from addresses that change constantly, so deploys would stop unless the deploy is changed too, and the founder would be locked out when travelling.
+  - *C. Close the port and use AWS Session Manager.* A terminal through the AWS console, after the AWS login and its MFA, and the deploy rewritten to send its commands through AWS. About half a day across the AWS console **[console]** and `deploy.yml`; a mistake stops deploys until it is fixed; GitHub then holds AWS credentials instead of an SSH key.
+- **Recommendation given:** A for the trial, C before real customer data, done on a quiet day with the founder at the AWS console. Until then, two cheap things lower the risk without touching the deploy: MFA on the AWS login (T-6), and the key file kept only on the founder's laptop.
+- **Review when:** before the first real customer's data, with `09-pilot-checklist.md`, Part 1.
+- **Source:** `04-infrastructure.md`, decision log 2026-10-09 and "Security baseline".
 
 ### Small things to revisit only if they come up
 - **A stock licence's tier changed by staff:** in the Django admin, staff changing the tier of a licence that came from an organization's stock goes through the older `change_tier`, which does not check the stock, so staff can push a tier over what was bought. The page then says "12 of 10 given" and no more can be given at that tier, the same end state as lowering a stock below what is given (NOTES.md 2026-11-13). Add the check if staff ever do this by mistake.
