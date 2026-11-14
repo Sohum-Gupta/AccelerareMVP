@@ -82,6 +82,9 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Tells Sentry which account met an error, by number only. After the line
+    # above, which works out who is logged in.
+    "apps.accounts.middleware.SentryAccountMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # Required by allauth: it keeps the current request available to code
