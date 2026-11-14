@@ -38,12 +38,15 @@ before doing any work:
    numbers; the numbers on the Django admin's first page; links, search and filters across the admin; a
    written procedure for deletion requests, `docs/08-deletion-requests.md`) is code-complete and
    deployed: PRs 0 to 6 (1,988 tests). Nobody has tried it by hand on the live site; its remaining
-   "Done when" boxes are the founder's live checks (T-27). **The work in progress is Milestone 7**
-   (hardening and the pilot): the founder asked for it on 2026-11-13, to be run like Milestone 6. The
-   build plan's Milestone 7 section has the founder's answers, the PR plan (0 to 6) and a status
-   paragraph that says which PR is next. Merging on green without waiting for a review applies to
-   Milestone 7 and to nothing after it. Nothing merges after 7:00pm PST on 2026-11-13; after that, ask
-   the founder how to go on. Product choices are asked of the founder first.
+   "Done when" boxes are the founder's live checks (T-27). Milestone 7 (hardening and the pilot: error
+   pages, a privacy page at `/privacy/`, a limit on guessing join codes, the account number on Sentry's
+   reports, a load check, "Send a test error" in the Django admin) is code-complete and deployed: PRs 0
+   to 7 (2,054 tests). Nobody has tried it by hand on the live site, no lawyer has read the privacy
+   page, and the AWS console items are not done: what remains is the founder's (T-28 and
+   `docs/09-pilot-checklist.md`). **Nothing is in progress: Phase 1 is built, and Phase 2 (the
+   algorithm) has not been asked for, so do not start it.** Merging on green without waiting for a
+   review ended with Milestone 7; ask before doing it for anything else. Product choices are asked of
+   the founder first.
    `main` is protected on GitHub: every change goes through a pull request whose `test` check has
    passed. The site is built for the US first; India is deferred.**
    Do not build anything from a later milestone than the one in progress.
@@ -54,6 +57,8 @@ before doing any work:
 5. `docs/02-architecture.md` and `docs/01-requirements.md` — background.
 6. `docs/08-deletion-requests.md` — how staff handle a request to delete an account (a draft for the
    privacy lawyer). Keep it true whenever erasure changes.
+7. `docs/09-pilot-checklist.md` — what only the founder can do before a first customer (the AWS
+   console items, the Sentry and uptime checks) and how to bring on the first organization.
 
 ## Project facts
 
@@ -72,6 +77,8 @@ before doing any work:
   it) and keep AWS console, SSH and GitHub steps to a minimum. Flag any plan step that needs them.
 - Never put survey statements, answers or a person's email into a committed file, a test, or an admin history label.
   The real statements are private; tests use `tests/fixtures/questions_sample.json`.
+- The privacy page (`templates/privacy.html`) says what the site keeps, who sees it and what an erasure
+  removes. A change to any of those changes the page in the same pull request.
 - Tests live in `tests/`, run with `uv run pytest` (parallel by default; add `-n 0` to run one at a time).
 - Lint and format with `uv run ruff check .` and `uv run ruff format .`.
 
