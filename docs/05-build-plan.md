@@ -1196,7 +1196,7 @@ Run this on the live site. You need window 1 (your superuser login, also for the
 2. Press "Download with answers…". The page says what the file holds. Press "Download the file". Open it: each row has an account number, `q1` to `q25`, and no name or email address anywhere.
 3. Go back and press "Download as a spreadsheet…", then "Download the file". This file has no `q` columns and no `took_before`.
 4. "Audit log": two new `responses.exported` rows, one with `answers: True` and one with `answers: False`.
-5. If you have a Support staff login: log in to the Django admin with it and open "Responses". Only "Download as a spreadsheet…" is there. In the address bar, add `export/answers/` after `/admin/responses/response/`: the answer is "403 Forbidden".
+5. If you have a Support staff login: log in to the Django admin with it and open "Responses". Only "Download as a spreadsheet…" is there. In the address bar, add `export/answers/` after `/admin/responses/response/`: the answer is a page that says "Not allowed" (since Milestone 7; before it, the browser's bare "403 Forbidden").
 
 *Part C: the erasure record (box 3).*
 1. Django admin, "Accounts": open the test account and press "Erase this account…". Under the sentence that says what will happen there is a table "In numbers".
@@ -1235,7 +1235,7 @@ Run this on the live site. You need window 1 (your superuser login, also for the
 
 **Goal:** the site is safe to put in front of a first customer: a visitor who hits a wrong address or a fault sees a calm page in the site's design; a join code cannot be guessed by trying many; an error report says which account met it, by number; the site says in plain words what it stores and how to ask for deletion; the pages staff and admins use stay quick with a thousand surveys in the database; and there is a written checklist for the things only the founder can do (the AWS console, the first customer).
 
-**Status (2026-11-13).** Planned: this section is PR 0. Nothing is built yet. The next PR is PR 1, `m7-error-pages`. *Every PR updates this paragraph, so a session that has lost its memory finds its place here and in `gh pr list`.*
+**Status (2026-11-13).** In progress. Merged: PR 0, the re-plan (#107). PR 1, the error pages (`m7-error-pages`), is the pull request that wrote this line; once it is merged and deployed, a wrong address, a refused page, an expired form and a fault each show a calm page in the site's look. 1,999 tests. The next PR is PR 2, `m7-privacy-page`. Nobody has seen these pages on the live site. *Every PR updates this paragraph, so a session that has lost its memory finds its place here and in `gh pr list`.*
 
 **How this milestone is run** (founder, 2026-11-13). As Milestone 6 was: each PR is merged once its check is green, without waiting for review, with a short summary after each. The founder was asked what to build before the 8pm showing and said "build it all"; and asked whether the privacy page should wait for a lawyer, and said to build it now from the facts. Merging on green covers Milestone 7 only. **Nothing merges after 7:00pm PST on 2026-11-13**, and no code after about 6:30pm: every merge that is not docs-only deploys to the live site the founder shows at 8pm. Whatever is not merged by then waits, and the founder is asked how to go on.
 

@@ -1,0 +1,10 @@
+{% extends "errors/base.html" %}
+{% comment %}
+"Not found". Says nothing about the address that was asked for: the same page,
+to the byte, whether the thing does not exist or is not the visitor's to see.
+{% endcomment %}
+{% block title %}Page not found · Accelerare{% endblock %}
+{% block content %}
+  <h1>Page not found</h1>
+  <p>We could not find that page. The address may be mistyped, the link may be old, or the page may not be yours to see.</p>
+{% endblock %}

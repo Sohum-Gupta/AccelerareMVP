@@ -1,0 +1,11 @@
+{% extends "errors/base.html" %}
+{% comment %}
+Shown when a form arrives without the site's security token, or with an old
+one: usually a page left open for a long time, or cookies switched off.
+{% endcomment %}
+{% block title %}Please try again · Accelerare{% endblock %}
+{% block content %}
+  <h1>Please try again</h1>
+  <p>That form could not be accepted, so nothing was changed. This usually means the page had been open for a long time, or that cookies are switched off in your browser.</p>
+  <p>Go back, reload the page and send the form again.</p>
+{% endblock %}
