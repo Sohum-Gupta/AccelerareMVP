@@ -39,12 +39,12 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | --- | --- | --- | --- |
 | D-2 | If a company asks us to delete all its members' data, what happens? | With D-7, before the pilot | Undecided; ask the privacy lawyer |
 | D-4 | Names for the tiers | Any time | Keep "Tier 1/2/3" and "Free" for now (2026-11-12) |
-| D-6 | How the scoring algorithm and insights stay private | Before Phase 2 can be built | Undecided; four options were put to you on 2026-11-13 and you will choose in a later session |
+| D-6 | How the scoring algorithm and insights stay private | Again if the algorithm stops fitting in a file of data | Loaded as private files through the Django admin (decided for now, 2026-11-13); the trade-offs, the limits and the easy leaks are in Part 2 |
 | D-7 | The privacy lawyer's list (what is anonymous enough, privacy text, backups, company agreements, consent) | Before the pilot | Not yet asked |
 | D-8 | Should people get their own "delete my account" button? | With D-7 | No; staff erase from the admin |
 | D-9 | Split Support staff into two groups, and should they read the statements? | When the team grows | One group; they can read the statements |
 | D-10 | Show dates in each person's time zone? | If people complain | Day only, in UTC |
-| D-11 | Keep `app.theaccelerare.com` or rename it? | Before the pilot, ideally before T-4 and T-10 | `app.` is a placeholder |
+| D-11 | The site's address will change from `app.theaccelerare.com`. To what, and when? | Later (your word, 2026-11-13) | Keep `app.theaccelerare.com` for now |
 | D-15 | Hide whether an email has an account (sign-up timing, reset warning) | If it becomes a concern | Accepted for now (2026-11-12) |
 | D-20 | Review sales tax and invoices with an accountant, and with it whether to use Stripe's "Managed Payments" (Stripe handles tax, fraud and disputes for 3.5% more) | Before real prices are set | No tax collected; Stripe's receipt, and a numbered invoice for an organization; Managed Payments not used |
 | D-17 | Review the wording that tells a member what an organization's admins can see | With D-7, before the pilot | The wording as built; "fine for now" (2026-11-13) |
@@ -101,6 +101,7 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - An item marked **Decision** is the founder's to make. Do not pick an answer. Present the options, recommend one if asked, and wait.
 - The founder reviewed every decision on 2026-11-12. Those still here were deliberately left for later; do not re-ask them unprompted unless the milestone that needs them is being planned.
 - Never put survey statements, answers or a person's email into this file, a test or an admin history label.
+- Never put the real algorithm (which answers count towards what, its names, cut-offs, rules or texts) into this file or anything else that is committed or posted on GitHub. See D-6, "Easy leaks".
 - When an item is resolved: remove it from Part 1 and Part 2, record the outcome in the decision log of the doc it belongs to, and update any doc that mentioned it as open (the "Source" lines say where).
 - Steps that need the AWS console, SSH or GitHub are flagged **[console]**. CLAUDE.md asks that every such step be flagged, and that you ask before running anything against AWS.
 
@@ -235,18 +236,47 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Where:** `templates/responses/_tier.html`, the one place tier names are rendered. Renaming is a template change plus the tests that assert the words.
 
 ### D-6 Keeping the algorithm and insights private
-- **Status:** undecided. **Decision:** the founder's. On 2026-11-13 the founder was given the four options below and said they will choose in a later session. Phase 2 cannot be built until this is settled. Do not pick one.
+- **Status:** decided for now (founder, 2026-11-13): **option 1, load it as data through the Django admin.** "A fine solution for now", so it stays listed here with what would reopen it. Nothing is built: Phase 2 has not been asked for.
 - **What is fixed (founder, 2026-11-13):** the GitHub repository stays public, and the algorithm must not be public. The image the server downloads (ghcr.io) is public today, so anything inside the repository or the image is public.
-- **The options, as put to the founder:**
+- **What decided it:** on 2026-11-13 the founder was handed the algorithm's plan (kept outside this repository). Its shape is a scoring scheme: nearly all of it is numbers, cut-offs, names and a library of texts. One part is a short list of rules, and that can be written as data too.
+- **The decision, in outline:**
+  - *The public code is a general scoring engine.* It applies whatever file is loaded and holds nothing of the real algorithm. Tests and CI run on a made-up sample file, as they do for the survey wording.
+  - *Two private files, uploaded by a superuser on an admin page.* One holds the scoring (which answers count towards what, the cut-offs, the rules, the names). The other holds the texts. They are separate so that correcting a text does not work anyone's result out again.
+  - *The rules are an ordered list of conditions inside the scoring file,* not code in the repository. A reader of the public code learns that there are rules, not what they are, and a rule can change without a deploy.
+  - *Each upload is a new version,* and a result keeps the version it was worked out with.
+  - *The scoring file carries its own examples* ("these answers give this result"). The admin page runs them and refuses a file that fails one. They stand in for tests that cannot be public.
+  - *Results are stored as plain numbers and keys.* Tables, charts and an organization's totals are built from stored results in public code; the names shown come from the loaded file.
+  - *Where the files are kept.* Today: the founder's laptop (`private/`, ignored by git) and the database. A private store with a history (for example a private repository that nothing reads automatically) was suggested and is not decided.
+- **Trade-offs accepted:**
+  - *The engine can only do what its file format can say.* An algorithm that one day needs real code means extending the engine in public, or moving to option 2.
+  - *More to build.* A general engine and an upload page are more work than writing the algorithm straight into `algorithm.py`.
+  - *The public tests never run the real algorithm.* Only the examples inside the file check it, and they are as good as whoever writes them.
+  - *The file format is public.* A reader learns what kinds of things the algorithm is made of, though not their values.
+  - *The real algorithm is not in version control.* It lives in the founder's files and the database. A lost file is recovered from the database or a backup; nothing shows what changed between two uploads unless the founder keeps the old files.
+  - *Whoever can read the database can read the algorithm:* a superuser, anyone with a database backup, and any staff group given the admin pages that show it. Which groups see those pages is decided when they are built (compare D-9, where Support staff read the statements).
+  - *A wrong upload changes every later result.* The page needs "check, then apply" with a preview, like the survey wording page.
+- **What "private" cannot mean, under any option:**
+  - *A person sees their own results.* With exact numbers on the page, someone determined can work out much of the mapping and the cut-offs over a few attempts (each costs a licence). Showing rounded numbers or only bands would slow that down; not decided.
+  - *The texts are shown to paying customers,* so they can be copied.
+  - *Downloads and charts carry results out of the site,* for an organization's admins as well as for the person.
+  - So "private" means the algorithm is never handed over, not that it cannot be worked out.
+- **Easy leaks, to avoid while Phase 2 is planned and built:**
+  - *These docs are public.* Plans for Phase 2 use general words (scales, bands, profiles). The real names, cut-offs, rules and texts stay out of `docs/`, `NOTES.md`, code, comments, tests, fixtures and migrations. A migration that seeds the real file would publish it.
+  - *So is everything around the code:* commit messages, pull request titles and descriptions, branch names, test names and the test logs on GitHub.
+  - *The Docker image is public.* Nothing private may be copied into it when it is built.
+  - *The browser.* Scoring runs on the server. No page, script or response carries the mapping, the cut-offs or the rules; a person receives only their own result, already filtered by tier.
+  - *Sentry, logs, the audit log and admin history* get versions and counts, never a file's contents. Sentry already receives no request bodies or local variables; the upload page must keep it that way.
+  - *The made-up sample file* must not resemble the real one: different names, numbers and sizes.
+  - *The plan and the founder's notes on it* stay outside the repository (`private/` is ignored by git).
+- **What would reopen this:** the algorithm can no longer be written as a file of data, or the file format itself starts to give too much away. Option 2 is then the next one to look at.
+- **The four options, as put to the founder (option 1 was chosen):**
   1. *Load it as data through the Django admin.* The algorithm is a file of numbers and rules (weights, cut-offs, the wording of each insight) that a superuser uploads on an admin page, the way the survey wording is loaded (Milestone 2, PR 9). The public code only knows how to apply such a file. Nothing changes in AWS or GitHub, no SSH, and staff can update it. It only works if the algorithm can be written as data; arbitrary code cannot be uploaded this way.
   2. *A private repository, installed when the image is built.* The algorithm is ordinary Python in a second, private repository that the deploy pulls in. The image must then become private, so the server needs `docker login ghcr.io` with a `read:packages` token (NOTES.md, 2026-10-07), and the public tests run against a stand-in.
   3. *A file placed on the server* and attached to the app when it starts. Repository and image stay public, but getting the file there needs SSH or an AWS bucket, CI never tests it, and a rebuilt server loses it unless someone remembers.
   4. *A separate private service* that the site calls. A second thing to deploy, watch and secure; too much for one developer at this size.
 - **Recommendation given:** option 1 if the algorithm is a scoring scheme (weights, cut-offs and texts), option 2 if it is logic that has to be written as a program. The wording of the insights is probably private too, and in option 1 it travels in the same file.
-- **The question that decides it,** which only the founder can answer: is the algorithm a set of weights, cut-offs and texts, or a program? Seeing its shape (not its content) is enough to say which option fits.
-- **A limit of every option:** anyone who takes the survey sees their own results, so the mapping from answers to results can be partly worked out from outside.
 - **Already decided:** a free account sees no results, only the tier name (2026-11-13; was D-5).
-- **Where it plugs in:** `apps/results/algorithm.py` (`compute_result`, `ALGORITHM_VERSION`), `apps/results/tiering.py`; see `05-build-plan.md`, "Phase 2 stub".
+- **Where it plugs in:** `apps/results/algorithm.py` (`compute_result`, `ALGORITHM_VERSION`), `apps/results/tiering.py`; see `05-build-plan.md`, "Phase 2 stub". With option 1, `compute_result` applies the loaded file instead of holding the algorithm, and the version kept with a result comes from that file.
 
 ### D-7 The privacy lawyer's list
 - **Status:** reviewed 2026-11-12, left for later. not yet asked. Needed before the pilot (Milestone 7).
@@ -263,7 +293,8 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Status:** reviewed 2026-11-12, left for later. accepted for now. History and result pages show the day only, in UTC, so they can be a day off far from UTC. Fixing it needs a time zone per account, which is not collected. Revisit if people are confused.
 
 ### D-11 The site's real address
-- **Status:** reviewed 2026-11-12, left for later. `app.theaccelerare.com` is a working name; rename before the pilot. **[console]** and GoDaddy.
+- **Status:** decided for now (founder, 2026-11-13): **keep `app.theaccelerare.com`**. It will have to change later; when, and to what, is not decided, and the founder asked for this to stay on the backlog. It is no longer tied to the pilot. **[console]** and GoDaddy when it happens.
+- **What the wait costs:** Amazon SES is verified for `app.theaccelerare.com`, and the request for production access (T-4) was made for it. A new sending domain must be verified again and may need a new request. The DMARC work (T-10) would also be done again. Stripe's webhook address and the uptime checker's monitors name the address too.
 - **A rename touches:** the GoDaddy A record, `ALLOWED_HOSTS` in Parameter Store, `deploy/Caddyfile`, the SES domain identity and its three DKIM records (SES is verified for `app.theaccelerare.com`; a new sending domain needs re-verification and possibly a new production-access check), `DEFAULT_FROM_EMAIL`, and the docs and NOTES that name it. Decide before T-10 so the DMARC work is not done twice.
 
 ### D-15 Revealing whether an email has an account
