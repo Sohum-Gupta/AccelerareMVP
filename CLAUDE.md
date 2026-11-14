@@ -38,9 +38,12 @@ before doing any work:
    numbers; the numbers on the Django admin's first page; links, search and filters across the admin; a
    written procedure for deletion requests, `docs/08-deletion-requests.md`) is code-complete and
    deployed: PRs 0 to 6 (1,988 tests). Nobody has tried it by hand on the live site; its remaining
-   "Done when" boxes are the founder's live checks (T-27). **Nothing is in progress: Milestone 7 has
-   not been asked for, so do not start it.** Merging on green without waiting for a review ended with
-   Milestone 6; ask before doing it for anything else. Product choices are asked of the founder first.
+   "Done when" boxes are the founder's live checks (T-27). **The work in progress is Milestone 7**
+   (hardening and the pilot): the founder asked for it on 2026-11-13, to be run like Milestone 6. The
+   build plan's Milestone 7 section has the founder's answers, the PR plan (0 to 6) and a status
+   paragraph that says which PR is next. Merging on green without waiting for a review applies to
+   Milestone 7 and to nothing after it. Nothing merges after 7:00pm PST on 2026-11-13; after that, ask
+   the founder how to go on. Product choices are asked of the founder first.
    `main` is protected on GitHub: every change goes through a pull request whose `test` check has
    passed. The site is built for the US first; India is deferred.**
    Do not build anything from a later milestone than the one in progress.

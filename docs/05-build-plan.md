@@ -1,6 +1,6 @@
 # Build Plan — Survey Platform
 
-As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs; open items live in `06-backlog.md` · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded and Milestone 2 closed 2026-11-12 · Milestone 3 re-planned 2026-11-12 · Milestone 3 built and status synced 2026-11-13 · Milestone 4 re-planned 2026-11-13 · The founder's answers on Milestone 4's choices and the payments basics recorded 2026-11-13 · Milestone 4b planned and built 2026-11-13 · Milestone 5 re-planned 2026-11-13 · Milestone 6 re-planned and built 2026-11-13
+As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs; open items live in `06-backlog.md` · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded and Milestone 2 closed 2026-11-12 · Milestone 3 re-planned 2026-11-12 · Milestone 3 built and status synced 2026-11-13 · Milestone 4 re-planned 2026-11-13 · The founder's answers on Milestone 4's choices and the payments basics recorded 2026-11-13 · Milestone 4b planned and built 2026-11-13 · Milestone 5 re-planned 2026-11-13 · Milestone 6 re-planned and built 2026-11-13 · Milestone 7 re-planned 2026-11-13
 
 ## How to read this document
 
@@ -1231,40 +1231,93 @@ Run this on the live site. You need window 1 (your superuser login, also for the
 
 ## Milestone 7 — Hardening and pilot launch
 
-**Goal:** the site is safe to put in front of a real customer: security settings verified, backups restorable, monitoring live, error pages in place, performance sane for a few hundred users.
+*Re-planned on 2026-11-13. This section replaces the October outline. What changed, and why, is under "What the re-plan corrects" and in the decision log.*
+
+**Goal:** the site is safe to put in front of a first customer: a visitor who hits a wrong address or a fault sees a calm page in the site's design; a join code cannot be guessed by trying many; an error report says which account met it, by number; the site says in plain words what it stores and how to ask for deletion; the pages staff and admins use stay quick with a thousand surveys in the database; and there is a written checklist for the things only the founder can do (the AWS console, the first customer).
+
+**Status (2026-11-13).** Planned: this section is PR 0. Nothing is built yet. The next PR is PR 1, `m7-error-pages`. *Every PR updates this paragraph, so a session that has lost its memory finds its place here and in `gh pr list`.*
+
+**How this milestone is run** (founder, 2026-11-13). As Milestone 6 was: each PR is merged once its check is green, without waiting for review, with a short summary after each. The founder was asked what to build before the 8pm showing and said "build it all"; and asked whether the privacy page should wait for a lawyer, and said to build it now from the facts. Merging on green covers Milestone 7 only. **Nothing merges after 7:00pm PST on 2026-11-13**, and no code after about 6:30pm: every merge that is not docs-only deploys to the live site the founder shows at 8pm. Whatever is not merged by then waits, and the founder is asked how to go on.
+
+**What the re-plan corrects**
+
+- *Already done, so not planned again.* The deploy has run Django's security check (`check --deploy`, failing on a warning) since Milestone 0, both on the image before it is shipped and on the server. Sentry already receives no personal data: no request bodies, no local variables, `send_default_pii=False` (Milestone 2). The uptime checker exists (2026-11-13, Better Stack). The erasure procedure already says how long erased data stays in backups (`08-deletion-requests.md`, Milestone 6).
+- *What only the founder can do is not code.* The backup restore test (`06-backlog.md`, T-8), the CloudWatch alarms (T-7), MFA on the AWS login (T-6), the SSH port, the drill that stops the web container to see the alarm arrive, and looking at Sentry after a real error all need the AWS console or a deliberate fault on the live site. There is no AWS access on the build machine, and the project's rule is that those steps are the founder's. This milestone writes them down as one checklist (`09-pilot-checklist.md`); it does not do them.
+- *The first pilot organization is the founder's too.* The outline's last box, "first pilot enterprise onboarded", needs a customer. The checklist says how to onboard one from the Django admin.
+- *The SSH port stays as it is.* Decided on 2026-11-12 to revisit here. Closing it means the deploy pipeline needs another way to reach the server, which is a change to make on a quiet day, not the evening of a showing. It becomes a backlog task with the steps.
+- *The privacy page is built now, without a lawyer* (the founder's choice, 2026-11-13, over a recommendation to wait). It states only what the site really does. It is on the privacy lawyer's list (D-7) to be read before the pilot.
+- *Rate limiting is by account, not by IP address.* The outline said both. A join code is only ever checked for someone who is logged in, so every guess belongs to an account. The site sits behind Caddy, where a mistake in reading the visitor's address would count every visitor as one and lock them all out together. See "Smaller rules".
+
+**The product rules**
+
+- **A wrong address or a fault shows a calm page** in the site's design, with a way back. It never shows a traceback, and the "something went wrong" page works even when the database does not.
+- **A join code cannot be guessed by trying many.** After ten codes that did not work within an hour, an account is asked to wait; a code that works is never refused because of earlier mistakes by someone else.
+- **An error report says which account met the error, by number only.** Never an email address or a name.
+- **The site has a privacy page** (founder, 2026-11-13), linked at the foot of every page: what is stored, who can see it, what an organization's admins see, what is kept when an account is erased, how long backups last, and how to ask for deletion.
+- **The pages stay quick at a thousand surveys.** With 500 accounts and 1,000 surveys in a local database, an organization's responses page, its download, the staff downloads and the Django admin's lists answer in well under a second. An index is added only where a measurement shows it is needed.
+
+**Smaller rules, the builder's calls** (raised here so they can be overruled)
+
+- *Error pages.* "Not found" (404), "not allowed" (403), "your form has expired" (a failed security token) and "something went wrong" (500). They are plain pages with the site's heading and a link home, and no account menu: a "not found" page must look exactly the same for an organization that does not exist and for one the visitor may not see, byte for byte, which the tenant isolation tests hold it to. The 500 page is fixed text with its own few lines of styling, so it cannot fail for want of a file or a database.
+- *The join-code limit.* Ten refused codes an hour per account. Every refusal counts (not valid, expired, switched off, used up), because each tells a guesser something. The count is kept in the site's cache table and forgets itself after an hour; staff cannot and need not reset it. The message says to wait an hour or ask the organization for a new code. An invite link is not limited: its secret is far too long to guess and it only works for the invited address.
+- *Sentry.* The account's number is attached to an error report by a few lines of middleware. Nothing else about Sentry changes. The worker's jobs carry no person, so its reports stay as they are.
+- *The privacy page* is at `/privacy/`, open to everyone, with no promises about the future: only what happens today. It names the companies that handle data for the site (Amazon Web Services for hosting and email, Stripe for payments, Sentry for error reports, Better Stack for the uptime check) and says the servers are in the United States. It says there are no advertising or tracking cookies, because there are none. How to ask for deletion: by writing to the address the site's emails come from, from the address you log in with (the reply inbox is still to be chosen, `06-backlog.md` T-14; the founder is asked which address to print when the page is built).
+- *The load check* is a command that only runs on a laptop (it refuses when `DEBUG` is off) and fills a separate local database, so the founder's own local data is not touched. Its numbers are written into this section. It is not part of the test suite.
+- *An index, if one is needed,* is its own migration, added with a default name, and safe on a table with rows.
 
 **What you build**
 
-- `python manage.py check --deploy` passes with no warnings in production.
-- Custom `404.html` and `500.html` in the site's design; `500.html` must not use anything that could itself fail (no database queries in the template context).
-- Sentry: confirm both `web` and `worker` report; add the account id as user context; set `send_default_pii = False`.
-- SSH (decided 2026-11-12 to revisit here): port 22 is open to anywhere with key-only login. Consider AWS Session Manager and closing the port; the deploy pipeline then needs another way to reach the server.
-- Rate limiting on the join-code endpoint (brute-force protection): limit attempts per IP and per account; allauth's limiter pattern or `django-ratelimit`.
-- Backup restore test from the infrastructure runbook, with the date recorded.
-- Uptime monitor on `/health`; CloudWatch alarms; billing alert confirmed.
-- Load sanity check: use a simple script to create 500 accounts and 1,000 responses locally; verify the admin tables and exports stay responsive (sub-second). Add database indexes where the ORM queries show sequential scans (`EXPLAIN` in the Django shell).
-- Privacy text: the disclosure page and a short privacy page naming what is stored, what is kept after an erasure request (the survey results, with the identity removed) and how to request erasure. A privacy lawyer reviews it before the pilot: what counts as anonymous enough for what we keep (age, gender, company and exact dates can identify someone in a small company), the US, UK and India rules, and the enterprise data agreements.
-- Backups and erasure: confirm the RDS backup retention (30 days) and state in the procedure how long an erased account can remain in a backup.
-- `NOTES.md` and the infrastructure runbook updated with every deviation made during setup.
-- A pilot checklist with the first enterprise: create their enterprise, set pools, send invites, watch the first ten submissions in the admin table, check Sentry after the first day.
+- `templates/404.html`, `403.html`, `403_csrf.html`, `500.html`, on a small shared layout (`templates/errors/base.html`) for the first three.
+- `apps/enterprises/throttle.py` (the count) and the check in the `join_code` view; a message in `join_code.html`.
+- `apps/accounts/middleware.py`: the account number for Sentry.
+- `templates/privacy.html`, `config.views.privacy`, a foot on `base.html`.
+- `apps/responses/management/commands/make_load_data.py` and, if measured, a migration with indexes.
+- `docs/09-pilot-checklist.md`: the founder's console steps, the drill, and onboarding the first organization.
+
+**Tests**
+
+- Error pages: an unknown address, a refused page and a view that raises each give the right page and status; none holds a traceback, a setting or the visitor's email; the 500 page renders with the database unreachable; an organization's "not found" is still byte-for-byte the same as for one that does not exist.
+- The limit: ten refusals are answered normally and the eleventh is asked to wait, without the code being looked at; a working code within the ten still joins; another account is not affected; after the hour it works again; nothing is counted for a logged-out visitor.
+- Sentry: a logged-in request sets the account number and nothing else; a logged-out one clears it.
+- The privacy page: open to a logged-out visitor, linked from every page's foot, and every factual sentence that can be checked by a test is (for example, that the only cookies set are the session and security-token ones).
+- Every code PR is checked by breaking the new code on purpose, and each new page is opened in a real browser at phone width.
+
+**PR plan** (one branch and one pull request each, in this order)
+
+0. `m7-replan`: this section. Docs only.
+1. `m7-error-pages`: the four error pages.
+2. `m7-privacy-page`: the privacy page and the foot of every page.
+3. `m7-join-code-limit`: ten refused codes an hour.
+4. `m7-sentry-account`: the account number on error reports.
+5. `m7-load-check`: the load command, the measurements, and an index if one is needed.
+6. `m7-docs-live-checks`: the pilot checklist, the runbook and NOTES synced, the founder's live checklist and backlog tasks.
 
 **Done when**
 
-- [ ] `check --deploy` clean; error pages render; Sentry receives from web and worker.
-- [ ] Restore test done and dated.
-- [ ] Monitors fire when you stop the web container (test it once, then restart).
-- [ ] 1,000-response local dataset: admin table, filters and export all feel instant.
-- [ ] First pilot enterprise onboarded.
+*The first five boxes are the founder's: they need the live site, the AWS console or a customer.*
+
+- [ ] Error pages show on the live site (a wrong address; and, once, a deliberate fault), and Sentry receives an error from the web site and from the worker, with an account number and no name.
+- [ ] The backup restore test is done and dated (T-8).
+- [ ] The monitors fire when the web container is stopped (tested once, then restarted), and the CloudWatch alarms exist (T-7).
+- [ ] The privacy page has been read by the founder, and by the privacy lawyer before the pilot (D-7).
+- [ ] The first pilot organization is onboarded.
+- [ ] `check --deploy` is clean on every deploy. *(Already true: it has gated every deploy since Milestone 0.)*
+- [ ] With 500 accounts and 1,000 surveys locally, the organization's page, the downloads and the admin's lists answer in under a second.
+- [ ] All tests pass, including every tenant isolation test.
 
 **Why this order / what to understand**
 
-*Hardening last, not never.* Each earlier milestone already applied the standards from the opening section; this milestone verifies them as a whole and adds the things that only make sense once the product is complete. It is not the milestone where security starts.
+*Hardening last, not never.* Each earlier milestone already applied the standards from the opening section; this milestone checks them as a whole and adds the things that only make sense once the product is complete. It is not the milestone where security starts.
 
-*The restore test is the backup.* A backup you have never restored is a hope. Doing it once, before any customer, turns it into a procedure you've run. The runbook has the steps.
+*Why the "something went wrong" page is so plain.* It is shown when something has already failed. If it needed the database, a stylesheet lookup or the logged-in account to draw itself, the failure that brought you there could break the page too, and the visitor would see nothing at all. So it is fixed text.
 
-*Monitoring is three things.* Sentry tells you a request failed. The uptime check tells you the site is down (Sentry can't, because nothing is running to report). CloudWatch tells you the disk is full or the database is out of storage before the site goes down. You want all three and they're all free at this scale.
+*Why a "not found" page says so little.* An organization the visitor may not see answers "not found", the same as one that does not exist, so nobody can learn which organizations exist by trying names. If the page showed the visitor's account menu, a clever comparison could still tell two answers apart. It shows the same bytes to everyone.
 
-*Why a load script.* "It's fast with my five test rows" says nothing. Five hundred users is small, but a missing index can turn a 10 ms query into 2 seconds at that size, and the admin responses table is the page customers watch. Generating realistic data once and clicking around is the cheapest performance test there is.
+*The restore test is the backup.* A backup you have never restored is a hope. Doing it once, before any customer, turns it into a procedure you have run.
+
+*Monitoring is three things.* Sentry tells you a request failed. The uptime check tells you the site is down (Sentry cannot, because nothing is running to report). CloudWatch tells you the disk is full before the site goes down.
+
+*Why a load check.* "It is fast with my five test rows" says nothing. A missing index can turn a 10 millisecond query into 2 seconds at a thousand rows, and the responses page is the one customers watch.
 
 ---
 
@@ -1322,6 +1375,8 @@ Moved on 2026-11-12 to `06-backlog.md`, the one list of open tasks and parked de
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-13 | Milestone 7 re-planned into seven PRs (0 to 6): error pages, the privacy page, a limit on guessing join codes (by account, not by IP address), the account number on Sentry reports, a load check with indexes if measured, and a checklist for what only the founder can do (the AWS console items, the drill, the first pilot organization). The SSH port stays open with key-only login for now and becomes a backlog task | The October outline listed console work and a customer beside the code, and planned checks that already run on every deploy |
+| 2026-11-13 | The founder's answers for Milestone 7: it is run like Milestone 6 (merged on green, Milestone 7 only); all of it is built before the showing ("build it all"), over a recommendation to build the safest parts first; and the privacy page is built now from the facts, without waiting for the privacy lawyer, over a recommendation to wait | Asked together before the plan, with `AskUserQuestion` |
 | 2026-11-13 | Milestone 6 is code-complete and deployed: PRs 0 to 6 (#100 to #105 and the closing docs PR), all merged before the 7:00pm stop. Its four live checks wait for the founder (`06-backlog.md`, T-27). Builder's calls made on the way, all listed in its "Smaller rules" and "As built": a download is a button that sends a POST, never a link; the file does not follow the page's filters; the erase page shows five counts and the audit row eight; "the last seven days" is the admin's own "Past 7 days"; links in the admin are not decided person by person, but every one leads somewhere Support staff may go; the deletion procedure (`08-deletion-requests.md`) is a draft for the privacy lawyer. Merging on green without review ended with the milestone | Each keeps a promise the plan made (a download is always recorded; the number and the list agree; Support staff never meet "forbidden") in the simplest way the Django admin allows |
 | 2026-11-13 | Milestone 6 re-planned into seven PRs (0 to 6), most important first because nothing merges after 7:00pm that day: the organization's file, the staff files, the erasure record, the numbers on the Django admin's first page, admin polish, closing docs. The export code lives in the responses app, not a new `exports` app. The builder's calls are under "Smaller rules" in the Milestone 6 section, among them a draft deletion procedure (requests from the person only, answered within 30 days) for the privacy lawyer | The October outline planned erasure that already exists, put an email address beside the answers, and planned an app that cannot sit after `responses` in the dependency order |
 | 2026-11-13 | The founder's four answers for Milestone 6. An organization's CSV file has the columns its responses page shows (name, email, started, submitted, results level, possible repeat), for submitted surveys only. The staff file has the 25 answers and names nobody: people are account numbers. Support staff may download a file without answers (the recommendation was superusers only). Every download is written to the audit log | Asked together before the plan, with `AskUserQuestion`; three were "as recommended" |
