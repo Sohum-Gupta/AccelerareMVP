@@ -10,7 +10,7 @@ A person may ask for their account to be deleted. A superuser erases it in the D
 
 ## Who may ask
 
-- **The person themselves,** writing from an email address that is verified on their account. *(to confirm)*
+- **The person themselves,** writing from an email address that is verified on their account. *(to confirm: this is the builder's draft, not yet the founder's or the lawyer's decision.)*
 - **Not an employer or an organization** on a member's behalf. What happens when a company asks for all its members' data to be deleted is not decided (D-2). Tell the company that each person can ask for themselves, and tell the founder that the question came up.
 - **Not somebody writing from an address the account does not have.** Ask them to write from the address they log in with, or to log in and add and verify the new address on their account page first.
 
@@ -18,7 +18,11 @@ There is no "delete my account" button for people themselves (D-8). A request re
 
 ## How long it may take
 
-Answer within **30 days** of the request. *(to confirm)* Erasing takes a minute; the 30 days are for checking who is asking and for a reply.
+Erase the account within **30 days** of the request (the founder's decision, 2026-11-13).
+
+The window is there on purpose. Erasing takes a minute and cannot be undone, so the 30 days give the person time to say the request was a mistake. Until the account is erased, they can withdraw the request by writing again. There is no need to erase on the day the request arrives.
+
+When a request arrives, write back the same week: say it was received, that the account will be erased within 30 days, and that they can cancel until then.
 
 ## Steps, in the Django admin
 
@@ -31,7 +35,7 @@ You need a superuser login. Support staff cannot erase.
 5. **Type the account's email and a reason,** for example "deletion request, 2026-11-20". Do not type the person's email, phone or name into the reason: the reason is kept.
 6. **Press "Erase permanently".** It cannot be undone.
 7. **Check the record.** "Audit log", and type the account's number into the search box. The row `account.erased` shows who erased it, when, and what was removed, as numbers.
-8. **Write back** to say it is done, what was removed and what was kept (below), and that copies in backups are gone within 30 days.
+8. **Write back** to say it is done, what was removed and what was kept (below), and that copies in backups are gone within 30 days of the erasure.
 
 ## If the page refuses
 
