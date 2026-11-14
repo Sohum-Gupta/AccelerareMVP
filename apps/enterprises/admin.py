@@ -35,6 +35,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 
+from apps.accounts.admin_links import link, related
 from apps.accounts.models import Account
 
 from . import services
@@ -64,6 +65,9 @@ class ReadOnlyAdmin(admin.ModelAdmin):
 
     # Fields that are never shown, to anyone or to some (see hidden_fields).
     hidden = ()
+    # Lines that are worked out rather than stored (links to related lists),
+    # shown after the fields.
+    extra = ()
 
     def hidden_fields(self, request):
         return self.hidden
@@ -73,7 +77,8 @@ class ReadOnlyAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         hidden = self.hidden_fields(request)
-        return [field.name for field in self.model._meta.fields if field.name not in hidden]
+        stored = [field.name for field in self.model._meta.fields if field.name not in hidden]
+        return [*stored, *self.extra]
 
     def has_add_permission(self, request):
         return False
@@ -207,6 +212,7 @@ class StockForm(forms.Form):
 @admin.register(Enterprise)
 class EnterpriseAdmin(admin.ModelAdmin):
     list_display = ("name", "slug", "members_now", "people_limit", "created_at")
+    list_filter = (("created_at", admin.DateFieldListFilter),)
     search_fields = ("name", "slug")
 
     def get_queryset(self, request):
@@ -237,6 +243,7 @@ class EnterpriseAdmin(admin.ModelAdmin):
             "licences",
             "members_now",
             "members_ever",
+            "related",
             "created_by",
             "created_at",
         )
@@ -253,6 +260,17 @@ class EnterpriseAdmin(admin.ModelAdmin):
     @admin.display(description="Members now", ordering="active_members")
     def members_now(self, enterprise):
         return enterprise.active_members
+
+    @admin.display(description="Related")
+    def related(self, enterprise):
+        """Links to this organization's members, invites, join codes and payments."""
+        only = {"enterprise__id__exact": enterprise.pk}
+        return related(
+            (f"Memberships ({enterprise.memberships.count()})", "enterprises_membership", only),
+            (f"Invites ({enterprise.invites.count()})", "enterprises_invite", only),
+            (f"Join codes ({enterprise.join_codes.count()})", "enterprises_joincode", only),
+            (f"Payments ({enterprise.purchases.count()})", "payments_purchase", only),
+        )
 
     @admin.display(description="Members ever")
     def members_ever(self, enterprise):
@@ -378,11 +396,44 @@ class EnterpriseAdmin(admin.ModelAdmin):
 
 @admin.register(Membership)
 class MembershipAdmin(ReadOnlyAdmin):
-    list_display = ("id", "account", "enterprise", "role", "status", "joined_at", "deactivated_at")
+    list_display = (
+        "id",
+        "account_link",
+        "enterprise_link",
+        "role",
+        "status",
+        "joined_at",
+        "deactivated_at",
+    )
     list_filter = ("role", "status")
-    search_fields = ("account__email", "account__full_name", "enterprise__name")
+    # By email, name, phone or organization, the way the Accounts page searches.
+    search_fields = (
+        "account__email",
+        "account__full_name",
+        "account__contact_points__value_normalised",
+        "account__contact_points__value_display",
+        "enterprise__name",
+    )
     list_select_related = ("account", "enterprise")
     actions = ["deactivate_selected", "reactivate_selected", "make_admin", "make_member"]
+    extra = ("related",)
+
+    @admin.display(description="Account", ordering="account__email")
+    def account_link(self, membership):
+        return link(membership.account)
+
+    @admin.display(description="Organization", ordering="enterprise__name")
+    def enterprise_link(self, membership):
+        return link(membership.enterprise)
+
+    @admin.display(description="Related")
+    def related(self, membership):
+        """Links to the licences this membership holds and the surveys taken on them."""
+        only = {"membership__id__exact": membership.pk}
+        return related(
+            (f"Licences ({membership.entitlements.count()})", "entitlements_entitlement", only),
+            (f"Surveys ({membership.responses.count()})", "responses_response", only),
+        )
 
     def has_deactivate_permission(self, request):
         return request.user.has_perm("enterprises.deactivate_membership")
@@ -578,19 +629,24 @@ class MembershipAdmin(ReadOnlyAdmin):
 class InviteAdmin(ReadOnlyAdmin):
     list_display = (
         "id",
-        "enterprise",
+        "enterprise_link",
         "email",
         "state",
         "emails_sent",
         "created_at",
         "expires_at",
     )
+    list_filter = (("created_at", admin.DateFieldListFilter),)
     search_fields = ("email", "enterprise__name")
     list_select_related = ("enterprise",)
     actions = ["withdraw_selected"]
     # The secret in the invite's link. Nobody is shown it here; the
     # organization's admin can copy the link from their own invites page.
     hidden = ("token",)
+
+    @admin.display(description="Organization", ordering="enterprise__name")
+    def enterprise_link(self, invite):
+        return link(invite.enterprise)
 
     @admin.display(description="State")
     def state(self, invite):
@@ -639,10 +695,23 @@ class InviteAdmin(ReadOnlyAdmin):
 
 @admin.register(JoinCode)
 class JoinCodeAdmin(ReadOnlyAdmin):
-    list_display = ("id", "enterprise", "state", "uses", "max_uses", "created_at", "expires_at")
+    list_display = (
+        "id",
+        "enterprise_link",
+        "state",
+        "uses",
+        "max_uses",
+        "created_at",
+        "expires_at",
+    )
+    list_filter = (("created_at", admin.DateFieldListFilter),)
     search_fields = ("enterprise__name",)
     list_select_related = ("enterprise",)
     actions = ["switch_off_selected"]
+
+    @admin.display(description="Organization", ordering="enterprise__name")
+    def enterprise_link(self, code):
+        return link(code.enterprise)
 
     def hidden_fields(self, request):
         # The code itself lets anyone into the organization. It is never on the

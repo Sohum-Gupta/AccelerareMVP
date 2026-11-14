@@ -4,6 +4,8 @@ from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils import timezone
 
+from apps.accounts.admin_links import link
+
 from . import exports, services
 from .models import Response
 
@@ -51,11 +53,28 @@ SUPERUSER_FIELDS = (
 )
 
 
+class TakenForFilter(admin.SimpleListFilter):
+    """Personal surveys, or those taken for an organization."""
+
+    title = "taken for"
+    parameter_name = "taken_for"
+
+    def lookups(self, request, model_admin):
+        return [("personal", "The person themselves"), ("organization", "An organization")]
+
+    def queryset(self, request, queryset):
+        if self.value() == "personal":
+            return queryset.filter(membership__isnull=True)
+        if self.value() == "organization":
+            return queryset.filter(membership__isnull=False)
+        return queryset
+
+
 @admin.register(Response)
 class ResponseAdmin(admin.ModelAdmin):
     list_display = (
         "id",
-        "account",
+        "account_link",
         "context",
         "survey_version",
         "status",
@@ -66,8 +85,25 @@ class ResponseAdmin(admin.ModelAdmin):
         "possible_repeat",
     )
     # The date filter's "Past 7 days" is what the number on the admin's first page links to.
-    list_filter = ("status", "possible_repeat", ("submitted_at", admin.DateFieldListFilter))
-    search_fields = ("account__email",)
+    list_filter = (
+        "status",
+        TakenForFilter,
+        "possible_repeat",
+        ("submitted_at", admin.DateFieldListFilter),
+    )
+    # Who took it (email, name or account number), which organization, or its own
+    # number. Never the answers: the search must not be a way to probe them.
+    search_fields = (
+        "account__email",
+        "account__full_name",
+        "=account__id",
+        "membership__enterprise__name",
+        "=id",
+    )
+    search_help_text = (
+        "Search by the email, name or account number of who took it, by an organization's "
+        "name, or by the response's own number."
+    )
     list_select_related = ("account", "survey_version", "entitlement", "membership__enterprise")
 
     def get_fields(self, request, obj=None):
@@ -141,12 +177,16 @@ class ResponseAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         return self.get_fields(request, obj)
 
+    @admin.display(description="Account", ordering="account__email")
+    def account_link(self, response):
+        return link(response.account)
+
     @admin.display(description="Taken for")
     def context(self, response):
-        """Who the attempt was taken for: the person themselves, or an organization."""
+        """Who the attempt was taken for: the person themselves, or an organization (a link)."""
         if response.membership_id is None:
             return "Personal"
-        return response.membership.enterprise.name
+        return link(response.membership.enterprise)
 
     @admin.display(description="Licence tier")
     def tier(self, response):

@@ -21,6 +21,7 @@ from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 
+from apps.accounts.admin_links import link
 from apps.entitlements.models import Entitlement
 
 from . import rules, services
@@ -50,7 +51,7 @@ def _available(candidate):
 @admin.register(MatchCandidate)
 class MatchCandidateAdmin(admin.ModelAdmin):
     change_form_template = "admin/matching/matchcandidate/change_form.html"
-    list_display = ("__str__", "status", "in_common", "created_at", "resolved_at")
+    list_display = ("__str__", "the_two", "status", "in_common", "created_at", "resolved_at")
     list_filter = ("status",)
     search_fields = ("=account_a__id", "=account_b__id")
     search_help_text = "Search by an account's number."
@@ -73,6 +74,15 @@ class MatchCandidateAdmin(admin.ModelAdmin):
     @admin.display(description="What they have in common")
     def in_common(self, candidate):
         return " ".join(rules.WORDS.get(name, name) for name in candidate.signals) or "-"
+
+    @admin.display(description="Accounts")
+    def the_two(self, candidate):
+        """The pair as two links, by number: this page never shows a name in its list."""
+        return format_html(
+            "{} and {}",
+            link(candidate.account_a, f"Account #{candidate.account_a_id}"),
+            link(candidate.account_b, f"Account #{candidate.account_b_id}"),
+        )
 
     @admin.display(description="The older account")
     def first_account(self, candidate):

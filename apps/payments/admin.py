@@ -30,6 +30,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 
+from apps.accounts.admin_links import link
 from apps.enterprises.admin import ReadOnlyAdmin
 
 from . import services
@@ -141,14 +142,30 @@ class PurchaseAdmin(ReadOnlyAdmin):
         "what",
         "amount",
         "status",
-        "enterprise",
+        "buyer_link",
+        "enterprise_link",
         "needs_attention",
         "created_at",
         "paid_at",
     )
     list_filter = (NeedsAttentionFilter, "status", "kind")
-    search_fields = ("stripe_session_id", "stripe_payment_intent_id", "enterprise__name")
-    list_select_related = ("enterprise",)
+    # By Stripe's references, the organization, or the email of whoever pressed Buy.
+    search_fields = (
+        "stripe_session_id",
+        "stripe_payment_intent_id",
+        "enterprise__name",
+        "buyer__email",
+    )
+    list_select_related = ("enterprise", "buyer")
+
+    @admin.display(description="Bought by", ordering="buyer__email")
+    def buyer_link(self, purchase):
+        return link(purchase.buyer)
+
+    @admin.display(description="Organization", ordering="enterprise__name")
+    def enterprise_link(self, purchase):
+        return link(purchase.enterprise)
+
     inlines = [RefundInline]
 
     @admin.display(description="What")
