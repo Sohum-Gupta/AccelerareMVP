@@ -1235,7 +1235,7 @@ Run this on the live site. You need window 1 (your superuser login, also for the
 
 **Goal:** the site is safe to put in front of a first customer: a visitor who hits a wrong address or a fault sees a calm page in the site's design; a join code cannot be guessed by trying many; an error report says which account met it, by number; the site says in plain words what it stores and how to ask for deletion; the pages staff and admins use stay quick with a thousand surveys in the database; and there is a written checklist for the things only the founder can do (the AWS console, the first customer).
 
-**Status (2026-11-13).** In progress. Merged and deployed: PR 0, the re-plan (#107); PR 1, the error pages (#108); PR 2, the privacy page (#109), at `/privacy/` and linked from the foot of every page; and PR 3, the limit on guessing join codes (#110): ten refused codes an hour for an account. PR 4, the account number on Sentry's error reports (`m7-sentry-account`), is the pull request that wrote this line. 2,036 tests. The next PR is PR 5, `m7-load-check`. Nobody has tried any of this by hand on the live site, no lawyer has read the privacy page, and no error report has been looked at in Sentry.
+**Status (2026-11-13).** In progress. Merged and deployed: PR 0, the re-plan (#107); PR 1, the error pages (#108); PR 2, the privacy page (#109), at `/privacy/` and linked from the foot of every page; PR 3, the limit on guessing join codes (#110): ten refused codes an hour for an account; and PR 4, the account number on Sentry's error reports (#111). PR 5, the load check (`m7-load-check`), is the pull request that wrote this line: a command that fills a scratch database on a laptop, and the measurements below. No index was needed. 2,044 tests. The next and last PR is PR 6, `m7-docs-live-checks`. Nobody has tried any of this by hand on the live site, no lawyer has read the privacy page, and no error report has been looked at in Sentry.
 
 **How this milestone is run** (founder, 2026-11-13). As Milestone 6 was: each PR is merged once its check is green, without waiting for review, with a short summary after each. The founder was asked what to build before the 8pm showing and said "build it all"; and asked whether the privacy page should wait for a lawyer, and said to build it now from the facts. Merging on green covers Milestone 7 only. **Nothing merges after 7:00pm PST on 2026-11-13**, and no code after about 6:30pm: every merge that is not docs-only deploys to the live site the founder shows at 8pm. Whatever is not merged by then waits, and the founder is asked how to go on.
 
@@ -1263,7 +1263,7 @@ Run this on the live site. You need window 1 (your superuser login, also for the
 - *Sentry.* The account's number is attached to an error report by a few lines of middleware. Nothing else about Sentry changes. The worker's jobs carry no person, so its reports stay as they are.
 - *The privacy page* is at `/privacy/`, open to everyone, with no promises about the future: only what happens today. It names the companies that handle data for the site (Amazon Web Services for hosting and email, Stripe for payments, Sentry for error reports, Better Stack for the uptime check) and says the servers are in the United States. It says there are no advertising or tracking cookies, because there are none. How to ask for deletion: *as built,* the founder was asked which address to print and chose none for tonight, because the site's emails come from a noreply address nobody reads and the reply inbox is not chosen (`06-backlog.md`, T-14). The page says to ask the person at Accelerare who gave you access, or your organization's admin, and that a request is acted on once it comes from the address you log in with. The address is a setting, `CONTACT_EMAIL`: once it is set on the server the page prints it, with no code change.
 - *The load check* is a command that only runs on a laptop (it refuses when `DEBUG` is off) and fills a separate local database, so the founder's own local data is not touched. Its numbers are written into this section. It is not part of the test suite.
-- *An index, if one is needed,* is its own migration, added with a default name, and safe on a table with rows.
+- *An index, if one is needed,* is its own migration, added with a default name, and safe on a table with rows. *As built:* none was needed.
 
 **What you build**
 
@@ -1271,7 +1271,7 @@ Run this on the live site. You need window 1 (your superuser login, also for the
 - `apps/enterprises/throttle.py` (the count) and the check in the `join_code` view; a message in `join_code.html`.
 - `apps/accounts/middleware.py`: the account number for Sentry.
 - `templates/privacy.html`, `config.views.privacy`, a foot on `base.html`.
-- `apps/responses/management/commands/make_load_data.py` and, if measured, a migration with indexes.
+- `apps/responses/management/commands/make_load_data.py`. *As built:* no migration; the measurements showed no index was needed.
 - `docs/09-pilot-checklist.md`: the founder's console steps, the drill, and onboarding the first organization.
 
 **Tests**
@@ -1302,8 +1302,33 @@ Run this on the live site. You need window 1 (your superuser login, also for the
 - [ ] The privacy page has been read by the founder, and by the privacy lawyer before the pilot (D-7).
 - [ ] The first pilot organization is onboarded.
 - [ ] `check --deploy` is clean on every deploy. *(Already true: it has gated every deploy since Milestone 0.)*
-- [ ] With 500 accounts and 1,000 surveys locally, the organization's page, the downloads and the admin's lists answer in under a second.
+- [x] With 500 accounts and 1,000 surveys locally, the organization's page, the downloads and the admin's lists answer in under a second. *(Measured 2026-11-13: the slowest was 53 ms. See "The load check, as measured".)*
 - [ ] All tests pass, including every tenant isolation test.
+
+**The load check, as measured (2026-11-13)**
+
+A scratch database on a laptop (`accelerare_load`), filled by `manage.py make_load_data` through the site's own services: 501 accounts, 10 organizations of 40 members, 1,000 submitted surveys (400 for organizations, 600 personal). Each page was loaded five times with Django's test client; the figure is the median, in thousandths of a second (ms). `DEBUG` was on, which makes Django slower, not faster.
+
+| Page | ms | Database queries |
+| --- | --- | --- |
+| An organization's responses page (40 surveys) | 13 | 7 |
+| The same, ordered by member | 11 | 7 |
+| An organization's CSV download | 9 | 7 |
+| An organization's members page | 10 | 6 |
+| An organization's licences page | 12 | 10 |
+| A member's "My surveys" | 8 | 11 |
+| Django admin: the first page, with its numbers | 11 | 12 |
+| Django admin: Accounts (and a search by email or phone) | 28 (10 to 11) | 5 |
+| Django admin: one account's page | 24 | 13 |
+| Django admin: Responses (and a search by name; by organization) | 33 (14; 41) | 5 |
+| Django admin: Memberships (and a search by phone) | 31 (11) | 5 |
+| Django admin: Entitlements (and a search by email) | 37 (17) | 6 to 8 |
+| Django admin: one organization's page | 18 | 19 |
+| Django admin: Audit log; Background jobs | 21; 34 | 8 |
+| The staff CSV without answers, 1,000 rows | 40 | 5 |
+| The staff CSV with answers, 1,000 rows | 53 | 7 |
+
+Everything is far under a second, and no page asks the database more questions as the data grows (the lists show 100 rows a page). The background worker did the 2,780 jobs that making the data had queued (results, the look for duplicates, 390 licence emails to the laptop's console) in 20 seconds. **No index was added:** Django already indexes every link between tables, and nothing measured was slow. What this does not show: one organization with thousands of surveys (its responses page lists them all on one page), the live server (which is smaller than a laptop), or many people at once.
 
 **Why this order / what to understand**
 
