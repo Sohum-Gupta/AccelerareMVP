@@ -240,7 +240,7 @@ Writing Terraform at this point is worthwhile; by then every setting is understo
 - **PostgreSQL major version:** upgrade the local, CI and RDS databases together to a newer major version before the pilot, while the database is still empty. Check the end-of-standard-support date for 16.
 - **MFA on `founder`** and the CloudWatch alarms are not yet set up. The uptime checker is (2026-11-13), with small follow-ups in `06-backlog.md`, T-26.
 - **The `app.` subdomain is a placeholder:** rename before the pilot.
-- **SSH exposure:** consider Session Manager and removing the open port 22 during Milestone 7 (confirmed 2026-11-12; in the Milestone 7 plan).
+- **SSH exposure:** port 22 stays open with key-only login for now (founder, 2026-11-13, when it was reviewed in Milestone 7). Session Manager and closing the port are a parked decision to review before real customer data (`06-backlog.md`, D-21).
 - **Editor warning:** VS Code flags `env.IMAGE` in `deploy.yml` as "might be invalid" because it is set at run time through `$GITHUB_ENV`. It is a false positive; switching to a step output would silence it.
 
 ## Decision log

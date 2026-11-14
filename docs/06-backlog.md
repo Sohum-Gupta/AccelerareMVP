@@ -39,16 +39,16 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | --- | --- | --- | --- |
 | D-2 | If a company asks us to delete all its members' data, what happens? | With D-7, before the pilot | Undecided; ask the privacy lawyer |
 | D-4 | Names for the tiers | Any time | Keep "Tier 1/2/3" and "Free" for now (2026-11-12) |
-| D-5 | What a free account (no licence) sees on its result page | When results are built (Phase 2) | Just the tier name; no results |
-| D-6 | How the scoring algorithm and insights stay private | When the algorithm is built (Phase 2) | Undecided |
+| D-6 | How the scoring algorithm and insights stay private | Again if the algorithm stops fitting in a file of data | Loaded as private files through the Django admin (decided for now, 2026-11-13); the trade-offs, the limits and the easy leaks are in Part 2 |
 | D-7 | The privacy lawyer's list (what is anonymous enough, privacy text, backups, company agreements, consent) | Before the pilot | Not yet asked |
 | D-8 | Should people get their own "delete my account" button? | With D-7 | No; staff erase from the admin |
 | D-9 | Split Support staff into two groups, and should they read the statements? | When the team grows | One group; they can read the statements |
 | D-10 | Show dates in each person's time zone? | If people complain | Day only, in UTC |
-| D-11 | Keep `app.theaccelerare.com` or rename it? | Before the pilot, ideally before T-4 and T-10 | `app.` is a placeholder |
+| D-11 | The site's address will change from `app.theaccelerare.com`. To what, and when? | Later (your word, 2026-11-13) | Keep `app.theaccelerare.com` for now |
 | D-15 | Hide whether an email has an account (sign-up timing, reset warning) | If it becomes a concern | Accepted for now (2026-11-12) |
 | D-20 | Review sales tax and invoices with an accountant, and with it whether to use Stripe's "Managed Payments" (Stripe handles tax, fraud and disputes for 3.5% more) | Before real prices are set | No tax collected; Stripe's receipt, and a numbered invoice for an organization; Managed Payments not used |
 | D-17 | Review the wording that tells a member what an organization's admins can see | With D-7, before the pilot | The wording as built; "fine for now" (2026-11-13) |
+| D-21 | Close the server's SSH port, or leave it open with key-only login? | Before real customer data | Leave it open (decided for now, 2026-11-13) |
 
 ## Tasks still open
 
@@ -73,7 +73,6 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | T-26 | Uptime checker, four small things: watch the worker too, avoid false alarms during a deploy, a second place for alerts, and the free plan's terms | When you next open Better Stack |
 | T-27 | Run the Milestone 6 live checklist | Now |
 | T-28 | Run the Milestone 7 live checklist, then the pilot checklist | Now; part B raises a Sentry alert on purpose |
-| T-29 | Decide whether to close the SSH port | Before the pilot, on a quiet day |
 
 ## Later, not yet planned
 
@@ -102,6 +101,7 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - An item marked **Decision** is the founder's to make. Do not pick an answer. Present the options, recommend one if asked, and wait.
 - The founder reviewed every decision on 2026-11-12. Those still here were deliberately left for later; do not re-ask them unprompted unless the milestone that needs them is being planned.
 - Never put survey statements, answers or a person's email into this file, a test or an admin history label.
+- Never put the real algorithm (which answers count towards what, its names, cut-offs, rules or texts) into this file or anything else that is committed or posted on GitHub. See D-6, "Easy leaks".
 - When an item is resolved: remove it from Part 1 and Part 2, record the outcome in the decision log of the doc it belongs to, and update any doc that mentioned it as open (the "Source" lines say where).
 - Steps that need the AWS console, SSH or GitHub are flagged **[console]**. CLAUDE.md asks that every such step be flagged, and that you ask before running anything against AWS.
 
@@ -194,22 +194,15 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 ### T-28 Run the Milestone 7 live checklist, then the pilot checklist
 - **Status:** open, waiting on the founder, since 2026-11-13. Milestone 7 is code-complete and deployed (PRs 0 to 7, #107 to #113 and the closing docs PR). **Nothing in it has been tried by a person on the live site. No error report has been seen in Sentry. The privacy page is live and no lawyer has read it.**
 - **What to do first:** "Live checklist (for the founder)" in `05-build-plan.md`, Milestone 7: part A (a wrong address shows "Page not found"), part B ("Send a test error…" on the Background jobs page, then look in Sentry for two `DeliberateError` reports), part C (read `/privacy/`), and the optional part D (eleven wrong join codes). **Part B raises a Sentry alert on purpose.**
-- **Then:** `09-pilot-checklist.md`. Its Part 1 is the table of what must be done before a real customer's data (T-4, T-6, T-7, T-8, T-14, T-26, T-29, D-7, D-11, D-20); Part 3 is the drill that stops the web container **[SSH]**, which takes the site down for a few minutes; Part 4 is how to bring on the first organization from the Django admin.
+- **Then:** `09-pilot-checklist.md`. Its Part 1 is the table of what must be done before a real customer's data (T-4, T-6, T-7, T-8, T-14, T-26, D-7, D-11, D-20, D-21); Part 3 is the drill that stops the web container **[SSH]**, which takes the site down for a few minutes; Part 4 is how to bring on the first organization from the Django admin.
 - **If something fails:** if no error arrives in Sentry, `SENTRY_DSN` in Parameter Store is empty or wrong (`04-infrastructure.md`). If only the worker's is missing, the worker's log line is not being picked up as an error: tell Claude.
 - **Done when:** the founder reports parts A to C; a docs-only PR then ticks boxes 1 and 4 of Milestone 7. Boxes 2, 3 and 5 are ticked as the pilot checklist is worked through.
 - **Source:** `05-build-plan.md`, Milestone 7; `09-pilot-checklist.md`.
 
-### T-29 The SSH port
-- **Status:** open; decided on 2026-11-12 to revisit in Milestone 7, and on 2026-11-13 left as it is for now. **[console]**
-- **Today:** port 22 on the server is open to anywhere, with key-only login. The deploy reaches the server over SSH.
-- **The choice:** leave it (accepted for the trial); restrict the port to known addresses (GitHub's deploy runners do not have a fixed one, so this needs a different way to deploy); or close it and use AWS Session Manager for both people and the deploy.
-- **Why not tonight:** any of these changes how every deploy reaches the server. A mistake stops deploys, or locks everyone out. Do it on a quiet day, with the founder at the AWS console.
-- **Needed by:** before the pilot, as a decision; the change itself can follow.
-
 ### T-27 Run the Milestone 6 live checklist
 - **Status:** open, waiting on the founder, since 2026-11-13. Milestone 6 is code-complete and deployed (PRs 0 to 6, #100 to #105 and the closing docs PR). **Nothing in it has been tried by a person on the live site, and no downloaded file has been opened in a spreadsheet program by a person** (the tests read the files with Python's `csv` module).
 - **What to do:** "Live checklist (for the founder)" in `05-build-plan.md`, Milestone 6: part A (an organization's admin downloads the file and opens it), part B (the two staff files; Support staff get only the one without answers), part C (erase a test account and find the numbers in the audit log), part D (the numbers on the Django admin's first page, each opening its list), and the optional part E (links, "Related" lines and search). It needs the superuser login, an organization with at least one submitted survey, and a test account to erase. Nothing needs SSH, GitHub or the AWS console.
-- **Also:** read `08-deletion-requests.md`. Who may ask and the 30 days to answer are the builder's draft; they are the founder's and the privacy lawyer's to settle (D-7).
+- **Also:** read `08-deletion-requests.md`. The 30 days are decided (founder, 2026-11-13: an account is erased within 30 days of the request, and the person can withdraw until then). Who may ask is still the builder's draft, for the founder and the privacy lawyer to settle (D-7).
 - **If something fails:** note what the page said and when. A download that fails halfway is still in the audit log (`responses.exported` is written before the first line is sent). If a file opens with every row in one column, the spreadsheet program was told the wrong separator: the file is comma-separated.
 - **Done when:** the founder reports each part. Then a docs-only PR ticks the four boxes, records the date in the decision log, updates the status lines and removes this item.
 - **Source:** `05-build-plan.md`, Milestone 6, "Done when" and "Live checklist".
@@ -242,17 +235,52 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Status:** decided for now (2026-11-12): keep "Tier 1", "Tier 2", "Tier 3", and "Free" for tier 0.
 - **Where:** `templates/responses/_tier.html`, the one place tier names are rendered. Renaming is a template change plus the tests that assert the words.
 
-### D-5 What tier 0 shows on the result page
-- **Status:** reviewed 2026-11-12, left for later. undecided; Milestone 5. The founder suggested sample or limited insights from the paid tiers; alternatives are a limited subset or just an invitation to buy. Today the result page shows date, tier and a results placeholder.
-- **Related:** `apps/results/tiering.py` (planned in the Phase 2 stub) maps fields to a minimum tier.
-
 ### D-6 Keeping the algorithm and insights private
-- **Status:** reviewed 2026-11-12, left for later. undecided; Milestone 5. The repository and the ghcr.io image are public and the founder wants them to stay so.
-- **Options recorded:** a second private repository installed as a package (makes the image private, so the server needs `docker login ghcr.io` with a `read:packages` token; NOTES.md 2026-10-07 entry on ghcr visibility), or a file loaded at run time, the way the survey wording is loaded through the admin (Milestone 2 PR 9).
+- **Status:** decided for now (founder, 2026-11-13): **option 1, load it as data through the Django admin.** "A fine solution for now", so it stays listed here with what would reopen it. Nothing is built: Phase 2 has not been asked for.
+- **What is fixed (founder, 2026-11-13):** the GitHub repository stays public, and the algorithm must not be public. The image the server downloads (ghcr.io) is public today, so anything inside the repository or the image is public.
+- **What decided it:** on 2026-11-13 the founder was handed the algorithm's plan (kept outside this repository). Its shape is a scoring scheme: nearly all of it is numbers, cut-offs, names and a library of texts. One part is a short list of rules, and that can be written as data too.
+- **The decision, in outline:**
+  - *The public code is a general scoring engine.* It applies whatever file is loaded and holds nothing of the real algorithm. Tests and CI run on a made-up sample file, as they do for the survey wording.
+  - *Two private files, uploaded by a superuser on an admin page.* One holds the scoring (which answers count towards what, the cut-offs, the rules, the names). The other holds the texts. They are separate so that correcting a text does not work anyone's result out again.
+  - *The rules are an ordered list of conditions inside the scoring file,* not code in the repository. A reader of the public code learns that there are rules, not what they are, and a rule can change without a deploy.
+  - *Each upload is a new version,* and a result keeps the version it was worked out with.
+  - *The scoring file carries its own examples* ("these answers give this result"). The admin page runs them and refuses a file that fails one. They stand in for tests that cannot be public.
+  - *Results are stored as plain numbers and keys.* Tables, charts and an organization's totals are built from stored results in public code; the names shown come from the loaded file.
+  - *Where the files are kept.* Today: the founder's laptop (`private/`, ignored by git) and the database. A private store with a history (for example a private repository that nothing reads automatically) was suggested and is not decided.
+- **Trade-offs accepted:**
+  - *The engine can only do what its file format can say.* An algorithm that one day needs real code means extending the engine in public, or moving to option 2.
+  - *More to build.* A general engine and an upload page are more work than writing the algorithm straight into `algorithm.py`.
+  - *The public tests never run the real algorithm.* Only the examples inside the file check it, and they are as good as whoever writes them.
+  - *The file format is public.* A reader learns what kinds of things the algorithm is made of, though not their values.
+  - *The real algorithm is not in version control.* It lives in the founder's files and the database. A lost file is recovered from the database or a backup; nothing shows what changed between two uploads unless the founder keeps the old files.
+  - *Whoever can read the database can read the algorithm:* a superuser, anyone with a database backup, and any staff group given the admin pages that show it. Which groups see those pages is decided when they are built (compare D-9, where Support staff read the statements).
+  - *A wrong upload changes every later result.* The page needs "check, then apply" with a preview, like the survey wording page.
+- **What "private" cannot mean, under any option:**
+  - *A person sees their own results.* With exact numbers on the page, someone determined can work out much of the mapping and the cut-offs over a few attempts (each costs a licence). Showing rounded numbers or only bands would slow that down; not decided.
+  - *The texts are shown to paying customers,* so they can be copied.
+  - *Downloads and charts carry results out of the site,* for an organization's admins as well as for the person.
+  - So "private" means the algorithm is never handed over, not that it cannot be worked out.
+- **Easy leaks, to avoid while Phase 2 is planned and built:**
+  - *These docs are public.* Plans for Phase 2 use general words (scales, bands, profiles). The real names, cut-offs, rules and texts stay out of `docs/`, `NOTES.md`, code, comments, tests, fixtures and migrations. A migration that seeds the real file would publish it.
+  - *So is everything around the code:* commit messages, pull request titles and descriptions, branch names, test names and the test logs on GitHub.
+  - *The Docker image is public.* Nothing private may be copied into it when it is built.
+  - *The browser.* Scoring runs on the server. No page, script or response carries the mapping, the cut-offs or the rules; a person receives only their own result, already filtered by tier.
+  - *Sentry, logs, the audit log and admin history* get versions and counts, never a file's contents. Sentry already receives no request bodies or local variables; the upload page must keep it that way.
+  - *The made-up sample file* must not resemble the real one: different names, numbers and sizes.
+  - *The plan and the founder's notes on it* stay outside the repository (`private/` is ignored by git).
+- **What would reopen this:** the algorithm can no longer be written as a file of data, or the file format itself starts to give too much away. Option 2 is then the next one to look at.
+- **The four options, as put to the founder (option 1 was chosen):**
+  1. *Load it as data through the Django admin.* The algorithm is a file of numbers and rules (weights, cut-offs, the wording of each insight) that a superuser uploads on an admin page, the way the survey wording is loaded (Milestone 2, PR 9). The public code only knows how to apply such a file. Nothing changes in AWS or GitHub, no SSH, and staff can update it. It only works if the algorithm can be written as data; arbitrary code cannot be uploaded this way.
+  2. *A private repository, installed when the image is built.* The algorithm is ordinary Python in a second, private repository that the deploy pulls in. The image must then become private, so the server needs `docker login ghcr.io` with a `read:packages` token (NOTES.md, 2026-10-07), and the public tests run against a stand-in.
+  3. *A file placed on the server* and attached to the app when it starts. Repository and image stay public, but getting the file there needs SSH or an AWS bucket, CI never tests it, and a rebuilt server loses it unless someone remembers.
+  4. *A separate private service* that the site calls. A second thing to deploy, watch and secure; too much for one developer at this size.
+- **Recommendation given:** option 1 if the algorithm is a scoring scheme (weights, cut-offs and texts), option 2 if it is logic that has to be written as a program. The wording of the insights is probably private too, and in option 1 it travels in the same file.
+- **Already decided:** a free account sees no results, only the tier name (2026-11-13; was D-5).
+- **Where it plugs in:** `apps/results/algorithm.py` (`compute_result`, `ALGORITHM_VERSION`), `apps/results/tiering.py`; see `05-build-plan.md`, "Phase 2 stub". With option 1, `compute_result` applies the loaded file instead of holding the algorithm, and the version kept with a result comes from that file.
 
 ### D-7 The privacy lawyer's list
 - **Status:** reviewed 2026-11-12, left for later. not yet asked. Needed before the pilot (Milestone 7).
-- **Questions collected so far:** is "strip email, phone and name, keep results and demographics" anonymous enough in the US, UK and India (age, gender, company and exact dates can identify someone in a small company); what the privacy text and disclosure page must say (the wording now on the site is listed under D-17); how long erased data may stay in RDS backups (30 days today); enterprise data agreements; D-2 and the founder's "keep the membership link on erasure" choice; consent and verifiable parental consent for under-18s in India (minors do not take the survey); transfers to the US, a UK representative and ICO registration; India's DPDP Act (substantive duties from 2027-05-13); consent, an unsubscribe link and `List-Unsubscribe` for bulk email (for example a feedback request to everyone who took the survey), which would be sent in batches through the Milestone 5 queue; data minimisation (an age band, optional gender) before demographics are collected; an invite sent to someone who never made an account keeps their address on the invite row, and the erase page works on accounts, so there is no admin tool yet to remove it; the privacy page itself (`/privacy/`, `templates/privacy.html`), which the founder chose on 2026-11-13 to publish from the facts before any legal review, and which says among other things "We do not sell your information"; the draft procedure for deletion requests (`08-deletion-requests.md`, Milestone 6), in particular who may ask, the 30 days to answer, and that an organization's admin may already have downloaded a file with a member's name and email address in it; Stripe keeps the email address a receipt was sent to, as the payment processor, after the person is erased here (Milestone 4b).
+- **Questions collected so far:** is "strip email, phone and name, keep results and demographics" anonymous enough in the US, UK and India (age, gender, company and exact dates can identify someone in a small company); what the privacy text and disclosure page must say (the wording now on the site is listed under D-17); how long erased data may stay in RDS backups (30 days today); enterprise data agreements; D-2 and the founder's "keep the membership link on erasure" choice; consent and verifiable parental consent for under-18s in India (minors do not take the survey); transfers to the US, a UK representative and ICO registration; India's DPDP Act (substantive duties from 2027-05-13); consent, an unsubscribe link and `List-Unsubscribe` for bulk email (for example a feedback request to everyone who took the survey), which would be sent in batches through the Milestone 5 queue; data minimisation (an age band, optional gender) before demographics are collected; an invite sent to someone who never made an account keeps their address on the invite row, and the erase page works on accounts, so there is no admin tool yet to remove it; the privacy page itself (`/privacy/`, `templates/privacy.html`), which the founder chose on 2026-11-13 to publish from the facts before any legal review, and which says among other things "We do not sell your information"; the draft procedure for deletion requests (`08-deletion-requests.md`, Milestone 6), in particular who may ask, whether erasing within 30 days of a request is soon enough everywhere the site is used, and that an organization's admin may already have downloaded a file with a member's name and email address in it; Stripe keeps the email address a receipt was sent to, as the payment processor, after the person is erased here (Milestone 4b).
 - **Source:** `05-build-plan.md` open follow-ups and Milestone 7; `04-infrastructure.md` "Pending and future".
 
 ### D-8 A user-facing "delete my account" button
@@ -265,7 +293,8 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Status:** reviewed 2026-11-12, left for later. accepted for now. History and result pages show the day only, in UTC, so they can be a day off far from UTC. Fixing it needs a time zone per account, which is not collected. Revisit if people are confused.
 
 ### D-11 The site's real address
-- **Status:** reviewed 2026-11-12, left for later. `app.theaccelerare.com` is a working name; rename before the pilot. **[console]** and GoDaddy.
+- **Status:** decided for now (founder, 2026-11-13): **keep `app.theaccelerare.com`**. It will have to change later; when, and to what, is not decided, and the founder asked for this to stay on the backlog. It is no longer tied to the pilot. **[console]** and GoDaddy when it happens.
+- **What the wait costs:** Amazon SES is verified for `app.theaccelerare.com`, and the request for production access (T-4) was made for it. A new sending domain must be verified again and may need a new request. The DMARC work (T-10) would also be done again. Stripe's webhook address and the uptime checker's monitors name the address too.
 - **A rename touches:** the GoDaddy A record, `ALLOWED_HOSTS` in Parameter Store, `deploy/Caddyfile`, the SES domain identity and its three DKIM records (SES is verified for `app.theaccelerare.com`; a new sending domain needs re-verification and possibly a new production-access check), `DEFAULT_FROM_EMAIL`, and the docs and NOTES that name it. Decide before T-10 so the DMARC work is not done twice.
 
 ### D-15 Revealing whether an email has an account
@@ -292,6 +321,18 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **Questions for the accountant:** does the founder's home state, or any state where customers are, tax this kind of sale (an online assessment and its results); at what volume of sales in another state does a duty to collect begin; what an invoice to a business must show; whether the $1, $2, $3 placeholder prices are before or after tax once real prices are chosen.
 - **If tax must be collected:** switch on Stripe's tax setting **[console]** (Stripe's dashboard, not AWS), register where required, and set `STRIPE_AUTOMATIC_TAX` to `true` in Parameter Store. Buying then needs no code change. **Refunds do:** the Refund button sends back the price before tax, because the site's record holds the price before tax, so the tax part of a refund would stay with Accelerare. That is a small change to `payments.services.refund` (refund the tax too), to be made before the setting is switched on. Record the answer in the decision log of `05-build-plan.md`.
 - **Source:** the founder's answers of 2026-11-13; `05-build-plan.md`, Milestone 4b.
+
+### D-21 The server's SSH port
+- **Status:** decided for now (founder, 2026-11-13): **leave it as it is**, and review it later as a decision. Raised in Milestone 7 (it was task T-29 for an afternoon).
+- **Today:** port 22 on the server is open to the whole internet and accepts a key file only, never a password. Two keys exist: the founder's, and one that only GitHub's deploy uses. The deploy reaches the server over SSH.
+- **The risk:** not a guessed password (there is none), but a stolen key (a lost laptop, a leaked GitHub secret) or a flaw in the SSH software itself.
+- **The options, as put to the founder:**
+  - *A. Leave it* (chosen for now). Keep the server's software updated.
+  - *B. Allow only known addresses.* GitHub deploys from addresses that change constantly, so deploys would stop unless the deploy is changed too, and the founder would be locked out when travelling.
+  - *C. Close the port and use AWS Session Manager.* A terminal through the AWS console, after the AWS login and its MFA, and the deploy rewritten to send its commands through AWS. About half a day across the AWS console **[console]** and `deploy.yml`; a mistake stops deploys until it is fixed; GitHub then holds AWS credentials instead of an SSH key.
+- **Recommendation given:** A for the trial, C before real customer data, done on a quiet day with the founder at the AWS console. Until then, two cheap things lower the risk without touching the deploy: MFA on the AWS login (T-6), and the key file kept only on the founder's laptop.
+- **Review when:** before the first real customer's data, with `09-pilot-checklist.md`, Part 1.
+- **Source:** `04-infrastructure.md`, decision log 2026-10-09 and "Security baseline".
 
 ### Small things to revisit only if they come up
 - **A stock licence's tier changed by staff:** in the Django admin, staff changing the tier of a licence that came from an organization's stock goes through the older `change_tier`, which does not check the stock, so staff can push a tier over what was bought. The page then says "12 of 10 given" and no more can be given at that tier, the same end state as lowering a stock below what is given (NOTES.md 2026-11-13). Add the check if staff ever do this by mistake.
@@ -320,7 +361,7 @@ None of these is in a milestone. Each has a seam in the current design (`02-arch
 - **L-2 SSO per enterprise** (SAML or OIDC), optional beside local accounts. FR-5. A second login method on the account; memberships unchanged.
 - **L-3 Helper admin.** Requirements undefined. A third value in `membership.role` or a platform role table.
 - **L-4 Dashboards and charts.** FR-21. Read-only queries over responses and results.
-- **L-5 Algorithm, results and insights (Phase 2).** The seam is planned for Milestone 5: `apps/results/` with `compute_result` returning `None`, `visible_fields` and `recompute_results`. See `05-build-plan.md`, "Phase 2 stub", and D-5, D-6.
+- **L-5 Algorithm, results and insights (Phase 2).** The seam is planned for Milestone 5: `apps/results/` with `compute_result` returning `None`, `visible_fields` and `recompute_results`. See `05-build-plan.md`, "Phase 2 stub", and D-6. A free account sees no results (decided 2026-11-13; was D-5).
 - **L-6 Survey version 2.** New `SurveyVersion` and `Question` rows; old responses keep their version.
 - **L-7 Phone verification by SMS.** Needs a paid SMS provider and per-country sender registration (India DLT takes weeks). Turning it on activates the verified-phone matching rule, which is inert until then.
 - **L-8 Move to Mumbai (Phase 4).** `04-infrastructure.md`, "Moving to Mumbai"; SES must be set up and out of the sandbox in `ap-south-1` first; write Terraform at that point.
