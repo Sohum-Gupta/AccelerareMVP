@@ -1,0 +1,30 @@
+{% load static %}
+{% comment %}
+The layout of the "not found", "not allowed" and "form expired" pages.
+
+It is the site's look with nothing personal in it: no account menu, no log-out
+form, no security token. That is on purpose. An organization a visitor may not
+see answers "not found" exactly as one that does not exist does, byte for
+byte (tests/test_tenant_isolation.py), and a page that drew the visitor's own
+menu or a fresh token would differ from one load to the next.
+{% endcomment %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Accelerare{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+  <header class="border-b border-slate-200 bg-white">
+    <nav class="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+      <a href="{% url 'home' %}" class="text-lg font-semibold text-slate-900 no-underline">Accelerare</a>
+    </nav>
+  </header>
+  <main class="mx-auto max-w-md px-4 py-8">
+    {% block content %}{% endblock %}
+    <p><a href="{% url 'home' %}">Go to the start page</a></p>
+  </main>
+</body>
+</html>
