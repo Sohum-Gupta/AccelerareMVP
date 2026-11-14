@@ -37,7 +37,7 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 
 | ID | Question | Needed by | Today's default |
 | --- | --- | --- | --- |
-| D-2 | If a company asks us to delete all its members' data at once, what happens? | With D-7, before the pilot | One member at a time is decided: an organization's admin may ask (2026-11-13). All at once is undecided; ask the privacy lawyer |
+| D-2 | If a company asks us to delete all its members' data, what happens? | With D-7, before the pilot | It cannot have an account deleted: only the person can ask (2026-11-13). It can remove a member from the organization. Whether it can have the surveys taken for it deleted is undecided; ask the privacy lawyer |
 | D-4 | Names for the tiers | Any time | Keep "Tier 1/2/3" and "Free" for now (2026-11-12) |
 | D-6 | How the scoring algorithm and insights stay private | Again if the algorithm stops fitting in a file of data | Loaded as private files through the Django admin (decided for now, 2026-11-13); the trade-offs, the limits and the easy leaks are in Part 2 |
 | D-7 | The privacy lawyer's list (what is anonymous enough, privacy text, backups, company agreements, consent) | Before the pilot | Not yet asked |
@@ -73,6 +73,7 @@ Milestones 0, 1 and 2 are built and live, and Milestone 2 was closed on 2026-11-
 | T-26 | Uptime checker, four small things: watch the worker too, avoid false alarms during a deploy, a second place for alerts, and the free plan's terms | When you next open Better Stack |
 | T-27 | Run the Milestone 6 live checklist | Now |
 | T-28 | Run the Milestone 7 live checklist, then the pilot checklist | Now; part B raises a Sentry alert on purpose |
+| T-30 | Build "remove a member from the organization" as one step that also puts their unused licences back in the stock (asked for on 2026-11-13; today it takes two steps on two pages) | When you say; not before the walkthrough |
 
 ## Later, not yet planned
 
@@ -202,7 +203,7 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 ### T-27 Run the Milestone 6 live checklist
 - **Status:** open, waiting on the founder, since 2026-11-13. Milestone 6 is code-complete and deployed (PRs 0 to 6, #100 to #105 and the closing docs PR). **Nothing in it has been tried by a person on the live site, and no downloaded file has been opened in a spreadsheet program by a person** (the tests read the files with Python's `csv` module).
 - **What to do:** "Live checklist (for the founder)" in `05-build-plan.md`, Milestone 6: part A (an organization's admin downloads the file and opens it), part B (the two staff files; Support staff get only the one without answers), part C (erase a test account and find the numbers in the audit log), part D (the numbers on the Django admin's first page, each opening its list), and the optional part E (links, "Related" lines and search). It needs the superuser login, an organization with at least one submitted survey, and a test account to erase. Nothing needs SSH, GitHub or the AWS console.
-- **Also:** read `08-deletion-requests.md`. The 30 days are decided (founder, 2026-11-13: an account is erased within 30 days of the request, and the person can withdraw until then). Who may ask is decided too (founder, 2026-11-13): the person, or an admin of an organization they belong to. Two steps for the second case are the builder's draft and want your word: staff stop when the account has anything outside that organization, and staff tell the member.
+- **Also:** read `08-deletion-requests.md`. The 30 days are decided (founder, 2026-11-13: an account is erased within 30 days of the request, and the person can withdraw until then). Who may ask is decided too (founder, 2026-11-13): only the person. An organization cannot have a member's account deleted; it can remove the member from the organization. For the privacy lawyer to confirm (D-7).
 - **If something fails:** note what the page said and when. A download that fails halfway is still in the audit log (`responses.exported` is written before the first line is sent). If a file opens with every row in one column, the spreadsheet program was told the wrong separator: the file is comma-separated.
 - **Done when:** the founder reports each part. Then a docs-only PR ticks the four boxes, records the date in the decision log, updates the status lines and removes this item.
 - **Source:** `05-build-plan.md`, Milestone 6, "Done when" and "Live checklist".
@@ -223,13 +224,27 @@ Read `CLAUDE.md` and `05-build-plan.md` first. Rules that apply to every item be
 - **When built:** a small receiver for SNS's message (its signature checked, like Stripe's), a table of addresses not to write to, a check before every send, and the list visible to staff in the Django admin. The Milestone 5 worker can do the sending check.
 - **Needed by:** before real email volume; with T-4 (SES production access) and T-10 (DMARC).
 
+### T-30 Remove a member from an organization in one step
+- **Status:** asked for by the founder on 2026-11-13; not built.
+- **The rule (founder, 2026-11-13):** an organization's admin can remove a member from the organization and take back any unused licence the organization gave them. The person's account lives on. Only the person can have their account deleted, and staff do it in the Django admin (`08-deletion-requests.md`).
+- **What exists today:** both halves, on two pages.
+  - "Deactivate" on the Members page (`enterprises.services.deactivate_membership`): the membership is switched off, the account is untouched, an unfinished survey for the organization is deleted, and submitted surveys are kept.
+  - "Take back" on the Licences page (`entitlements.services.take_back_seat`): an unused licence goes back to the stock. It works for a deactivated member too.
+  - The gap: deactivating alone leaves the unused licence with the membership, still counted as given, until an admin takes it back by hand.
+- **To build:** one confirmation page that says what will happen and does it in one go: the membership off, the unfinished survey deleted, each unused licence from the stock back in the stock, one audit entry. A licence whose survey was submitted is spent and stays. A licence the person bought themselves, or one staff granted by hand, is never touched.
+- **For the founder to say when it is built:**
+  - Whether the button says "Remove" or stays "Deactivate". A removed member can be reactivated today, and would then need a licence again.
+  - Whether the person is told by email.
+  - Whether surveys they submitted for the organization stay visible to its admins under their name, as today, and whether they count in the organization's summaries in Phase 2.
+- **The privacy page** says nothing today about being removed from an organization. The pull request that builds this adds a sentence.
+
 ## Decisions
 
 ### D-2 Enterprise-wide deletion requests
-- **Status:** partly decided. **Decided (founder, 2026-11-13):** an admin of an organization may ask for the account of a member of that organization to be deleted; staff erase it from the Django admin, one account at a time, within 30 days (`08-deletion-requests.md`, "When an organization's admin asks"). The privacy page says so. For the privacy lawyer to confirm (D-7).
-- **Still open:** a request to delete **every** member of an organization at once (staff erasing each one is the obvious way, but it was not confirmed), and whether the membership link should survive that kind of request.
-- **What the decision means in practice, to be confirmed by the founder:** erasing removes the person's whole account, not only their place in the organization, because no tool deletes one organization's share. So an admin's request can remove surveys the person took personally, licences they bought themselves, and their memberships of other organizations. The procedure therefore has two steps that are the builder's draft: staff stop and tell the founder when the account has anything outside that organization, and staff tell the member, who then has the 30 days to object. If the founder wants an admin's request to remove only what was done for that organization, that is a feature to build.
+- **Status:** partly decided; the rest needs the privacy lawyer (D-7). Reviewed 2026-11-12. Milestone 3 was built without it: nothing in the product lets an organization ask for this, so a request would come to staff.
+- **Decided (founder, 2026-11-13):** an organization cannot have a member's account deleted. Only the person can ask, and staff erase in the Django admin. An organization can remove a member from itself and take back unused licences (T-30). For a few minutes the same evening the opposite was recorded and was on the live privacy page (#116); that was undone.
 - **Already decided (2026-11-12):** erasing a person **keeps** their membership link; the stripped response stays visible to the enterprise and counts in its historical total. This is the founder's choice, for the lawyer to confirm (recorded in `05-build-plan.md`, Milestone 3 product rules and decision log). Enterprise admins never see answers anyway (decided the same day, settling FR-19's enterprise scope).
+- **Still open:** whether an enterprise can ask for the surveys taken for it to be deleted (its own share, not anyone's account). No tool does that today, and whether the membership link survives that kind of request is not decided either.
 - **Code today:** `apps/accounts/erasure.py`, the strip list is one function, `_anonymise`; `Account.anonymised_at` marks stripped accounts. A completed survey means strip, otherwise hard delete.
 
 ### D-4 Tier names

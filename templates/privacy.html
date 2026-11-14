@@ -58,8 +58,7 @@ on 2026-11-13 to publish it from the facts.
   <section class="mb-6" aria-labelledby="deleting">
     <h2 id="deleting" class="mb-2 text-lg font-semibold">Deleting your account</h2>
     <p>You can ask for your account to be deleted.
-      {% if contact_email %}Write to <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> from the email address you log in with, so that we know it is you.{% else %}Ask the person at Accelerare who gave you access, or the admin of your organization, who can put you in touch. We act on your request once it comes from the email address you log in with, so that we know it is you.{% endif %}</p>
-    <p>An admin of an organization you belong to can also ask us to delete your account.</p>
+      {% if contact_email %}Write to <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> from the email address you log in with, so that we know it is you.{% else %}Ask the person at Accelerare who gave you access, or the admin of your organization, who can put you in touch. We act on a request once it comes from the email address you log in with, so that we know it is you.{% endif %}</p>
     <ul class="mb-3 list-disc space-y-1 pl-5">
       <li>If you never finished a survey, everything about you is deleted.</li>
       <li>If you finished one, we remove your name, email addresses, phone number and login, and keep the survey with nothing that links it to you. An organization you took it for then sees "Erased member" in place of your name.</li>
