@@ -33,6 +33,7 @@ happened. `skip_locked` means a second worker would simply take the next job.
 """
 
 import logging
+import secrets
 from datetime import timedelta
 
 from django.db import transaction
@@ -48,12 +49,22 @@ STUCK_AFTER = timedelta(minutes=10)
 BEHIND_AFTER = timedelta(minutes=10)
 # What staff queue from the admin to see that the worker is alive. It does nothing.
 TEST_KIND = "test_job"
+# What a superuser queues from the admin to see an error arrive in Sentry from
+# the worker. It fails on purpose, once, and is done on its second try.
+TEST_ERROR_KIND = "test_error"
 
 _handlers = {}
 
 
 class UnknownKind(Exception):
     """No function is registered for this kind of job."""
+
+
+class DeliberateError(Exception):
+    """
+    An error raised on purpose, from the admin's "Send a test error" page, to
+    see that error reports reach Sentry. Nothing is wrong when this appears.
+    """
 
 
 def job(kind):
@@ -83,6 +94,15 @@ def enqueue(kind, payload=None, *, run_after=None):
     return Job.objects.create(
         kind=kind, payload=payload or {}, run_after=run_after or timezone.now()
     )
+
+
+def send_test_error():
+    """
+    Queue the job that fails once in the worker, and return it. The page that
+    calls this then raises DeliberateError itself, so that one press sends an
+    error from the web site and one from the worker.
+    """
+    return enqueue(TEST_ERROR_KIND, {"token": secrets.token_hex(8)})
 
 
 def wait_after(attempts):

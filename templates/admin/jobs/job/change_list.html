@@ -1,10 +1,12 @@
 {% extends "admin/change_list.html" %}
 {% comment %}
 The Jobs page: says how the queue stands above the list, and gives superusers a
-"Queue a test job" button to see that the worker is alive.
+"Queue a test job" button to see that the worker is alive, and "Send a test
+error…", which leads to a page that sends one error on purpose to Sentry.
 {% endcomment %}
 {% block object-tools-items %}
   {% if can_test %}
+    <li><a href="{{ test_error_url }}">Send a test error…</a></li>
     <li>
       <form method="post" action="{{ test_url }}" style="display: inline;">
         {% csrf_token %}

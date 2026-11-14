@@ -15,6 +15,7 @@ from django.contrib import admin, messages
 from django.contrib.admin.options import ActionLocation
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect
+from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.views.decorators.http import require_POST
 
@@ -80,12 +81,19 @@ class JobAdmin(admin.ModelAdmin):
     # --- the line at the top, and "Queue a test job" ---------------------------------
 
     def get_urls(self):
-        custom = path(
-            "queue-a-test-job/",
-            self.admin_site.admin_view(require_POST(self.queue_test_job)),
-            name="jobs_job_test",
-        )
-        return [custom, *super().get_urls()]
+        custom = [
+            path(
+                "queue-a-test-job/",
+                self.admin_site.admin_view(require_POST(self.queue_test_job)),
+                name="jobs_job_test",
+            ),
+            path(
+                "send-a-test-error/",
+                self.admin_site.admin_view(self.send_test_error),
+                name="jobs_job_test_error",
+            ),
+        ]
+        return [*custom, *super().get_urls()]
 
     def changelist_view(self, request, extra_context=None):
         queue = services.waiting()
@@ -104,6 +112,7 @@ class JobAdmin(admin.ModelAdmin):
             "behind": queue["behind"],
             "can_test": request.user.is_superuser,
             "test_url": reverse("admin:jobs_job_test"),
+            "test_error_url": reverse("admin:jobs_job_test_error"),
         }
         return super().changelist_view(request, extra_context)
 
@@ -118,3 +127,26 @@ class JobAdmin(admin.ModelAdmin):
             messages.SUCCESS,
         )
         return redirect("admin:jobs_job_changelist")
+
+    def send_test_error(self, request):
+        """
+        "Send a test error": a page that says what will happen, and a button
+        that fails on purpose. One press sends an error from the web site
+        (this request) and one from the worker (a job that fails once), so a
+        superuser can see both arrive in Sentry without SSH. The person who
+        presses it sees the site's "Something went wrong" page: that is the
+        test working.
+        """
+        if not request.user.is_superuser:
+            raise PermissionDenied
+        if request.method == "POST":
+            services.send_test_error()
+            raise services.DeliberateError(
+                "A test error, sent on purpose from the Django admin. Nothing is wrong."
+            )
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Send a test error",
+            "opts": self.model._meta,
+        }
+        return TemplateResponse(request, "admin/jobs/job/test_error.html", context)
