@@ -6,13 +6,27 @@ As of 2026-11-13 · Written with Milestone 6 · Depends on `05-build-plan.md` (M
 
 ## In one paragraph
 
-A person may ask for their account to be deleted. A superuser erases it in the Django admin with the "Erase this account…" button. If the person never finished a survey, everything about them is deleted. If they did, their email, phone, name and login are removed and the finished survey is kept with no link to a person. Either way it cannot be undone, and the audit log keeps a record of what was removed, as numbers. Nothing here needs SSH, GitHub or the AWS console.
+A person may ask for their account to be deleted, and so may an admin of an organization they belong to. A superuser erases it in the Django admin with the "Erase this account…" button. If the person never finished a survey, everything about them is deleted. If they did, their email, phone, name and login are removed and the finished survey is kept with no link to a person. Either way it cannot be undone, and the audit log keeps a record of what was removed, as numbers. Nothing here needs SSH, GitHub or the AWS console.
 
 ## Who may ask
 
-- **The person themselves,** writing from an email address that is verified on their account. *(to confirm: this is the builder's draft, not yet the founder's or the lawyer's decision.)*
-- **Not an employer or an organization** on a member's behalf. What happens when a company asks for all its members' data to be deleted is not decided (D-2). Tell the company that each person can ask for themselves, and tell the founder that the question came up.
-- **Not somebody writing from an address the account does not have.** Ask them to write from the address they log in with, or to log in and add and verify the new address on their account page first.
+- **The person themselves,** writing from an email address that is verified on their account.
+- **An admin of an organization the person belongs to** (the founder's decision, 2026-11-13), writing from an email address that is verified on the admin's own account. An employer who is not an admin of the organization on Accelerare asks through someone who is. *(to confirm with the privacy lawyer, D-7.)*
+- **Nobody else,** and not somebody writing from an address their account does not have. Ask them to write from the address they log in with, or to log in and add and verify the new address on their account page first.
+
+### When an organization's admin asks
+
+Erasing removes the person's **whole account**, not only their place in that organization. There is no tool that deletes only what belongs to one organization. So before erasing on an admin's word:
+
+1. **Check the admin.** Django admin, "Memberships", search for the admin's email address: the row for that organization must say role "Admin" and status "Active".
+2. **Check the member.** The same list, searching for the member: there must be a membership of that same organization (active or deactivated).
+3. **Look at what else the account has.** Open the member's account and read the "Related" line. If it has anything outside that organization (a survey taken personally, a personal licence, a payment, or a membership of another organization), **stop and tell the founder before erasing**: the admin is asking for more than their organization's share to go. *(to confirm: this stop is the builder's draft.)*
+4. **Tell the member,** at the address they log in with, that their organization has asked for the account to be deleted and that it will be done within 30 days unless they object. *(to confirm: the builder's draft. The 30 days exist to give someone time when a request was a mistake.)*
+5. Then follow "Steps, in the Django admin" below. In the reason, write "requested by an admin of organization (number)", never a name.
+
+If the organization only wants the person out, that is not a deletion: its admin can deactivate the member themselves on the organization's Members page, and the person keeps their account.
+
+A request to delete **every** member of an organization at once is still undecided (D-2). Tell the founder.
 
 There is no "delete my account" button for people themselves (D-8). A request reaches staff by email.
 
