@@ -10,8 +10,8 @@ A person may ask for their account to be deleted. A superuser erases it in the D
 
 ## Who may ask
 
-- **The person themselves,** writing from an email address that is verified on their account. *(to confirm: this is the builder's draft, not yet the founder's or the lawyer's decision.)*
-- **Not an employer or an organization** on a member's behalf. What happens when a company asks for all its members' data to be deleted is not decided (D-2). Tell the company that each person can ask for themselves, and tell the founder that the question came up.
+- **The person themselves,** writing from an email address that is verified on their account. *(The founder's decision, 2026-11-13; to confirm with the privacy lawyer, D-7.)*
+- **Not an employer or an organization** on a member's behalf (the founder's decision, 2026-11-13: only the person can have their account deleted, and staff do it in the Django admin). An organization that wants someone out does not need a deletion. Its admin deactivates the member on the organization's Members page and takes back any unused licence on its Licences page; the person keeps their account. Tell the company that. A company that asks for the surveys taken for it to be deleted is a different question and is not decided (D-2); tell the founder that it came up.
 - **Not somebody writing from an address the account does not have.** Ask them to write from the address they log in with, or to log in and add and verify the new address on their account page first.
 
 There is no "delete my account" button for people themselves (D-8). A request reaches staff by email.
