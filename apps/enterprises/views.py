@@ -46,7 +46,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from apps.accounts import arrival
 from apps.accounts.decorators import verified_email_required
 
-from . import scoping, services
+from . import scoping, services, throttle
 from .forms import EnterpriseForm, InviteForm, JoinCodeForm, JoinForm
 from .models import Invite, JoinCode, Membership
 from .shown import member_email, member_name
@@ -579,6 +579,10 @@ def join_code(request):
     if not request.user.is_authenticated:
         request.session[PENDING_CODE] = code
         return _log_in_first(request, "code", reverse("join_code"))
+    if throttle.blocked(request.user):
+        # Ten refused codes in the hour: nothing more is looked at until it is up.
+        form.add_error("code", throttle.MESSAGE)
+        return render(request, "enterprises/join_code.html", {"form": form})
     try:
         if confirmed:
             return _joined(request, services.redeem_code(code, request.user))
@@ -586,6 +590,8 @@ def join_code(request):
     except services.AlreadyMember as error:
         return _already_a_member(request, error)
     except services.Refused as error:
+        # Every refusal counts, whatever its reason: each tells a guesser something.
+        throttle.note_refusal(request.user)
         form.add_error("code", str(error))
         return render(request, "enterprises/join_code.html", {"form": form})
     return _confirmation(
