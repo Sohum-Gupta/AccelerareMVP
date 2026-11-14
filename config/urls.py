@@ -13,6 +13,7 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("health", views.health, name="health"),
     path("health/worker", views.worker_health, name="worker_health"),
+    path("privacy/", views.privacy, name="privacy"),
     path("admin/", admin.site.urls),
     # Ours, before the include, so reverse("account_signup") finds this one.
     path("accounts/signup/", account_views.signup, name="account_signup"),
