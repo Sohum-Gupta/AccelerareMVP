@@ -1,6 +1,6 @@
 # Build Plan — Survey Platform
 
-As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs; open items live in `06-backlog.md` · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded and Milestone 2 closed 2026-11-12 · Milestone 3 re-planned 2026-11-12 · Milestone 3 built and status synced 2026-11-13 · Milestone 4 re-planned 2026-11-13 · The founder's answers on Milestone 4's choices and the payments basics recorded 2026-11-13 · Milestone 4b planned and built 2026-11-13 · Milestone 5 re-planned 2026-11-13 · Milestone 6 re-planned and built 2026-11-13 · Milestone 7 re-planned 2026-11-13
+As of 2026-10-05 · Planning Session 5 · Depends on all four earlier docs; open items live in `06-backlog.md` · Milestone 2 and later revised 2026-10-09 · Milestone 2 status synced 2026-10-10 · Milestone 2 live checks recorded and Milestone 2 closed 2026-11-12 · Milestone 3 re-planned 2026-11-12 · Milestone 3 built and status synced 2026-11-13 · Milestone 4 re-planned 2026-11-13 · The founder's answers on Milestone 4's choices and the payments basics recorded 2026-11-13 · Milestone 4b planned and built 2026-11-13 · Milestone 5 re-planned 2026-11-13 · Milestone 6 re-planned and built 2026-11-13 · Milestone 7 re-planned and built 2026-11-13
 
 ## How to read this document
 
@@ -1235,9 +1235,9 @@ Run this on the live site. You need window 1 (your superuser login, also for the
 
 **Goal:** the site is safe to put in front of a first customer: a visitor who hits a wrong address or a fault sees a calm page in the site's design; a join code cannot be guessed by trying many; an error report says which account met it, by number; the site says in plain words what it stores and how to ask for deletion; the pages staff and admins use stay quick with a thousand surveys in the database; and there is a written checklist for the things only the founder can do (the AWS console, the first customer).
 
-**Status (2026-11-13).** In progress. Merged and deployed: PR 0, the re-plan (#107); PR 1, the error pages (#108); PR 2, the privacy page (#109), at `/privacy/` and linked from the foot of every page; PR 3, the limit on guessing join codes (#110): ten refused codes an hour for an account; PR 4, the account number on Sentry's error reports (#111); and PR 5, the load check (#112): no index was needed. PR 6, "Send a test error" (`m7-test-error`), is the pull request that wrote this line; it was added while building (see the PR plan). 2,054 tests. The next and last PR is PR 7, `m7-docs-live-checks`. Nobody has tried any of this by hand on the live site, no lawyer has read the privacy page, and no error report has been looked at in Sentry.
+**Status (2026-11-13).** Code-complete and deployed: PR 0 the re-plan (#107), PR 1 the error pages (#108), PR 2 the privacy page (#109), PR 3 the limit on guessing join codes (#110), PR 4 the account number on Sentry's reports (#111), PR 5 the load check (#112), PR 6 "Send a test error" (#113), and PR 7, these docs. 2,054 tests. No migration was needed. **Nobody has tried any of it by hand on the live site**, no lawyer has read the privacy page, no error report has been looked at in Sentry, and none of the AWS console items has been done: what remains is the founder's (the live checklist below and `09-pilot-checklist.md`; `06-backlog.md`, T-28). What was built differently from the plan is marked *As built* or *New while building* where it applies. Merging on green without review ended with this milestone.
 
-**How this milestone is run** (founder, 2026-11-13). As Milestone 6 was: each PR is merged once its check is green, without waiting for review, with a short summary after each. The founder was asked what to build before the 8pm showing and said "build it all"; and asked whether the privacy page should wait for a lawyer, and said to build it now from the facts. Merging on green covers Milestone 7 only. **Nothing merges after 7:00pm PST on 2026-11-13**, and no code after about 6:30pm: every merge that is not docs-only deploys to the live site the founder shows at 8pm. Whatever is not merged by then waits, and the founder is asked how to go on.
+**How this milestone is run** (founder, 2026-11-13). As Milestone 6 was: each PR is merged once its check is green, without waiting for review, with a short summary after each. The founder was asked what to build before the 8pm showing and said "build it all"; and asked whether the privacy page should wait for a lawyer, and said to build it now from the facts. Merging on green covers Milestone 7 only. **Nothing merges after 7:00pm PST on 2026-11-13**, and no code after about 6:30pm: every merge that is not docs-only deploys to the live site the founder shows at 8pm. Whatever is not merged by then waits, and the founder is asked how to go on. *As it went:* all eight PRs were merged before the stop.
 
 **What the re-plan corrects**
 
@@ -1302,9 +1302,43 @@ Run this on the live site. You need window 1 (your superuser login, also for the
 - [ ] The monitors fire when the web container is stopped (tested once, then restarted), and the CloudWatch alarms exist (T-7).
 - [ ] The privacy page has been read by the founder, and by the privacy lawyer before the pilot (D-7).
 - [ ] The first pilot organization is onboarded.
-- [ ] `check --deploy` is clean on every deploy. *(Already true: it has gated every deploy since Milestone 0.)*
+- [x] `check --deploy` is clean on every deploy. *(It has gated every deploy since Milestone 0, and passed on each of this milestone's six.)*
 - [x] With 500 accounts and 1,000 surveys locally, the organization's page, the downloads and the admin's lists answer in under a second. *(Measured 2026-11-13: the slowest was 53 ms. See "The load check, as measured".)*
-- [ ] All tests pass, including every tenant isolation test.
+- [x] All tests pass, including every tenant isolation test. *(2,054 tests, in CI and locally, 2026-11-13.)*
+
+**Checks at the end (2026-11-13)**
+
+*Automated, all passing.* The full suite: 2,054 tests (1,988 before the milestone), including every tenant isolation test; the "not found" page is still the same, byte for byte, for an organization that does not exist and one that is not the visitor's. `ruff check`, `ruff format --check`, `manage.py check --fail-level WARNING` and `makemigrations --check`. Each code PR was checked by breaking the code on purpose: 13 breaks in PR 1, 12 in PR 2, 12 in PR 3, 8 in PR 4, 10 in PR 5 and 12 in PR 6, 67 in all. 62 were caught at once. Three showed gaps in the tests, each now closed (one in PR 3, two in PR 4). Two changed nothing, and in PR 4 the code that one of them removed was removed.
+
+Four runs in a real browser against a local server: the three kinds of error page at phone width (PR 1); the privacy page and the foot of the login page at phone width (PR 2); eleven wrong codes typed into the join page at phone width (PR 3); and "Send a test error" at desktop width, from the link to the "Something went wrong" page to the job ending as "Done" (PR 6).
+
+The load check, below, on a laptop.
+
+On the live site, by machine only: each of the six deploys passed, including its "Worker check" and Django's security check; `/health` answered 200 and `/health/worker` answered "ok" after each; a wrong address answered 404 with the new "Page not found" page; and `/privacy/` answered 200.
+
+*Not covered by anything automated, and so not verified at all:* anything a person does on the live site. No error report has been seen in Sentry, from the site or the worker: Sentry is not set up on a laptop or in CI. The "Something went wrong" page has only been shown by made-up faults in tests. The privacy page has not been read by a lawyer, and its statements about other companies come from this project's docs, not from a test. The join-code limit was not tried with two requests at the same moment. The load check measured one request at a time on a laptop, with at most 40 surveys in one organization. None of the AWS console items was done.
+
+**Live checklist (for the founder)**
+
+Run this on the live site with your superuser login. Parts A, C and D need nothing else. **Part B raises a Sentry alert on purpose** (an email, if Sentry is set to send one); nothing else is affected. The AWS console items, the uptime drill and bringing on the first organization are in `09-pilot-checklist.md`.
+
+*Part A: the error pages (box 1, first half).*
+1. Open `https://app.theaccelerare.com/no/such/page/`. The page says "Page not found" in the site's look, with "Go to the start page". Press it: you land on "My surveys".
+2. If you have a Support staff login: log in to the Django admin with it and open `/admin/audit/auditlog/`. The page says "Not allowed".
+
+*Part B: Sentry (box 1, second half).*
+1. Django admin, "Background jobs", "Send a test error…" at the top right. Read the page, then press "Send the test error". You see "Something went wrong". That is the test working. Go back.
+2. In Sentry, within a minute: two new errors named `DeliberateError`. The one from the web site shows a user id (your account's number) and no name or email address. The one from the worker reads "Job (number) (test_error) failed on try 1 of 5".
+3. Back in "Background jobs": the row "test_error" says "Waiting". Two minutes later, reload: "Done", with 2 tries.
+
+*Part C: the privacy page (box 4).*
+1. At the foot of any page, press "Privacy". Read the page: it is one screen and a half.
+2. Check each sentence against what you know. In particular "We do not sell your information", the four companies named, and "Deleting your account", which prints no address yet (`06-backlog.md`, T-14).
+
+*Part D, optional (no box): the join-code limit.*
+1. As an ordinary account, open "Join an organization with a code" and type a wrong code eleven times. Ten times it says the code is not valid; the eleventh asks you to wait an hour. That account cannot use any join code for the rest of the hour, so use a spare one.
+
+*Afterwards.* Tell Claude what you saw: boxes 1 and 4 (the founder's half) are then ticked in a docs-only PR. Boxes 2, 3 and 5 are ticked as you work through `09-pilot-checklist.md`.
 
 **The load check, as measured (2026-11-13)**
 
@@ -1382,7 +1416,7 @@ Not a milestone. Self-serve purchase for individuals and enterprises (likely Raz
 | 4b | Payments | 4 | A purchase adds licences without staff typing (built 2026-11-13; Stripe's test keys reached the server the same day; the founder's live checks remain) |
 | 5 | Jobs, possible duplicates, audit | 4b | Worker live; a member is emailed their licence; possible duplicates reviewed and linked by a superuser; actions audited (built 2026-11-13; the founder's live checks remain) |
 | 6 | CSV downloads, the erasure record, the staff admin | 5 | An organization's admins and staff download surveys as CSV, each download recorded; an erasure records what it removed; a written deletion procedure; search, links and counts in the Django admin (built 2026-11-13; the founder's live checks remain) |
-| 7 | Hardening and pilot | 6 | First customer |
+| 7 | Hardening and pilot | 6 | Error pages, a privacy page, a limit on guessing join codes, account numbers on error reports, a load check; the pilot checklist for what only the founder can do (built 2026-11-13; the founder's live checks, the AWS console items and the first customer remain) |
 
 ## When to stop and ask
 
@@ -1401,6 +1435,7 @@ Moved on 2026-11-12 to `06-backlog.md`, the one list of open tasks and parked de
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-13 | Milestone 7 is code-complete and deployed: PRs 0 to 7 (#107 to #113 and the closing docs PR), all merged before the 7:00pm stop. What remains is the founder's: the live checklist (`06-backlog.md`, T-28), the AWS console items, and the first pilot organization (`09-pilot-checklist.md`). Decisions and calls made on the way: the privacy page prints no address for now (the founder's choice; the reply inbox is not chosen, T-14) and takes one from a setting, `CONTACT_EMAIL`; the join-code limit is ten refusals an hour, by account and not by IP address; the error pages carry no account menu, so "not found" stays the same bytes for everyone; no index was added, because nothing measured needed one; and one PR was added, "Send a test error" in the Django admin, so that Sentry can be checked without SSH. The SSH port stays as it is and is now a backlog task (T-29). Merging on green without review ended with the milestone | The plan left these to the builder, except the address, which the founder was asked about |
 | 2026-11-13 | Milestone 7 re-planned into seven PRs (0 to 6): error pages, the privacy page, a limit on guessing join codes (by account, not by IP address), the account number on Sentry reports, a load check with indexes if measured, and a checklist for what only the founder can do (the AWS console items, the drill, the first pilot organization). The SSH port stays open with key-only login for now and becomes a backlog task | The October outline listed console work and a customer beside the code, and planned checks that already run on every deploy |
 | 2026-11-13 | The founder's answers for Milestone 7: it is run like Milestone 6 (merged on green, Milestone 7 only); all of it is built before the showing ("build it all"), over a recommendation to build the safest parts first; and the privacy page is built now from the facts, without waiting for the privacy lawyer, over a recommendation to wait | Asked together before the plan, with `AskUserQuestion` |
 | 2026-11-13 | Milestone 6 is code-complete and deployed: PRs 0 to 6 (#100 to #105 and the closing docs PR), all merged before the 7:00pm stop. Its four live checks wait for the founder (`06-backlog.md`, T-27). Builder's calls made on the way, all listed in its "Smaller rules" and "As built": a download is a button that sends a POST, never a link; the file does not follow the page's filters; the erase page shows five counts and the audit row eight; "the last seven days" is the admin's own "Past 7 days"; links in the admin are not decided person by person, but every one leads somewhere Support staff may go; the deletion procedure (`08-deletion-requests.md`) is a draft for the privacy lawyer. Merging on green without review ended with the milestone | Each keeps a promise the plan made (a download is always recorded; the number and the list agree; Support staff never meet "forbidden") in the simplest way the Django admin allows |
