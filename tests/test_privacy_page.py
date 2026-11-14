@@ -122,6 +122,17 @@ class TestWhatItSaysIsTrue:
         assert finished.full_name == "" and "finished" not in finished.email
         assert not finished.contact_points.exists() and finished.responses.count() == 1
 
+    def test_it_says_who_else_can_ask_for_a_deletion_as_the_procedure_does(self, client, settings):
+        """The founder's decision of 2026-11-13: an organization's admin may ask too."""
+        procedure = (settings.BASE_DIR / "docs" / "08-deletion-requests.md").read_text()
+        assert "**An admin of an organization the person belongs to**" in procedure
+        sentence = (
+            "An admin of an organization you belong to can also ask us to delete your account."
+        )
+        for contact in ("", "help@example.com"):
+            settings.CONTACT_EMAIL = contact
+            assert sentence in page(client), contact or "no address"
+
     def test_it_names_how_long_backups_last_as_the_procedure_does(self, client, settings):
         procedure = (settings.BASE_DIR / "docs" / "08-deletion-requests.md").read_text()
         assert "30 days" in procedure and "gone within 30 days" in page(client)
