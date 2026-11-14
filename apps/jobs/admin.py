@@ -43,6 +43,8 @@ class JobAdmin(admin.ModelAdmin):
         "last_error",
     )
     list_filter = ("status", "kind")
+    search_fields = ("kind",)
+    search_help_text = 'Search by the kind of job, for example "send_licence_email".'
     actions = ["run_again"]
 
     def get_readonly_fields(self, request, obj=None):

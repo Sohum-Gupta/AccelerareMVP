@@ -6,12 +6,12 @@ The checked file rides along in a hidden field, so it is stored nowhere on the
 server until Apply.
 {% endcomment %}
 {% block breadcrumbs %}
-<div class="breadcrumbs">
-  <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
-  <a href="{% url 'admin:survey_surveyversion_changelist' %}">Survey versions</a> &rsaquo;
-  <a href="{% url 'admin:survey_surveyversion_change' version.pk %}">{{ version }}</a> &rsaquo;
-  Load the survey wording
-</div>
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">Home</a></li>
+  <li><a href="{% url 'admin:survey_surveyversion_changelist' %}">Survey versions</a></li>
+  <li><a href="{% url 'admin:survey_surveyversion_change' version.pk %}">{{ version }}</a></li>
+  <li aria-current="page">Load the survey wording</li>
+</ol>
 {% endblock %}
 {% block content %}
 <div id="content-main" style="max-width: 50rem;">

@@ -5,7 +5,9 @@ from django.contrib import admin, messages
 from django.contrib.admin.widgets import AutocompleteSelect
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.utils.html import format_html_join
 
+from apps.accounts.admin_links import link
 from apps.accounts.models import Account
 from apps.enterprises.models import Membership
 
@@ -159,25 +161,49 @@ class EntitlementAdmin(admin.ModelAdmin):
     def get_fields(self, request, obj=None):
         if obj is None:
             return ("account", "membership", "tier", "source")
-        owner = "person" if obj.is_personal else "membership"
-        return (owner, "tier", "source", "granted_by", "granted_at", "revoked_at")
+        if obj.is_personal:
+            # Which of the person's logins it was granted to or bought by.
+            owner = ("person", "granted_to")
+        else:
+            owner = ("membership",)
+        return (*owner, "tier", "source", "survey", "granted_by", "granted_at", "revoked_at")
 
     def get_readonly_fields(self, request, obj=None):
         if obj is None:
             return ()
-        return ("person", "membership", "source", "granted_by", "granted_at", "revoked_at")
+        return (
+            "person",
+            "membership",
+            "granted_to",
+            "source",
+            "survey",
+            "granted_by",
+            "granted_at",
+            "revoked_at",
+        )
 
     @admin.display(description="Logins")
     def logins(self, entitlement):
+        """The login or logins that can use it, each a link to its account."""
         if entitlement.membership_id is not None:
-            return entitlement.membership.account.email
-        return ", ".join(a.email for a in entitlement.person.accounts.all())
+            return link(entitlement.membership.account)
+        return format_html_join(
+            ", ", "{}", ((link(account),) for account in entitlement.person.accounts.all())
+        )
 
     @admin.display(description="Used for")
     def context(self, entitlement):
         if entitlement.membership_id is not None:
-            return entitlement.membership.enterprise.name
+            return link(entitlement.membership.enterprise)
         return "Personal"
+
+    @admin.display(description="Survey taken on it")
+    def survey(self, entitlement):
+        """The survey this licence was used for, as a link, if it has been used."""
+        response = getattr(entitlement, "response", None)
+        if response is None:
+            return "Not used yet"
+        return link(response)
 
     @admin.display(boolean=True, description="Active")
     def active(self, entitlement):

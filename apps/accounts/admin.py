@@ -12,6 +12,7 @@ from django.template.response import TemplateResponse
 from django.urls import path, reverse
 
 from . import erasure, services
+from .admin_links import link, related
 from .models import Account, ContactPoint, Person
 
 # Every email lives in two tables (ours and allauth's) and services.py keeps them
@@ -101,6 +102,7 @@ class AccountAdmin(UserAdmin):
         "email",
         "person",
         "password_set",
+        "related",
         "created_at",
         "last_login",
         "anonymised_at",
@@ -109,7 +111,7 @@ class AccountAdmin(UserAdmin):
     inlines = [ReadOnlyContactPoints]
 
     fieldsets = (
-        (None, {"fields": ("email", "full_name", "person", "password_set")}),
+        (None, {"fields": ("email", "full_name", "person", "password_set", "related")}),
         ("Status", {"fields": ("is_active", "is_staff", "is_superuser", "anonymised_at")}),
         ("Permissions", {"fields": ("groups", "user_permissions")}),
         ("Dates", {"fields": ("created_at", "last_login")}),
@@ -126,6 +128,29 @@ class AccountAdmin(UserAdmin):
     @admin.display(boolean=True, description="Erased", ordering="anonymised_at")
     def erased(self, account):
         return account.anonymised_at is not None
+
+    @admin.display(description="Related")
+    def related(self, account):
+        """Links to this account's memberships, personal licences, surveys and payments."""
+        licences = account.person.entitlements.count() if account.person_id else 0
+        return related(
+            (
+                f"Memberships ({account.memberships.count()})",
+                "enterprises_membership",
+                {"account__id__exact": account.pk},
+            ),
+            (
+                f"Personal licences ({licences})",
+                "entitlements_entitlement",
+                {"person__id__exact": account.person_id or 0},
+            ),
+            (
+                f"Surveys ({account.responses.count()})",
+                "responses_response",
+                {"account__id__exact": account.pk},
+            ),
+            ("Payments", "payments_purchase", {"buyer__id__exact": account.pk}),
+        )
 
     @admin.display(description="Password")
     def password_set(self, account):
@@ -331,6 +356,8 @@ class AccountAdmin(UserAdmin):
 @admin.register(Person)
 class PersonAdmin(admin.ModelAdmin):
     list_display = ("id", "logins", "created_at", "merged_into")
+    # "Empty" finds the people in use; "Not empty" those folded into another by a link.
+    list_filter = (("merged_into", admin.EmptyFieldListFilter),)
     search_fields = (
         "accounts__email",
         "accounts__contact_points__value_normalised",
@@ -354,7 +381,14 @@ class PersonAdmin(admin.ModelAdmin):
 
 @admin.register(ContactPoint)
 class ContactPointAdmin(admin.ModelAdmin):
-    list_display = ("value_display", "kind", "account", "verified", "is_primary", "created_at")
+    list_display = (
+        "value_display",
+        "kind",
+        "account_link",
+        "verified",
+        "is_primary",
+        "created_at",
+    )
     list_filter = ("kind", "is_primary")
     search_fields = ("value_normalised", "value_display", "account__email")
     list_select_related = ("account",)
@@ -362,6 +396,10 @@ class ContactPointAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         return [f.name for f in self.model._meta.fields]
+
+    @admin.display(description="Account", ordering="account__email")
+    def account_link(self, contact):
+        return link(contact.account)
 
     @admin.display(boolean=True, description="Verified")
     def verified(self, contact):
