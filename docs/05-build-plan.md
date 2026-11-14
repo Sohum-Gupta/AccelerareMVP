@@ -1381,7 +1381,257 @@ Everything is far under a second, and no page asks the database more questions a
 
 ---
 
+## Phase 2 — Results (Milestones 8 to 13)
+
+*Planned on 2026-11-13, at the founder's word. This is the outline. Each milestone is re-planned in detail as its PR 0 when it starts, as Milestones 3 to 7 were. **Nothing here is built, and building has not been asked for.***
+
+**These docs are public and the algorithm is not** (`06-backlog.md`, D-6). So this plan uses general words only:
+
+- a **scale** is one of the things the survey measures, and a **scale score** is a person's number for it;
+- a **band** is a named range of scores;
+- a **profile** is the named result a person gets, and its **kind** says how many scales make it up;
+- a **report section** is one piece of text about a profile.
+
+The real names, numbers, rules and texts are in the founder's private files (`private/`, ignored by git). They never go into this repository, a commit message or a pull request.
+
+**Goal:** a person who has submitted a survey sees a results page about themselves: their profile, their scores as a chart and a table, and text, as much as their licence's tier allows. An organization's admins see summaries of the surveys taken for the organization, as tables and charts, and insights once those are written. Staff see everything in the Django admin: one person's result, totals, spreads, charts and downloads.
+
+**What the founder decided (2026-11-13)**
+
+| Question | Decision |
+| --- | --- |
+| How the algorithm stays private | Loaded as private files through the Django admin (D-6, for now) |
+| Which reading of the algorithm's plan to build | The plan states its naming rule in three places that disagree. The founder left the choice to the builder. The choice, the reasons and the six points it settles are in the private notes. All of it sits in the scoring file, so the plan's author can overrule it and every result can be worked out again |
+| What each tier shows | **A draft by the builder, for review (T-34).** Every paid tier sees the profile and the scores. Each higher tier adds a group of report sections. The split by section is in the private notes and lives in the texts file |
+| What an organization's admin sees of one member | The profile and the scale scores. Never the report sections and never the answers |
+| The smallest group an organization's summary breaks down | Three people, for now. **For review (T-34)** |
+| Working out a result, and releasing it | Two separate steps. Results are worked out when a scoring file is loaded, and only staff see them. People see results once a version is released |
+| A scoring file that changes after people have seen results | Everyone moves to the released version. A preview shows first how many profiles would change |
+| Exact scores, or only bands | Exact scores |
+| A free account | Sees no results (decided earlier the same day) |
+
+**What is still needed, and what stands in until then**
+
+| Needed | From | What stands in | What it holds up |
+| --- | --- | --- | --- |
+| The report texts (T-32) | The plan's author | Every report section shows a placeholder that says the text is being written. Staff see a list of what is missing | Releasing results to real customers. Not the build |
+| What an organization's "insight" says (T-33) | The plan's author | An empty, marked placeholder on the organization's summary. The page shows numbers | Nothing |
+| The author's word on the naming rule (T-31) | The plan's author | The builder's answers | Releasing results to real customers |
+| A review of the tier split and of "three people" (T-34) | The founder | The draft | Nothing |
+| Real answers | Time | Made-up answer sheets | Knowing whether the cut-offs spread people sensibly. Milestone 9 is how that will be seen |
+| The privacy lawyer (D-7) | The founder | The page as built | Nothing in the build; the privacy page changes in Milestones 10 and 11 |
+
+**The shape, for every milestone**
+
+- *Two private files.* The **scoring file** says which answers count towards which scale, how a scale score is worked out, the bands, an ordered list of conditions that names the profile, how ties are settled, the catalogue of profiles, and examples ("these answers give this result"). The **texts file** holds each profile's report sections and, for each section, the lowest tier that sees it. They are separate so that correcting a text works nobody's result out again.
+- *The public code is a general engine.* It adds up groups of answers, turns sums into scores, places scores in bands, walks an ordered list of conditions and looks up texts. It knows no real name or number. The tests use a made-up scoring file and texts file that share nothing with the real ones except the format.
+- *Versions.* Each upload of a scoring file is a new version, and a result keeps the version it was worked out with (the `Result` table already allows one row per version). One version at a time is **released**: that is the one people and organizations see. Staff see every version.
+- *A result is plain numbers and keys:* the scale scores, their bands, the profile's key and kind, one number for how sharply defined the profile is, and marks for the unusual cases (a tie settled by a tie-break, a fallback used, nothing reaching the second band). No text is stored in a result. Text is looked up when a page is drawn. Tables, charts and totals are built from stored results.
+- *Charts are drawn by the server as SVG,* with a table of the same numbers beside every chart. There is no chart library and no script, so they work in the Django admin, on a phone and on paper.
+- *Scoring happens on the server only.* No page, script or response carries the scoring file. A person receives their own result, already filtered by tier (`results/tiering.py`).
+- *Sentry, logs, the audit log and admin history* get versions and counts, never a file's contents.
+- *The privacy page* changes in the same pull request as anything that changes what is kept or who sees it.
+- *An erased person's results stay,* with nothing that links them to a person, as their survey does (Milestone 6). They count in staff totals.
+
+**Why this order**
+
+- *Milestone 8 first:* every later page reads stored results.
+- *Staff (9) before customers (10):* there are no real answers yet, and the rule and its cut-offs are untested. The staff pages are how the founder and the plan's author see what the rule does before a customer reads a result. They also give the preview that a release needs.
+- *The person (10) before the organization (11):* the organization's pages reuse the person's chart and the release rule.
+- *The texts (12) late:* they do not exist yet. Placeholders mean nothing waits for them, and Milestone 12 can move up the day they arrive.
+
+**How it is run:** for the founder to say when building is asked for. Merging on green without a review ended with Milestone 7.
+
+### Milestone 8 — The scoring engine and the private scoring file
+
+**Goal:** a superuser loads the scoring file on an admin page, every submitted survey gets a stored result, and nobody outside staff sees anything.
+
+**The product rules**
+
+- **A superuser uploads or pastes the scoring file** on a page in the Django admin, as for the survey wording (Milestone 2, PR 9). **Check** shows what the file holds as counts, never its contents, runs the file's own examples, and says how many stored results would change. **Apply** makes it a new version.
+- **A bad file is refused in plain words:** an example that fails, a question the survey does not have, a broken format.
+- **Support staff cannot see or reach the page.** *(The builder's call. Which staff groups may read results is asked in Milestone 9.)*
+- **Results are worked out in the background.** Applying a version works out every submitted survey; a survey submitted later gets its result when it is submitted (the `compute_result` job has existed since Milestone 5).
+- **"Work results out again" is a button** for superusers in the Django admin. It replaces the `recompute_results` command, which needed SSH.
+- **A version can be released, and a release undone,** each with a confirmation page and a history entry. Until Milestone 10 a release shows nothing to anyone. It is built here so that the switch exists before there is a page to show.
+- **With no scoring file loaded, nothing changes:** the result page says results are being prepared, as today.
+
+**PR plan**
+
+0. `m8-replan`: this section in full.
+1. `m8-engine`: the file format, its checks and the engine, as functions that touch no database; the made-up sample files.
+2. `m8-versions`: the table of scoring versions, `compute_result` applying the current one, the shape of a result.
+3. `m8-upload-page`: Check and Apply in the Django admin, with the examples and the counts.
+4. `m8-work-out-again`: the button, and working out every submitted survey when a version is applied.
+5. `m8-release`: releasing a version and undoing it.
+6. `m8-docs-live-checks`: the docs and the founder's live checklist.
+
+**Done when**
+
+- [ ] The founder has loaded the real scoring file on the live site, and its examples pass.
+- [ ] Every submitted survey on the live site has a stored result, and a new submission gets one within a minute.
+- [ ] The public repository, the image, Sentry and the logs hold nothing of the real file.
+- [ ] A file with a failing example, a question that does not exist or a broken format is refused with a message a non-developer can act on.
+- [ ] All tests pass, including every tenant isolation test.
+
+### Milestone 9 — Results for staff, in the Django admin
+
+**Goal:** staff see one person's result and the whole picture: how many people have each profile, how the scores spread, by organization and over time, as tables, charts and a download.
+
+**The product rules**
+
+- **One survey's result is on its page** in the Django admin, read-only: the scores, the bands, the profile, the marks and the version.
+- **A "Results" page gives the totals,** each as a table with a chart:
+  - how many of each profile and each kind;
+  - the spread of each scale's scores;
+  - how many results sit one step from a cut-off, were settled by a tie-break, or used a fallback;
+  - the same by organization, by survey version, by scoring version and by month.
+- **Two scoring versions can be compared** on the same surveys: how many profiles change, and from what to what, as counts. This is the preview before a release.
+- **The staff download gains result columns** (Milestone 6). Each download is recorded, as before.
+- **The admin's first page gains three numbers:** results worked out, waiting and failed.
+- **For the founder to say:** which staff groups see results. *(The builder's default: superusers and Support staff both read results; only superusers load files and release. Support staff read the statements today, D-9.)*
+
+**PR plan**
+
+0. `m9-replan`.
+1. `m9-one-result`: a survey's result on its admin page.
+2. `m9-results-page`: the totals as tables.
+3. `m9-charts`: the SVG chart helper, and a chart beside each table.
+4. `m9-compare-versions`: two versions side by side.
+5. `m9-download-and-numbers`: the result columns in the staff download, and the numbers on the first page.
+6. `m9-docs-live-checks`.
+
+**Done when**
+
+- [ ] On the live site the founder can answer "how many people have each profile, and how many were close calls" from the Django admin, without SSH.
+- [ ] Comparing two versions shows how many profiles would change before anything is released.
+- [ ] Every chart has a table with the same numbers and reads at phone width.
+- [ ] All tests pass, including every tenant isolation test.
+
+### Milestone 10 — A person's results page
+
+**Goal:** a person whose survey is submitted sees their results: the profile, the scores as a chart and a table, the bands, and the report sections their tier allows.
+
+**The product rules**
+
+- **Results show only for a released version.** Before a release, and for a survey whose result is not worked out yet, the page says results are being prepared, as today.
+- **A free account sees no results,** and neither does a survey whose licence was withdrawn (both as today).
+- **The tier decides what is shown, on the server.** An upgrade shows more at once, with no survey taken again and nothing worked out again.
+- **A report section with no text yet shows a placeholder** that says it is being written (until Milestone 12).
+- **A section above the person's tier** is listed by its title, locked, with the link to upgrade. *(The builder's call, raised to be overruled.)*
+- **Never a statement or an answer,** as today.
+- **A result marked as weakly defined** says so in a plain sentence. The wording is for the founder and the plan's author.
+- **When the released version changes,** the page shows the new result and the date it was worked out. Nobody is emailed. *(The builder's call.)*
+- **The page prints cleanly.** A PDF download is not built; it is for the founder to ask for.
+- **The privacy page** says what a result is, that it is kept, and who sees it, in the same pull request.
+
+**PR plan**
+
+0. `m10-replan`.
+1. `m10-result-on-the-page`: the profile and the scores as a table, by tier, only when released.
+2. `m10-chart`: the scores as a chart.
+3. `m10-report-sections`: the sections, the placeholders and the locked titles.
+4. `m10-privacy-and-history`: the privacy page, and "My surveys" saying when results are ready.
+5. `m10-docs-live-checks`.
+
+**Done when**
+
+- [ ] On the live site a Tier 1, a Tier 2 and a Tier 3 survey each show what the draft split allows, and an upgrade shows more without a new survey.
+- [ ] Nothing shows before a release, and undoing a release hides results again.
+- [ ] A free account and a withdrawn licence see no results.
+- [ ] The page reads at phone width, has a table beside the chart, and prints.
+- [ ] The page carries nothing of the scoring file (a test, and a read of the page source).
+- [ ] The founder has reviewed the tier split (T-34).
+- [ ] The privacy page says what a result is and who sees it.
+- [ ] All tests pass, including every tenant isolation test.
+
+### Milestone 11 — An organization's summaries
+
+**Goal:** an organization's admins see, for the surveys taken for the organization, each member's profile and scores, and summaries of them all as tables and charts.
+
+**The product rules**
+
+- **Only surveys taken for the organization, and only released results.** Never a survey taken personally, as today.
+- **Of one member: the profile and the scale scores.** Never a report section and never an answer. The member's tier does not change what the admin sees. *(The builder's call.)*
+- **The summaries:** how many members have each profile and each kind, the average and the spread of each scale, and how many sit in each band.
+- **A group under three people is not broken down.** The page says there are too few. *(Three is for review, T-34.)*
+- **An erased member counts,** shown as "Erased member", as their survey does today. Whether a member who was removed from the organization still counts is for the founder (T-30).
+- **Insights are an empty, marked placeholder** until the plan's author says what they are (T-33).
+- **The organization's download gains the profile and the scores.** Each download is recorded, as before.
+- **Every new page and the download have tenant isolation tests.**
+- **The privacy page** already tells a member that admins will see their results. It is made exact (the profile and the scores) in the same pull request (D-17).
+
+**PR plan**
+
+0. `m11-replan`.
+1. `m11-member-result`: a member's profile and scores on the organization's response pages.
+2. `m11-summary-tables`: the summaries as tables, with the floor of three.
+3. `m11-summary-charts`: a chart beside each table.
+4. `m11-download`: the result columns in the organization's download.
+5. `m11-insights-placeholder-and-privacy`: the placeholder, and the privacy page.
+6. `m11-docs-live-checks`.
+
+**Done when**
+
+- [ ] An admin sees each member's profile and scores and the summaries; an admin of another organization gets "not found" for all of it.
+- [ ] A group under three is not broken down.
+- [ ] No answer, statement, report section or personal survey appears on any organization page or in its download.
+- [ ] The privacy page matches what admins see.
+- [ ] All tests pass, including every tenant isolation test.
+
+### Milestone 12 — The report texts
+
+**Goal:** a superuser loads the texts file, the report sections show real text by tier, and staff see what is missing.
+
+**The product rules**
+
+- **The texts file is uploaded like the scoring file.** Check shows how many profiles and sections are covered and **which are missing**, by key and never by text. Apply loads it. Loading texts works no result out again.
+- **A missing text shows the placeholder,** never an empty section or an error.
+- **The lowest tier of each section comes from the file.** That is the tier split, so changing it is an upload.
+- **Text from the file is shown as text.** Nothing in it is trusted as HTML.
+- **Until the real texts exist, a placeholder texts file is loaded,** made by the builder, so that every page can be seen whole. Each placeholder says that it is one.
+- **An organization's insight texts load the same way** once they exist. Their shape is not known yet (T-33).
+
+**PR plan**
+
+0. `m12-replan`.
+1. `m12-texts`: the texts format, its table and the lookup.
+2. `m12-upload-page`: Check, with the list of what is missing, and Apply.
+3. `m12-on-the-pages`: the results page reads the texts.
+4. `m12-docs-live-checks`.
+
+**Done when**
+
+- [ ] The real texts are loaded on the live site and Check says none is missing. *(Waits for the texts, T-32.)*
+- [ ] Correcting one text and loading the file again changes the page and no result.
+- [ ] The public repository holds none of the texts.
+- [ ] All tests pass.
+
+### Milestone 13 — Closing Phase 2
+
+**Goal:** Phase 2 is safe to put in front of a customer.
+
+**What it holds**
+
+- **A load check with results.** With 1,000 surveys that have results in a local database, the results page, an organization's summary, the staff "Results" page and the downloads answer in under a second (`make_load_data` gains results).
+- **The docs read against what was built:** the deletion procedure (`08-deletion-requests.md`), the privacy page, the runbook and NOTES.
+- **The pilot checklist** (`09-pilot-checklist.md`) gains the steps for loading the two files, checking them and releasing.
+- **The founder's live checklist** for Phase 2.
+
+**Before the first release to real customers** (none of it is code): the author's word on the naming rule (T-31), the real texts (T-32), the founder's review of the tier split (T-34) and the privacy lawyer (D-7).
+
+**Done when**
+
+- [ ] The load check's numbers are written into this section, and every page is under a second.
+- [ ] The founder has run the live checklist.
+- [ ] The four things under "Before the first release" are done, or the founder has said to release without them.
+- [ ] All tests pass, including every tenant isolation test.
+
+---
+
 ## Phase 2 stub — the algorithm seam
+
+*(Kept for what was built in Milestone 5. The plan for Phase 2 is the section above.)*
 
 Not a milestone, but worth doing in milestone 5 when the worker exists:
 
@@ -1419,6 +1669,12 @@ Not a milestone. Self-serve purchase for individuals and enterprises (likely Raz
 | 5 | Jobs, possible duplicates, audit | 4b | Worker live; a member is emailed their licence; possible duplicates reviewed and linked by a superuser; actions audited (built 2026-11-13; the founder's live checks remain) |
 | 6 | CSV downloads, the erasure record, the staff admin | 5 | An organization's admins and staff download surveys as CSV, each download recorded; an erasure records what it removed; a written deletion procedure; search, links and counts in the Django admin (built 2026-11-13; the founder's live checks remain) |
 | 7 | Hardening and pilot | 6 | Error pages, a privacy page, a limit on guessing join codes, account numbers on error reports, a load check; the pilot checklist for what only the founder can do (built 2026-11-13; the founder's live checks, the AWS console items and the first customer remain) |
+| 8 | The scoring engine and the private scoring file (Phase 2) | 7 | A superuser loads the scoring file; every submitted survey has a stored result; only staff see anything (planned 2026-11-13, not started) |
+| 9 | Results for staff | 8 | Staff see one result, totals, spreads and charts in the Django admin, and can compare two scoring versions (planned, not started) |
+| 10 | A person's results page | 9 | A person sees their profile, scores and report sections by tier, once a version is released (planned, not started) |
+| 11 | An organization's summaries | 10 | Admins see each member's profile and scores, and summaries as tables and charts (planned, not started) |
+| 12 | The report texts | 10 | A superuser loads the texts; sections show real text by tier (planned, not started; waits for the texts) |
+| 13 | Closing Phase 2 | 11, 12 | A load check with results, the docs and the pilot checklist synced, the founder's live checklist (planned, not started) |
 
 ## When to stop and ask
 
@@ -1437,6 +1693,7 @@ Moved on 2026-11-12 to `06-backlog.md`, the one list of open tasks and parked de
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-13 | Phase 2 is planned as Milestones 8 to 13 ("Phase 2 — Results"): the scoring engine and the private scoring file, results for staff, a person's results page, an organization's summaries, the report texts, and the close. Decided with it: working out a result and releasing it are separate steps; exact scores are shown; an organization's admin sees a member's profile and scores only; a summary is not broken down under three people (for review); what each tier shows is the builder's draft (for review); where the algorithm's plan disagrees with itself the builder chose, and the choice is in the private notes. Placeholders stand in for the report texts and for an organization's insights until the plan's author supplies them (`06-backlog.md`, T-31 to T-34). Nothing is built | Founder, after reading the algorithm's plan with the builder: the goal of Phase 2 is results pages for a person, summaries for an organization and totals for staff. Staff pages come before the customer's page because there are no real answers yet and the cut-offs are untested |
 | 2026-11-13 | Only the person can have their account deleted, and staff do it in the Django admin. An organization cannot ask for a member's account to be deleted. It can remove the member from the organization and take back unused licences it gave; the account lives on. This undoes #116, merged a few minutes earlier, which let an organization's admin ask and said so on the privacy page: the sentence is off the page and the procedure (`08-deletion-requests.md`) is back to "not an employer or an organization". Doing the removal in one step is `06-backlog.md`, T-30, not built | Founder, on reading what #116 meant in practice: an admin's request would have removed the whole account, including surveys taken personally, licences the person paid for and memberships of other organizations. An organization should only be able to end its own tie to a person |
 | 2026-11-13 | The founder went through the builder's calls of Milestones 5, 6 and 7 ("Smaller rules" and "As built" in each section) and accepted them as built ("the rest seem fine"), with one change: an admin of an organization may also ask for a member's account to be deleted, not only the person themselves (see the row that records it). The site's address stays `app.theaccelerare.com` for now; it will change later, and stays on the backlog as D-11 with no date | Asked after Phase 1 was built. The calls had been listed to be overruled; one was |
 | 2026-11-13 | The algorithm stays private by being loaded as data through the Django admin, the way the survey wording is (`06-backlog.md`, D-6, option 1), for now. The public code is a general scoring engine; the real scoring file and the texts are private files a superuser uploads. The trade-offs accepted, what "private" cannot mean, the easy leaks to avoid and what would reopen the choice are recorded in D-6, which stays listed. Nothing is built: Phase 2 has not been asked for | Founder, after being handed the algorithm's plan (kept outside this repository): its shape is a scoring scheme of numbers, cut-offs, a short list of rules and texts, which fits a file. Nothing changes in AWS or GitHub, there is no SSH step and no token, and the repository and the image stay public |
