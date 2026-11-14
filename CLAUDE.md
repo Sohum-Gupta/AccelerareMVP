@@ -6,10 +6,6 @@ language, before and after each change. Prefer the boring, built-in Django way.
 
 ## Read these first
 
-**Starting Milestone 6 in a new session? Read `docs/07-handoff-milestone-6.md` before anything else.**
-It says what the founder asked for, how each pull request is run, the decisions to put to the founder
-first, and the deadline.
-
 The planning docs in `docs/` are the source of truth. Read them in this order
 before doing any work:
 
@@ -37,21 +33,24 @@ before doing any work:
    Nobody has tried Milestone 5 by hand on the live site; its remaining "Done when" boxes are the
    founder's live checks (T-24). The interface points the founder raised on the live site (T-19) and
    the "look for duplicates" action (T-25) were built the same day (1,836 tests): a login now lands on
-   "My surveys", and the profile is a tidy "Your account" page. **The work in progress is Milestone 6**
-   (root admin, CSV export, erasure). The founder asked on 2026-11-13 for it to be planned, as its PR 0,
-   and built like Milestone 5: merging on green without waiting for a review applies to Milestone 6
-   and to nothing after it, and pertinent product decisions are raised to the founder as they come up.
-   It was re-planned on 2026-11-13 (its PR 0): the build plan's Milestone 6 section has the founder's
-   four answers, the PR plan (0 to 6) and a status paragraph that says which PR is next. Nothing merges
-   after 7:00pm PST on 2026-11-13; after that, ask the founder how to go on. Product choices that come up are still asked of the founder first. `main` is
-   protected on GitHub: every change goes through a pull request whose `test` check has passed. The site
-   is built for the US first; India is deferred.**
+   "My surveys", and the profile is a tidy "Your account" page. Milestone 6 (CSV downloads for an
+   organization's admins and for staff, each recorded in the audit log; what an erasure removed, as
+   numbers; the numbers on the Django admin's first page; links, search and filters across the admin; a
+   written procedure for deletion requests, `docs/08-deletion-requests.md`) is code-complete and
+   deployed: PRs 0 to 6 (1,988 tests). Nobody has tried it by hand on the live site; its remaining
+   "Done when" boxes are the founder's live checks (T-27). **Nothing is in progress: Milestone 7 has
+   not been asked for, so do not start it.** Merging on green without waiting for a review ended with
+   Milestone 6; ask before doing it for anything else. Product choices are asked of the founder first.
+   `main` is protected on GitHub: every change goes through a pull request whose `test` check has
+   passed. The site is built for the US first; India is deferred.**
    Do not build anything from a later milestone than the one in progress.
 2. `docs/06-backlog.md` — every open task and parked decision, with full detail in Part 2.
    Add new follow-ups there; remove an item and log the outcome when it is finished.
 3. `docs/03-tech-stack.md` — repository layout, conventions, local dev steps.
 4. `docs/04-infrastructure.md` — the AWS runbook (what exists, and what is pending).
 5. `docs/02-architecture.md` and `docs/01-requirements.md` — background.
+6. `docs/08-deletion-requests.md` — how staff handle a request to delete an account (a draft for the
+   privacy lawyer). Keep it true whenever erasure changes.
 
 ## Project facts
 
