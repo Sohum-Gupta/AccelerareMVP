@@ -1,0 +1,31 @@
+{% extends "admin/base_site.html" %}
+{% comment %}
+The page that asks before a test error is sent. Nothing happens until the
+button is pressed; then this request fails on purpose and a job is queued that
+fails once in the worker.
+{% endcomment %}
+{% block breadcrumbs %}
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">Home</a></li>
+  <li><a href="{% url 'admin:jobs_job_changelist' %}">Background jobs</a></li>
+  <li aria-current="page">Send a test error</li>
+</ol>
+{% endblock %}
+{% block content %}
+<div id="content-main" style="max-width: 46rem;">
+  <p style="font-size: 1.1em;"><strong>This sends two errors on purpose, so that you can see them arrive in Sentry: one from the web site and one from the background worker.</strong></p>
+  <ul>
+    <li>When you press the button you will see the site's "Something went wrong" page. That is the test working, not a fault. Use your browser's Back button to return here.</li>
+    <li>A job called "test_error" appears in the list. It fails once, on purpose, and is tried again about two minutes later, when it ends as "Done". Nothing is left looking broken.</li>
+    <li>In Sentry, look for two new errors named "DeliberateError". The one from the web site shows your account's number and no name or email address.</li>
+    <li>If Sentry is set to email you about new errors, you will get an email. Nothing else is affected.</li>
+  </ul>
+  <form method="post">
+    {% csrf_token %}
+    <div class="submit-row">
+      <input type="submit" value="Send the test error" class="default">
+      <a href="{% url 'admin:jobs_job_changelist' %}" class="closelink">No, go back</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
